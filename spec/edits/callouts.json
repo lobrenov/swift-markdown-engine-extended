@@ -1,0 +1,25 @@
+{
+  "description": "Setting a callout's type replaces only the type between [! and ], keeping its fold marker and title. Folding is a view's state; an app that saves it changes only the fold marker.",
+  "cases": [
+    {
+      "name": "Set the type",
+      "command": "callout.setType",
+      "args": {
+        "line": 2,
+        "type": "warning"
+      },
+      "before": "Intro\n\n> [!note]+ T\n> body\n",
+      "after": "Intro\n\n> [!warning]+ T\n> body\n"
+    },
+    {
+      "name": "Set the type of an untitled callout",
+      "command": "callout.setType",
+      "args": {
+        "line": 0,
+        "type": "tip"
+      },
+      "before": "> [!NOTE]\n> body\n",
+      "after": "> [!tip]\n> body\n"
+    }
+  ]
+}

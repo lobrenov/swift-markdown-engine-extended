@@ -1,0 +1,41 @@
+{
+  "description": "Typing an opening bracket inserts its closer after the caret; typing the closer steps over it.",
+  "cases": [
+    {
+      "name": "An opening parenthesis gets its closer",
+      "command": "type",
+      "args": {
+        "text": "("
+      },
+      "before": "‸",
+      "after": "(‸)"
+    },
+    {
+      "name": "Typing through a pair steps over the closer",
+      "command": "type",
+      "args": {
+        "text": "(test)"
+      },
+      "before": "‸",
+      "after": "(test)‸"
+    },
+    {
+      "name": "Nested pairs",
+      "command": "type",
+      "args": {
+        "text": "((a))"
+      },
+      "before": "‸",
+      "after": "((a))‸"
+    },
+    {
+      "name": "Braces and brackets",
+      "command": "type",
+      "args": {
+        "text": "{x} [y]"
+      },
+      "before": "‸",
+      "after": "{x} [y]‸"
+    }
+  ]
+}

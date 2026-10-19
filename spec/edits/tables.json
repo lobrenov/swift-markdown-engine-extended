@@ -1,0 +1,58 @@
+{
+  "description": "A table edit rewrites only the table's lines: each column padded to its widest cell (at least 3), alignment markers and indent kept, | in a cell written as \\|. Rows count from 0, the header.",
+  "cases": [
+    {
+      "name": "Insert a row",
+      "command": "table.insertRow",
+      "args": {
+        "line": 2,
+        "row": 2
+      },
+      "before": "Intro\n\n| a | b |\n| :- | -: |\n| 1 | 2 |\n\nAfter\n",
+      "after": "Intro\n\n| a   | b   |\n| :-- | --: |\n| 1   | 2   |\n|     |     |\n\nAfter\n"
+    },
+    {
+      "name": "Delete a column",
+      "command": "table.deleteColumn",
+      "args": {
+        "line": 2,
+        "column": 0
+      },
+      "before": "Intro\n\n| a | b |\n| :- | -: |\n| 1 | 2 |\n\nAfter\n",
+      "after": "Intro\n\n| b   |\n| --: |\n| 2   |\n\nAfter\n"
+    },
+    {
+      "name": "Move a column",
+      "command": "table.moveColumn",
+      "args": {
+        "line": 2,
+        "from": 1,
+        "to": 0
+      },
+      "before": "Intro\n\n| a | b |\n| :- | -: |\n| 1 | 2 |\n\nAfter\n",
+      "after": "Intro\n\n| b   | a   |\n| --: | :-- |\n| 2   | 1   |\n\nAfter\n"
+    },
+    {
+      "name": "Set a cell holding a pipe",
+      "command": "table.setCell",
+      "args": {
+        "line": 2,
+        "row": 1,
+        "column": 0,
+        "text": "x|y"
+      },
+      "before": "Intro\n\n| a | b |\n| :- | -: |\n| 1 | 2 |\n\nAfter\n",
+      "after": "Intro\n\n| a    | b   |\n| :--- | --: |\n| x\\|y | 2   |\n\nAfter\n"
+    },
+    {
+      "name": "An indented table keeps its indent",
+      "command": "table.insertColumn",
+      "args": {
+        "line": 0,
+        "column": 2
+      },
+      "before": "  | a | b |\n  |---|---|\n  | 1 | 2 |\n",
+      "after": "  | a   | b   |     |\n  | --- | --- | --- |\n  | 1   | 2   |     |\n"
+    }
+  ]
+}

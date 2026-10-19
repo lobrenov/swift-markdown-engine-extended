@@ -1,0 +1,87 @@
+{
+  "description": "A task's box changes one character. Toggle: open becomes x, done and cancelled become a space, an icon marker doesn't change. Set: any marker from task-markers.json.",
+  "cases": [
+    {
+      "name": "Toggle an open box",
+      "command": "task.toggle",
+      "args": {
+        "line": 0
+      },
+      "before": "- [ ] a\n",
+      "after": "- [x] a\n"
+    },
+    {
+      "name": "Toggle a done box",
+      "command": "task.toggle",
+      "args": {
+        "line": 0
+      },
+      "before": "- [x] a\n",
+      "after": "- [ ] a\n"
+    },
+    {
+      "name": "Toggle an upper-case done box",
+      "command": "task.toggle",
+      "args": {
+        "line": 0
+      },
+      "before": "- [X] a\n",
+      "after": "- [ ] a\n"
+    },
+    {
+      "name": "Toggle an in-progress box",
+      "command": "task.toggle",
+      "args": {
+        "line": 0
+      },
+      "before": "- [/] a\n",
+      "after": "- [x] a\n"
+    },
+    {
+      "name": "Toggle a cancelled box",
+      "command": "task.toggle",
+      "args": {
+        "line": 0
+      },
+      "before": "- [-] a\n",
+      "after": "- [ ] a\n"
+    },
+    {
+      "name": "An icon marker doesn't toggle",
+      "command": "task.toggle",
+      "args": {
+        "line": 0
+      },
+      "before": "- [?] a\n",
+      "after": "- [?] a\n"
+    },
+    {
+      "name": "Set a marker",
+      "command": "task.set",
+      "args": {
+        "line": 0,
+        "marker": "/"
+      },
+      "before": "- [ ] a\n",
+      "after": "- [/] a\n"
+    },
+    {
+      "name": "A toggle keeps CRLF line endings",
+      "command": "task.toggle",
+      "args": {
+        "line": 1
+      },
+      "before": "x\r\n- [ ] a\r\nb\r\n",
+      "after": "x\r\n- [x] a\r\nb\r\n"
+    },
+    {
+      "name": "A quoted box toggles",
+      "command": "task.toggle",
+      "args": {
+        "line": 0
+      },
+      "before": "> - [ ] a\n",
+      "after": "> - [x] a\n"
+    }
+  ]
+}

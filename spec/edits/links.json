@@ -1,0 +1,18 @@
+{
+  "description": "Renaming a link's target rewrites each link to it, keeping its heading, block and alias. Links in code are left alone.",
+  "cases": [
+    {
+      "name": "Rename a target",
+      "command": "link.rewrite",
+      "args": {
+        "from": "Old",
+        "to": "New"
+      },
+      "before": "See [[Old]], [[Old#H|alias]], [[Old#^b1]] and `[[Old]]`.\n",
+      "after": "See [[New]], [[New#H|alias]], [[New#^b1]] and `[[Old]]`.\n",
+      "skip": {
+        "swift": "A link rewrite resolves links to files, which the editor doesn't do."
+      }
+    }
+  ]
+}

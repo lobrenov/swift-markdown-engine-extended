@@ -1,0 +1,77 @@
+{
+  "description": "Return continues a list item; Tab nests an item under its previous sibling, Shift-Tab outdents it, children move with their parent.",
+  "cases": [
+    {
+      "name": "Return continues a task with an open box",
+      "command": "type",
+      "args": {
+        "text": "\n"
+      },
+      "before": "- [x] a‸",
+      "after": "- [x] a\n- [ ] ‸"
+    },
+    {
+      "name": "Return continues an ordered item with the next number",
+      "command": "type",
+      "args": {
+        "text": "\n"
+      },
+      "before": ">>   1. a‸",
+      "after": ">>   1. a\n>>   2. ‸"
+    },
+    {
+      "name": "Return on an empty quoted task leaves only the quote",
+      "command": "type",
+      "args": {
+        "text": "\n"
+      },
+      "before": "> - [ ] ‸",
+      "after": "> ‸"
+    },
+    {
+      "name": "Return continues a quote",
+      "command": "type",
+      "args": {
+        "text": "\n"
+      },
+      "before": "> plain‸",
+      "after": "> plain\n> ‸"
+    },
+    {
+      "name": "Tab nests an item under its previous sibling",
+      "command": "indent",
+      "before": "- [ ] a\n- [ ] ‸b\n",
+      "after": "- [ ] a\n\t- [ ] ‸b\n"
+    },
+    {
+      "name": "Tab on a first item does nothing",
+      "command": "indent",
+      "before": "Intro\n\n- [ ] ‸a\n- [ ] b\n",
+      "after": "Intro\n\n- [ ] ‸a\n- [ ] b\n"
+    },
+    {
+      "name": "Tab indents every selected item",
+      "command": "indent",
+      "before": "- a\n- «b\n- c\n- d»\n",
+      "after": "- a\n\t- «b\n\t- c\n\t- d»\n"
+    },
+    {
+      "name": "Children move with their parent",
+      "command": "indent",
+      "before": "- a\n- ‸b\n\t- b1\n\t\t- b2\n- c\n",
+      "after": "- a\n\t- ‸b\n\t\t- b1\n\t\t\t- b2\n- c\n"
+    },
+    {
+      "name": "Shift-Tab outdents every selected item",
+      "command": "outdent",
+      "before": "- a\n\t- «b\n  - c\n- d»\n",
+      "after": "- a\n- «b\n- c\n- d»\n"
+    },
+    {
+      "name": "Tab works after a quote's markers",
+      "command": "indent",
+      "before": "> [!note] T\n> - a\n> - ‸b\n",
+      "after": "> [!note] T\n> - a\n> \t- ‸b\n"
+    }
+  ]
+}
