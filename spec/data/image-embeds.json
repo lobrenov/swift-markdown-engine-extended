@@ -1,0 +1,5 @@
+{
+  "description": "An embed whose target ends in one of these extensions (any case) is an image. Segments after the target are |-separated; a positive number is the display width in points.",
+  "extensions": ["avif", "bmp", "gif", "heic", "jpeg", "jpg", "png", "svg", "tif", "tiff", "webp"],
+  "width": "a segment that is a positive number"
+}

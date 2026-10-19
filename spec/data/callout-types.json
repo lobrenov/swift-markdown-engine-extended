@@ -1,0 +1,20 @@
+{
+  "description": "Obsidian's callout types, in menu order. A callout opens with [!type] on a quote line that starts a deeper quote level; the type matches its id or an alias, ignoring case. An unknown type is still a callout and reads as note. A fold marker may follow the closing ]: + starts open, - starts folded; without one the callout doesn't fold.",
+  "foldMarkers": { "+": "open", "-": "folded" },
+  "unknownType": "note",
+  "types": [
+    { "id": "note",     "aliases": [] },
+    { "id": "abstract", "aliases": ["summary", "tldr"] },
+    { "id": "info",     "aliases": [] },
+    { "id": "todo",     "aliases": [] },
+    { "id": "tip",      "aliases": ["hint", "important"] },
+    { "id": "success",  "aliases": ["check", "done"] },
+    { "id": "question", "aliases": ["help", "faq"] },
+    { "id": "warning",  "aliases": ["caution", "attention"] },
+    { "id": "failure",  "aliases": ["fail", "missing"] },
+    { "id": "danger",   "aliases": ["error"] },
+    { "id": "bug",      "aliases": [] },
+    { "id": "example",  "aliases": [] },
+    { "id": "quote",    "aliases": ["cite"] }
+  ]
+}
