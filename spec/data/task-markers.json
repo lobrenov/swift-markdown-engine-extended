@@ -1,28 +1,143 @@
 {
   "description": "The characters a task item's brackets may hold: GFM's space, x and X, and the Alternative Checkboxes Reference Set. Any other character leaves the item as text. strike: the item's text is drawn struck through. state: the recommended reading (open, done, cancelled, or icon: drawn as a box, not a task).",
   "markers": [
-    { "marker": " ",  "label": "To do",       "strike": false, "state": "open" },
-    { "marker": "x",  "label": "Done",        "strike": true,  "state": "done" },
-    { "marker": "X",  "label": "Done",        "strike": true,  "state": "done" },
-    { "marker": "/",  "label": "In progress", "strike": false, "state": "open" },
-    { "marker": "-",  "label": "Cancelled",   "strike": true,  "state": "cancelled" },
-    { "marker": ">",  "label": "Forwarded",   "strike": false, "state": "open" },
-    { "marker": "<",  "label": "Scheduling",  "strike": false, "state": "open" },
-    { "marker": "?",  "label": "Question",    "strike": false, "state": "icon" },
-    { "marker": "!",  "label": "Important",   "strike": false, "state": "icon" },
-    { "marker": "*",  "label": "Star",        "strike": false, "state": "icon" },
-    { "marker": "\"", "label": "Quote",       "strike": false, "state": "icon" },
-    { "marker": "l",  "label": "Location",    "strike": false, "state": "icon" },
-    { "marker": "b",  "label": "Bookmark",    "strike": false, "state": "icon" },
-    { "marker": "i",  "label": "Information", "strike": false, "state": "icon" },
-    { "marker": "S",  "label": "Savings",     "strike": false, "state": "icon" },
-    { "marker": "I",  "label": "Idea",        "strike": false, "state": "icon" },
-    { "marker": "p",  "label": "Pros",        "strike": false, "state": "icon" },
-    { "marker": "c",  "label": "Cons",        "strike": false, "state": "icon" },
-    { "marker": "f",  "label": "Fire",        "strike": false, "state": "icon" },
-    { "marker": "k",  "label": "Key",         "strike": false, "state": "icon" },
-    { "marker": "w",  "label": "Win",         "strike": false, "state": "icon" },
-    { "marker": "u",  "label": "Up",          "strike": false, "state": "icon" },
-    { "marker": "d",  "label": "Down",        "strike": false, "state": "icon" }
+    {
+      "marker": " ",
+      "label": "Not started",
+      "strike": false,
+      "state": "open"
+    },
+    {
+      "marker": "x",
+      "label": "Done",
+      "strike": true,
+      "state": "done"
+    },
+    {
+      "marker": "X",
+      "label": "Done",
+      "strike": true,
+      "state": "done"
+    },
+    {
+      "marker": "/",
+      "label": "Doing",
+      "strike": false,
+      "state": "open"
+    },
+    {
+      "marker": "-",
+      "label": "Cancelled",
+      "strike": true,
+      "state": "cancelled"
+    },
+    {
+      "marker": ">",
+      "label": "Forwarded",
+      "strike": false,
+      "state": "open"
+    },
+    {
+      "marker": "<",
+      "label": "Scheduling",
+      "strike": false,
+      "state": "open"
+    },
+    {
+      "marker": "?",
+      "label": "Question",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "!",
+      "label": "Important",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "*",
+      "label": "Star",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "\"",
+      "label": "Quote",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "l",
+      "label": "Location",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "b",
+      "label": "Bookmark",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "i",
+      "label": "Information",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "S",
+      "label": "Savings",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "I",
+      "label": "Idea",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "p",
+      "label": "Pros",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "c",
+      "label": "Cons",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "f",
+      "label": "Fire",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "k",
+      "label": "Key",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "w",
+      "label": "Win",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "u",
+      "label": "Up",
+      "strike": false,
+      "state": "icon"
+    },
+    {
+      "marker": "d",
+      "label": "Down",
+      "strike": false,
+      "state": "icon"
+    }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "summary": "Inline [[No]] #no and double `[[No2]]` [[Yes1]]",
+  "summary": "Inline [[No]] #no and double `[[No2]]`  [[Yes1]]",
   "headings": [],
   "tasks": [],
   "links": [
@@ -8,7 +8,7 @@
       "target": "Yes1"
     },
     {
-      "line": 12,
+      "line": 6,
       "target": "Entity"
     }
   ],

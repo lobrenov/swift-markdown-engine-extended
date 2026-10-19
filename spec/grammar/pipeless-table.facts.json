@@ -1,0 +1,19 @@
+{
+  "summary": null,
+  "headings": [],
+  "tasks": [],
+  "links": [],
+  "embeds": [],
+  "tags": [],
+  "callouts": [],
+  "tables": [
+    {
+      "startLine": 0,
+      "endLine": 2,
+      "columns": 2
+    }
+  ],
+  "skip": {
+    "swift": "The block parser reads only tables whose lines start with a pipe."
+  }
+}

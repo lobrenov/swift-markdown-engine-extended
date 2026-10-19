@@ -18,4 +18,4 @@
 > plain quote
 > [!note] not at the start
 
->[!info]No space
+>[!info]No space after the bracket

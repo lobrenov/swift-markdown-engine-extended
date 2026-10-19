@@ -7,7 +7,3 @@
 
 | not | a table |
 | still text |
-
-x | y
---|--
-1 | 2

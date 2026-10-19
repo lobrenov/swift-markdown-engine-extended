@@ -47,12 +47,6 @@
       "title": "Unknown type",
       "startLine": 15,
       "endLine": 15
-    },
-    {
-      "type": "info",
-      "title": "No space",
-      "startLine": 20,
-      "endLine": 20
     }
   ],
   "tables": []

@@ -1,6 +1,6 @@
 # Markdown spec
 
-The markdown dialect this package reads: CommonMark and GFM, plus Obsidian's links, embeds, tags, callouts and task markers. Any app or library that reads or writes these files can test itself against it. The Swift parser in `Sources/MarkdownEngineSyntax` passes it (`Tests/MarkdownEngineSyntaxTests/SpecConformanceTests.swift`).
+The markdown dialect this package reads: CommonMark and GFM, plus Obsidian's links, embeds, tags, callouts and task markers. Any app or library that reads or writes these files can test itself against it. The Swift package passes it: `Tests/MarkdownEngineSyntaxTests/SpecConformanceTests.swift` runs the grammar cases through `MarkdownFacts` and checks the task markers and tag characters against the parser; `Tests/MarkdownEngineTests/SpecEditConformanceTests.swift` runs the edit cases through the macOS editor and `MarkdownTable`. Callout types are a consumer's table: the parser reads any type.
 
 ## Layers
 
@@ -47,9 +47,15 @@ A markdown body (no frontmatter) and the facts it yields. A case passes when a r
 - `links` and `embeds`: in text order. An embed's `segments` are its `|`-separated parts after the target, as written.
 - `tags`: in text order, as written, without `#`.
 - `callouts`: `type` as written, lowercased; `fold` is `open`, `folded`, or left out; `title` left out when empty.
-- `tables`: GFM pipe tables; `columns` counts the delimiter row's cells.
+- `tables`: GFM pipe tables; `columns` counts the delimiter row's cells. A cell is read as a paragraph of its own, with `\|` as `|`, so `[[Target\|alias]]` in a cell is a link with an alias.
+- `summary`: the first top-level paragraph, with emphasis, code backticks, markdown link and image syntax and backslash escapes removed; wiki links, embeds and tags as written; inline HTML tags dropped and entities decoded; each line break a space.
+- `headings`: ATX and setext; `text` is as written, without the `#` markers or a closing `#` run.
 
 A case that a reader can't pass yet may carry `"skip": { "<reader>": "<reason>" }`; a skip without a reason is a failure.
+
+## Known gaps in the Swift reader
+
+Cases skipped for `swift`, each with its reason: setext headings, indented code, `~~~` fences, HTML blocks, autolinks, tables without leading pipes, and strikethrough, inline HTML and entities in a summary.
 
 ## Edits
 
@@ -61,8 +67,9 @@ Where readers of this dialect have disagreed, the spec chooses. Each choice has 
 
 | Question | Spec | Other reading |
 |---|---|---|
-| `[/]` | `open`, labelled In progress | Read as a distinct in-progress state; the spec's `state` is the recommended reading, so a reader may refine it. |
+| `[/]` | `open`, labelled Doing | Read as a distinct in-progress state; the spec's `state` is the recommended reading, so a reader may refine it. |
 | Markers outside the reference set (`[y]`) | Text, not a task | Drawn as a generic task. |
 | A tag of digits and `/` (`#2026/10`) | Not a tag | Read as a tag when only digits are excluded. |
 | An image embed's segments | A positive number is the width; others are kept as `segments` | `name\|alt\|width` and `WxH` sizes; some editors write an id segment. |
 | `[[#Heading]]`, `[[#^block]]` (no target) | A link with an empty `target`: the same file | Not a link. |
+| A callout title right after `]` (`> [!info]Title`) | Not a callout: `]` or the fold marker is followed by a space, a tab or the line's end | A callout titled `Title`. |

@@ -1,0 +1,13 @@
+{
+  "summary": "https://x.y/[[Auto]] https://x.y/#frag",
+  "headings": [],
+  "tasks": [],
+  "links": [],
+  "embeds": [],
+  "tags": [],
+  "callouts": [],
+  "tables": [],
+  "skip": {
+    "swift": "The inline parser has no autolinks."
+  }
+}

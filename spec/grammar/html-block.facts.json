@@ -1,0 +1,18 @@
+{
+  "summary": "After [[Yes]]",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 4,
+      "target": "Yes"
+    }
+  ],
+  "embeds": [],
+  "tags": [],
+  "callouts": [],
+  "tables": [],
+  "skip": {
+    "swift": "The block parser has no HTML blocks."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "summary": "Text",
+  "headings": [],
+  "tasks": [],
+  "links": [],
+  "embeds": [],
+  "tags": [],
+  "callouts": [],
+  "tables": [],
+  "skip": {
+    "swift": "The block parser has no indented code blocks."
+  }
+}

@@ -5,8 +5,3 @@
 ####### Seven
 #NoSpace
    ## Indented
-
-Setext two
-----------
-
-    # in code

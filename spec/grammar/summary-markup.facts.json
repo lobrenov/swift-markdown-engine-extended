@@ -1,0 +1,13 @@
+{
+  "summary": "A struck word, raw HTML & an entity.",
+  "headings": [],
+  "tasks": [],
+  "links": [],
+  "embeds": [],
+  "tags": [],
+  "callouts": [],
+  "tables": [],
+  "skip": {
+    "swift": "The inline parser has no strikethrough, inline HTML or entities."
+  }
+}
