@@ -55,13 +55,25 @@ struct SpecConformanceTests {
         #expect(markers.compactMap { ($0["marker"] as? String)?.first } == TaskMarker.all)
     }
 
-    @Test func tagCharactersAreTheParsersCharacters() {
-        for c in "aZé日1_-/" { #expect(TagSyntax.isTagCharacter(c)) }
+    @Test func taskMarkersAreTheBoxPatternsMarkers() throws {
+        let markers = try #require(try Spec.json("data/task-markers.json")["markers"] as? [[String: Any]])
+        let pattern = try NSRegularExpression(pattern: "^" + TaskMarker.boxPattern + "$")
+        func matches(_ box: String) -> Bool { pattern.firstMatch(in: box, range: NSRange(location: 0, length: (box as NSString).length)) != nil }
+        for marker in markers.compactMap({ $0["marker"] as? String }) { #expect(matches("[\(marker)]"), "[\(marker)]") }
+        for other in ["y", "%", "a", "0"] { #expect(!matches("[\(other)]"), "[\(other)]") }
+    }
+
+    @Test func tagCharactersAreTheParsersCharacters() throws {
+        let characters = try #require(try Spec.json("data/tags.json")["characters"] as? [String: Any])
+        let other = try #require(characters["other"] as? [String])
+        for c in other.compactMap(\.first) { #expect(TagSyntax.isTagCharacter(c), "\(c)") }
+        if characters["letters"] as? Bool == true { for c in "aZé日" { #expect(TagSyntax.isTagCharacter(c)) } }
+        if characters["digits"] as? Bool == true { for c in "019" { #expect(TagSyntax.isTagCharacter(c)) } }
         for c in " #.,!?[]()\t" { #expect(!TagSyntax.isTagCharacter(c)) }
     }
 
     @Test func everyGrammarCaseHasItsFacts() {
-        #expect(Spec.grammarCases.count >= 10)
+        #expect(Spec.grammarCases.count >= 21)
         for name in Spec.grammarCases {
             #expect(FileManager.default.fileExists(atPath: Spec.root.appendingPathComponent("grammar/\(name).facts.json").path),
                     "\(name).facts.json")

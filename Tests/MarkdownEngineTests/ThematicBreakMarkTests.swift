@@ -106,8 +106,9 @@ struct ThematicBreakMarkTests {
     func indentedBreakResolvesMarker() {
         let config = starConfiguration()
         #expect(breaks(style("  ***", configuration: config)).first?.mark == "* * *")
-        #expect(breaks(style("\t***", configuration: config)).first?.mark == "* * *")
-        #expect(breaks(style(" \t ***", configuration: config)).first?.mark == "* * *")
+        // Fork: a tab reaches column 4, which makes the line indented code (CommonMark), so these stay under it.
+        #expect(breaks(style("   ***", configuration: config)).first?.mark == "* * *")
+        #expect(breaks(style("Text\n\n \t***", configuration: config)).first?.mark == nil)
     }
 
     @Test("the caret still reveals the raw source, mark or no mark")

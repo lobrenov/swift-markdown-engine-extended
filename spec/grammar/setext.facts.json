@@ -17,8 +17,5 @@
   "embeds": [],
   "tags": [],
   "callouts": [],
-  "tables": [],
-  "skip": {
-    "swift": "The block parser has no setext headings."
-  }
+  "tables": []
 }

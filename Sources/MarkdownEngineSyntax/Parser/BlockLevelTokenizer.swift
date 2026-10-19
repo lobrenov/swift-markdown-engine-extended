@@ -52,6 +52,8 @@ enum BlockLevelTokenizer {
         case .blockLatex:  return blockLatex(in: sub)
         case .ext(let id): return extensionBlock(in: sub, id: id,
                                                  fence: registry.blockEntry(for: id)?.fence ?? "")
+        case .indentedCode, .html:
+            return []
         case .paragraph, .list, .thematicBreak, .blank:
             // Safety-net table scan; tables/block LaTeX are their own blocks now, inline `$$…$$` stays plain.
             return table(in: sub)
@@ -95,6 +97,22 @@ enum BlockLevelTokenizer {
 
     private static func heading(in s: NSString) -> [MarkdownToken] {
         let len = s.length
+        // Fork: a setext heading — content lines, then its `===`/`---` line as the marker.
+        let firstLine = line(in: s, from: 0)
+        if firstLine.nextStart < len {
+            var lastStart = firstLine.nextStart
+            while true {
+                let next = line(in: s, from: lastStart).nextStart
+                if next >= len || next <= lastStart { break }
+                lastStart = next
+            }
+            let underlineEnd = line(in: s, from: lastStart).contentEnd
+            var contentEnd = lastStart
+            while contentEnd > 0, s.character(at: contentEnd - 1) == lf || s.character(at: contentEnd - 1) == cr { contentEnd -= 1 }
+            return [MarkdownToken(kind: .heading, range: NSRange(location: 0, length: underlineEnd),
+                                  contentRange: NSRange(location: 0, length: contentEnd),
+                                  markerRanges: [NSRange(location: lastStart, length: underlineEnd - lastStart)])]
+        }
         var i = 0
         while i < len, isWS(s.character(at: i)) { i += 1 }
         let hashStart = i
@@ -147,28 +165,29 @@ enum BlockLevelTokenizer {
     private static func codeBlock(in s: NSString) -> [MarkdownToken] {
         let len = s.length
         guard len >= 3 else { return [] }
+        // Fork: the closing fence is the block's last line, a run of the opener's `` ` `` or `~`.
+        let fence = s.character(at: (0..<len).first { s.character(at: $0) != space } ?? 0)
         let afterOpenLine = line(in: s, from: 0).nextStart
-        var lineStart = afterOpenLine
-        var closingStart = -1
-        while lineStart < len {
-            if lineStart + 3 <= len,
-               s.character(at: lineStart) == backtick,
-               s.character(at: lineStart + 1) == backtick,
-               s.character(at: lineStart + 2) == backtick {
-                closingStart = lineStart
-                break
-            }
-            let next = line(in: s, from: lineStart).nextStart
-            if next <= lineStart { break }
-            lineStart = next
+        guard afterOpenLine < len else { return [] }
+        var lastLine = afterOpenLine
+        var cursor = afterOpenLine
+        while cursor < len {
+            lastLine = cursor
+            let next = line(in: s, from: cursor).nextStart
+            if next <= cursor { break }
+            cursor = next
         }
-        guard closingStart >= 0 else { return [] }   // no closing fence → legacy didn't match
+        var closeEnd = lastLine
+        while closeEnd < len, s.character(at: closeEnd) == space { closeEnd += 1 }
+        let runStart = closeEnd
+        while closeEnd < len, s.character(at: closeEnd) == fence { closeEnd += 1 }
+        guard closeEnd - runStart >= 3 else { return [] }   // no closing fence → legacy didn't match
         return [MarkdownToken(
             kind: .codeBlock,
-            range: NSRange(location: 0, length: closingStart + 3),
-            contentRange: NSRange(location: afterOpenLine, length: closingStart - afterOpenLine),
+            range: NSRange(location: 0, length: closeEnd),
+            contentRange: NSRange(location: afterOpenLine, length: lastLine - afterOpenLine),
             markerRanges: [NSRange(location: 0, length: afterOpenLine),
-                           NSRange(location: closingStart, length: 3)])]
+                           NSRange(location: lastLine, length: closeEnd - lastLine)])]
     }
 
     // MARK: - Table  (legacy header `|…|` + separator `|-…-|` + data rows)
@@ -179,14 +198,17 @@ enum BlockLevelTokenizer {
         var lineStart = 0
         while lineStart < len {
             let (contentEnd, nextStart) = line(in: s, from: lineStart)
-            if isTableRow(s, lineStart, contentEnd), nextStart < len {
+            // Fork: the block parser's rows and delimiter rows (outer pipes optional).
+            let header = s.substring(with: NSRange(location: lineStart, length: contentEnd - lineStart))
+            if BlockParser.isTableRow(header), nextStart < len {
                 let (sepEnd, afterSep) = line(in: s, from: nextStart)
-                if isTableSeparator(s, nextStart, sepEnd) {
+                let separator = s.substring(with: NSRange(location: nextStart, length: sepEnd - nextStart))
+                if BlockParser.isTableSeparator(separator, header: header) {
                     var rowEnd = sepEnd
                     var cursor = afterSep
                     while cursor < len {
                         let (cEnd, cNext) = line(in: s, from: cursor)
-                        guard isTableRow(s, cursor, cEnd) else { break }
+                        guard BlockParser.isTableRow(s.substring(with: NSRange(location: cursor, length: cEnd - cursor))) else { break }
                         rowEnd = cEnd
                         if cNext <= cursor { cursor = cEnd; break }
                         cursor = cNext

@@ -1,0 +1,35 @@
+{
+  "summary": "[[Note#]] [[Note|]] [[Note#^]] ![[p.png|]] ![[p.png]]",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 0,
+      "target": "Note"
+    },
+    {
+      "line": 0,
+      "target": "Note"
+    },
+    {
+      "line": 0,
+      "target": "Note"
+    }
+  ],
+  "embeds": [
+    {
+      "line": 0,
+      "target": "p.png",
+      "segments": [
+        ""
+      ]
+    },
+    {
+      "line": 0,
+      "target": "p.png"
+    }
+  ],
+  "tags": [],
+  "callouts": [],
+  "tables": []
+}

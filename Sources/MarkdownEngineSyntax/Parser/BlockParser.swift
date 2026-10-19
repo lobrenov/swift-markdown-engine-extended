@@ -26,10 +26,12 @@ import Foundation
 /// The block-level classification of a run of lines.
 package enum BlockKind: Equatable {
     case paragraph       // inline-bearing
-    case heading         // single ATX line (`# …`), inline-bearing content
+    case heading         // ATX line (`# …`) or Fork: setext paragraph + `===`/`---` underline, inline-bearing content
     case blockquote      // consecutive `>` lines, inline-bearing per line
     case list            // consecutive list-item lines (`-`/`*`/`+` or `1.`/`1)`)
-    case fencedCode      // ```…``` — opaque (no inline parsing inside)
+    case fencedCode      // ```…``` or Fork: ~~~…~~~ — opaque (no inline parsing inside)
+    case indentedCode    // Fork: lines indented 4+ columns after a non-paragraph — opaque
+    case html            // Fork: a CommonMark HTML block — opaque
     case blockLatex      // $$…$$ — opaque
     case table           // GFM table — opaque (rendered as a unit)
     case thematicBreak   // `---` / `***` / `___` — produces no token today
@@ -54,7 +56,7 @@ struct BufferDiff {
     let delta: Int
 }
 
-enum BlockParser {
+package enum BlockParser {
 
     private static let cacheLock = NSLock()
     private static var cachedChars: [unichar]?     // UTF-16 buffer of the last parse
@@ -154,6 +156,10 @@ enum BlockParser {
                 if i + 1 < end, buf[i + 1] == 0x24 { return true }       // $$
             } else if buf[i] == 0x60, i + 2 < end, buf[i + 1] == 0x60, buf[i + 2] == 0x60 {
                 return true                                              // ```
+            } else if buf[i] == 0x7E, i + 2 < end, buf[i + 1] == 0x7E, buf[i + 2] == 0x7E {
+                return true                                              // Fork: ~~~
+            } else if buf[i] == 0x3C || (buf[i] == 0x3E && i > 0 && (buf[i - 1] == 0x2D || buf[i - 1] == 0x3F || buf[i - 1] == 0x5D)) {
+                return true                                              // Fork: an HTML block's `<…` opener or `-->`/`?>`/`]]>` closer
             }
             // Extension fences pair with a distant partner exactly like ``` —
             // an edit touching one must force the full reparse too.
@@ -276,13 +282,30 @@ enum BlockParser {
         func lineText(_ i: Int) -> String { nsText.substring(with: lines[i]) }
 
         /// Line index of the fence closing a code block opened at `start`; nil when unclosed.
+        /// Fork: the closer is the opener's character, at least as many, and nothing else.
         func fenceCloseIndex(from start: Int) -> Int? {
+            guard let open = fenceOpening(lineText(start)) else { return nil }
             var scan = start + 1
             while scan < lines.count {
-                if isFence(lineText(scan)) { return scan }
+                if isFenceClose(lineText(scan), matching: open) { return scan }
                 scan += 1
             }
             return nil
+        }
+
+        /// Fork: the last line of an HTML block of `type` opened at `start`.
+        func htmlBlockEnd(type: Int, from start: Int) -> Int {
+            if type <= 5 {
+                var scan = start
+                while scan < lines.count {
+                    if htmlBlockCloses(lineText(scan), type: type) { return scan }
+                    scan += 1
+                }
+                return lines.count - 1
+            }
+            var end = start
+            while end + 1 < lines.count, !isBlank(lineText(end + 1)) { end += 1 }
+            return end
         }
 
         /// Line index of the `$$` closing a block-LaTeX run opened at `start`; nil if none.
@@ -306,8 +329,27 @@ enum BlockParser {
                 blocks.append(Block(kind: .blank, range: union(lines[i...end])))
                 i = end + 1
 
+            } else if isIndentedCode(line), blocks.last(where: { $0.kind != .blank })?.kind != .list {
+                // Fork: indented code (a paragraph would have taken the line as a continuation),
+                // through its last indented line; blank lines inside stay in it. Not after a list,
+                // whose indented lines are its continuation.
+                var end = i
+                var scan = i + 1
+                while scan < lines.count {
+                    let next = lineText(scan)
+                    if isIndentedCode(next) { end = scan } else if !isBlank(next) { break }
+                    scan += 1
+                }
+                blocks.append(Block(kind: .indentedCode, range: union(lines[i...end])))
+                i = end + 1
+
             } else if isFence(line), let end = fenceCloseIndex(from: i) {
                 blocks.append(Block(kind: .fencedCode, range: union(lines[i...end])))
+                i = end + 1
+
+            } else if let type = htmlBlockStart(line) {
+                let end = htmlBlockEnd(type: type, from: i)
+                blocks.append(Block(kind: .html, range: union(lines[i...end])))
                 i = end + 1
 
             } else if isThematicBreak(line) {
@@ -331,7 +373,7 @@ enum BlockParser {
                 blocks.append(Block(kind: .list, range: union(lines[i...end])))
                 i = end + 1
 
-            } else if isTableRow(line), i + 1 < lines.count, isTableSeparator(lineText(i + 1)) {
+            } else if isTableRow(line), i + 1 < lines.count, isTableSeparator(lineText(i + 1), header: line) {
                 // GFM table: a `|…|` header, a `|-…-|` separator, then data rows.
                 var end = i + 1
                 while end + 1 < lines.count, isTableRow(lineText(end + 1)) { end += 1 }
@@ -359,21 +401,25 @@ enum BlockParser {
 
             } else {
                 // Paragraph: merge consecutive plain (non-blank, non-special) lines.
+                // Fork: a `===` or `---` underline makes it a setext heading.
                 var end = i
+                var setext = false
                 while end + 1 < lines.count {
                     let next = lineText(end + 1)
+                    if isSetextUnderline(next) { end += 1; setext = true; break }
                     if isBlank(next) || isThematicBreak(next)
                         || isHeading(next) || isBlockquote(next) || isListItem(next) { break }
+                    if let type = htmlBlockStart(next), type <= 6 { break }
                     // A table (row + separator), a CLOSED code fence, a
                     // block-LaTeX run, or an extension fence interrupts it —
                     // an unclosed opener stays part of the paragraph.
                     if isFence(next), fenceCloseIndex(from: end + 1) != nil { break }
-                    if isTableRow(next), end + 2 < lines.count, isTableSeparator(lineText(end + 2)) { break }
+                    if isTableRow(next), end + 2 < lines.count, isTableSeparator(lineText(end + 2), header: next) { break }
                     if isBlockLatexOpen(next), blockLatexCloseIndex(from: end + 1) != nil { break }
                     if registry.blockEntry(opening: next) != nil { break }
                     end += 1
                 }
-                blocks.append(Block(kind: .paragraph, range: union(lines[i...end])))
+                blocks.append(Block(kind: setext ? .heading : .paragraph, range: union(lines[i...end])))
                 i = end + 1
             }
         }
@@ -386,9 +432,102 @@ enum BlockParser {
         line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// An opening or closing fence line: starts with three backticks.
+    /// An opening fence line. Fork: up to 3 spaces, then 3+ backticks (no backtick after) or 3+ tildes.
     private static func isFence(_ line: String) -> Bool {
-        line.hasPrefix("```")
+        fenceOpening(line) != nil
+    }
+
+    /// Fork: the fence character and run length of an opening fence line.
+    package static func fenceOpening(_ line: String) -> (character: Character, count: Int)? {
+        let indent = line.prefix { $0 == " " }.count
+        guard indent <= 3 else { return nil }
+        let rest = line.dropFirst(indent)
+        guard let c = rest.first, c == "`" || c == "~" else { return nil }
+        let count = rest.prefix { $0 == c }.count
+        guard count >= 3 else { return nil }
+        if c == "`", rest.dropFirst(count).contains("`") { return nil }
+        return (c, count)
+    }
+
+    /// Fork: a closing fence for `open`: up to 3 spaces, at least as many of its character, then only whitespace.
+    private static func isFenceClose(_ line: String, matching open: (character: Character, count: Int)) -> Bool {
+        let indent = line.prefix { $0 == " " }.count
+        guard indent <= 3 else { return false }
+        let rest = line.dropFirst(indent)
+        let count = rest.prefix { $0 == open.character }.count
+        return count >= open.count && rest.dropFirst(count).allSatisfy(\.isWhitespace)
+    }
+
+    /// Fork: a line indented 4 or more columns (a tab reaches the next multiple of 4), with content.
+    private static func isIndentedCode(_ line: String) -> Bool {
+        var column = 0
+        for c in line {
+            if c == " " { column += 1 } else if c == "\t" { column += 4 - column % 4 } else { break }
+            if column >= 4 { return !isBlank(line) }
+        }
+        return false
+    }
+
+    /// Fork: a setext underline: up to 3 spaces, a run of `=` or of `-`, then only whitespace.
+    private static func isSetextUnderline(_ line: String) -> Bool {
+        let indent = line.prefix { $0 == " " }.count
+        guard indent <= 3 else { return false }
+        let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = t.first, first == "=" || first == "-" else { return false }
+        return t.allSatisfy { $0 == first }
+    }
+
+    private static let htmlRawTags = ["script", "pre", "style", "textarea"]
+    private static let htmlBlockTags: Set<String> = [
+        "address", "article", "aside", "base", "basefont", "blockquote", "body", "caption", "center", "col",
+        "colgroup", "dd", "details", "dialog", "dir", "div", "dl", "dt", "fieldset", "figcaption", "figure",
+        "footer", "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hr", "html",
+        "iframe", "legend", "li", "link", "main", "menu", "menuitem", "nav", "noframes", "ol", "optgroup",
+        "option", "p", "param", "search", "section", "summary", "table", "tbody", "td", "tfoot", "th", "thead",
+        "title", "tr", "track", "ul",
+    ]
+
+    /// Fork: the CommonMark HTML block type (1–7) a line opens, if any.
+    static func htmlBlockStart(_ line: String) -> Int? {
+        let indent = line.prefix { $0 == " " }.count
+        guard indent <= 3 else { return nil }
+        let rest = line.dropFirst(indent).trimmingCharacters(in: .newlines)
+        guard rest.hasPrefix("<") else { return nil }
+        let lower = rest.lowercased()
+        for tag in htmlRawTags where lower.hasPrefix("<" + tag) {
+            let after = lower.dropFirst(tag.count + 1).first
+            if after == nil || after == " " || after == "\t" || after == ">" { return 1 }
+        }
+        if rest.hasPrefix("<!--") { return 2 }
+        if rest.hasPrefix("<?") { return 3 }
+        if rest.hasPrefix("<![CDATA[") { return 5 }
+        if rest.hasPrefix("<!"), let c = rest.dropFirst(2).first, c.isASCII, c.isLetter { return 4 }
+        let name = lower.dropFirst(lower.hasPrefix("</") ? 2 : 1).prefix { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+        if htmlBlockTags.contains(String(name)) {
+            let after = lower.dropFirst((lower.hasPrefix("</") ? 2 : 1) + name.count)
+            if after.isEmpty || after.hasPrefix(" ") || after.hasPrefix("\t") || after.hasPrefix(">") || after.hasPrefix("/>") {
+                return 6
+            }
+        }
+        if isCompleteTagLine(rest) { return 7 }
+        return nil
+    }
+
+    /// Fork: an open or closing tag, then only whitespace (type 7).
+    private static func isCompleteTagLine(_ line: String) -> Bool {
+        let pattern = #"^(?:<[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z_:][A-Za-z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*/?>|</[A-Za-z][A-Za-z0-9-]*\s*>)\s*$"#
+        return line.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    /// Fork: whether `line` ends an HTML block of `type` (1–5).
+    private static func htmlBlockCloses(_ line: String, type: Int) -> Bool {
+        switch type {
+        case 1: let l = line.lowercased(); return htmlRawTags.contains { l.contains("</\($0)>") }
+        case 2: return line.contains("-->")
+        case 3: return line.contains("?>")
+        case 4: return line.contains(">")
+        default: return line.contains("]]>")
+        }
     }
 
     /// `^\s*(-{3,}|\*{3,}|_{3,})\s*$` — a solid run of 3+ of one of `- * _`.
@@ -437,20 +576,41 @@ enum BlockParser {
         return after == " " || after == "\t"
     }
 
-    /// A GFM table row: `^[ \t]*\|.+\|[ \t]*$` — outer pipes, content between.
-    private static func isTableRow(_ line: String) -> Bool {
-        let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        return t.count >= 3 && t.hasPrefix("|") && t.hasSuffix("|")
+    /// A GFM table row. Fork: any line holding an unescaped `|`; the outer pipes are optional.
+    static func isTableRow(_ line: String) -> Bool {
+        tableCells(line).count > 1 || {
+            let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.count >= 2 && t.hasPrefix("|") && t.hasSuffix("|")
+        }()
     }
 
-    /// A GFM table separator: `^[ \t]*\|[- \t:|]+\|[ \t]*$` — only `- : |` + ws inside.
-    private static func isTableSeparator(_ line: String) -> Bool {
+    /// A GFM delimiter row: cells of `:?-+:?`. Fork: outer pipes optional, as many cells as `header`.
+    static func isTableSeparator(_ line: String, header: String) -> Bool {
         let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard t.count >= 3, t.hasPrefix("|"), t.hasSuffix("|") else { return false }
-        let middle = t.dropFirst().dropLast()
-        return !middle.isEmpty && middle.allSatisfy {
-            $0 == "-" || $0 == ":" || $0 == "|" || $0 == " " || $0 == "\t"
+        guard t.contains("|") else { return false }
+        let cells = tableCells(line)
+        guard !cells.isEmpty, cells.count == tableCells(header).count else { return false }
+        return cells.allSatisfy { cell in
+            let c = cell.trimmingCharacters(in: .whitespaces)
+            let dashes = c.drop { $0 == ":" }.reversed().drop { $0 == ":" }
+            return !dashes.isEmpty && dashes.allSatisfy { $0 == "-" } && c.filter { $0 == ":" }.count <= 2
         }
+    }
+
+    /// Fork: a row's cells, split on unescaped pipes, without the outer ones.
+    private static func tableCells(_ line: String) -> [Substring] {
+        var t = Substring(line.trimmingCharacters(in: .whitespacesAndNewlines))
+        if t.hasPrefix("|") { t = t.dropFirst() }
+        if t.hasSuffix("|"), !t.hasSuffix("\\|") { t = t.dropLast() }
+        var cells: [Substring] = []
+        var start = t.startIndex
+        var escaped = false
+        for i in t.indices {
+            if escaped { escaped = false; continue }
+            if t[i] == "\\" { escaped = true } else if t[i] == "|" { cells.append(t[start..<i]); start = t.index(after: i) }
+        }
+        cells.append(t[start...])
+        return cells
     }
 
     /// A block-LaTeX opener: a line whose content starts with `$$`.

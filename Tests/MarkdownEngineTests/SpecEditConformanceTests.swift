@@ -91,6 +91,21 @@ struct SpecEditConformanceTests {
         tint: { _ in .systemBlue }, drawIcon: { _, _, _ in }, titleColor: .labelColor, bodyColor: .textColor,
         foldColor: .gray, targetColor: .systemRed, fillOpacity: 0.09, ringOpacity: 0.24)
 
+    @Test func everyEditFileIsWellFormed() throws {
+        let dir = EditSpec.root.appendingPathComponent("edits")
+        let files = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasSuffix(".json") }
+        var count = 0
+        for file in files {
+            let object = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent(file)))
+            let cases = try #require((object as? [String: Any])?["cases"] as? [[String: Any]], "\(file)")
+            for c in cases {
+                for key in ["name", "command", "before", "after"] { #expect(c[key] is String, "\(file): \(key)") }
+            }
+            count += cases.count
+        }
+        #expect(count == EditSpec.cases.count && count >= 31)
+    }
+
     @Test(arguments: EditSpec.cases)
     fileprivate func editCase(_ c: EditSpec.Case) throws {
         if let skip = c.skip {

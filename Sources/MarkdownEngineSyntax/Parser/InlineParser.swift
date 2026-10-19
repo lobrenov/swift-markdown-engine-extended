@@ -13,6 +13,7 @@
 //  Pipeline (each pass claims spans only in regions not already claimed, so
 //  there are never partial overlaps and buildTree is a clean containment tree):
 //    1. scanCodeSpans   — highest precedence, opaque interior.
+//    1b. scanAutolinks  — Fork: `<scheme:…>` and `<email>`, opaque; a `.link` whose child is its text.
 //    2. scanEscapes      — `\x` becomes a claimed span, so the escaped char is
 //                          automatically inert for every pass below.
 //    3. scanLinkFamily   — ![[…]], [[…]], ![…](…), […](…), $…$ (+ registered
@@ -138,6 +139,8 @@ package enum InlineParser {
         guard len > 0 else { return [] }
 
         var claimed = scanCodeSpans(ns, len: len)
+        var autolinkIndex = ClaimedIndex(claimed)
+        claimed += scanAutolinks(ns, len: len, claimed: &autolinkIndex)
 
         var escapeIndex = ClaimedIndex(claimed)
         claimed += scanEscapes(ns, len: len, claimed: &escapeIndex)
@@ -187,10 +190,12 @@ package enum InlineParser {
         case escape(range: NSRange, character: NSRange, marker: NSRange)
         case ext(id: String, range: NSRange, contentRange: NSRange, markers: [NSRange], parsesContent: Bool)
         case tag(range: NSRange, marker: NSRange)
+        /// Fork: `<url>`; `url` is between the markers.
+        case autolink(range: NSRange, url: NSRange, markers: [NSRange])
 
         var fullRange: NSRange {
             switch self {
-            case .tag(let r, _): return r
+            case .tag(let r, _), .autolink(let r, _, _): return r
             case .code(let r, _), .emphasis(_, let r, _, _), .link(let r, _, _, _),
                  .image(let r, _, _, _), .wikiLink(let r, _, _, _), .imageEmbed(let r, _, _),
                  .inlineLatex(let r, _, _), .escape(let r, _, _),
@@ -313,6 +318,34 @@ package enum InlineParser {
         }
         guard !allSpaces else { return raw }
         return NSRange(location: raw.location + 1, length: raw.length - 2)
+    }
+
+    // MARK: - 1b. Autolinks (Fork)
+
+    /// `<scheme:…>` (a letter, 1–31 more of letters, digits, `+ . -`, a `:`, then no space, `<` or `>`) and
+    /// `<local@domain>`, outside code spans.
+    private static func scanAutolinks(_ ns: NSString, len: Int, claimed: inout ClaimedIndex) -> [Span] {
+        var spans: [Span] = []
+        var i = 0
+        while i < len {
+            guard ns.character(at: i) == 0x3C /* < */, !claimed.contains(i) else { i += 1; continue }
+            var j = i + 1
+            while j < len, ns.character(at: j) != 0x3E, ns.character(at: j) != 0x3C, ns.character(at: j) > 0x20 { j += 1 }
+            guard j < len, ns.character(at: j) == 0x3E, j > i + 1 else { i += 1; continue }
+            let inner = ns.substring(with: NSRange(location: i + 1, length: j - i - 1))
+            let range = NSRange(location: i, length: j + 1 - i)
+            guard isAutolinkTarget(inner), !claimed.overlaps(range) else { i += 1; continue }
+            spans.append(.autolink(range: range, url: NSRange(location: i + 1, length: j - i - 1),
+                                   markers: [NSRange(location: i, length: 1), NSRange(location: j, length: 1)]))
+            i = j + 1
+        }
+        return spans
+    }
+
+    private static func isAutolinkTarget(_ s: String) -> Bool {
+        if s.range(of: #"^[A-Za-z][A-Za-z0-9+.\-]{1,31}:[^\s<>]*$"#, options: .regularExpression) != nil { return true }
+        return s.range(of: #"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~\-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"#,
+                       options: .regularExpression) != nil
     }
 
     // MARK: - 2. Backslash escapes (claimed → escaped chars are inert everywhere)
@@ -817,6 +850,8 @@ package enum InlineParser {
             case .link(let range, let textRange, let url, let markers):
                 result.append(.link(range: range, textRange: textRange, url: url, markers: markers,
                                      children: reparse(textRange, ns: ns, registry: registry, tags: nil, cost: &cost)))
+            case .autolink(let range, let url, let markers):
+                result.append(.link(range: range, textRange: url, url: url, markers: markers, children: [.text(url)]))
             case .image(let range, let alt, let url, let markers):
                 result.append(.image(range: range, alt: alt, url: url, markers: markers))
             case .wikiLink(let range, let name, let id, let markers):

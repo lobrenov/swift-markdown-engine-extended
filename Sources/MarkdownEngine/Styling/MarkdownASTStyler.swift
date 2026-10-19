@@ -111,7 +111,7 @@ enum MarkdownASTStyler {
         }
         for block in blocks {
             switch block {
-            case .codeBlock(let range): ranges.append(range)
+            case .codeBlock(let range), .indentedCode(let range): ranges.append(range)
             case .paragraph(_, let inlines), .heading(_, _, _, let inlines), .blockquote(_, let inlines, _):
                 walk(inlines)
             case .list(_, let items):
@@ -746,6 +746,12 @@ enum MarkdownASTStyler {
 
         case .codeBlock(let range):
             styleCodeBlock(range: range, ctx: ctx, into: &attrs)
+        case .indentedCode(let range):
+            // Fork: code without fences.
+            attrs.append((range, [.font: ctx.codeFont, .backgroundColor: ctx.codeBackground,
+                                  .paragraphStyle: ctx.codeParagraphStyle, .spellingState: 0]))
+        case .html:
+            break   // Fork: kept as source
         case .thematicBreak(let range):
             styleThematicBreak(range: range, ctx: ctx, into: &attrs)
         case .ext(let node):
@@ -883,15 +889,18 @@ enum MarkdownASTStyler {
         let openFence = NSRange(location: start, length: openEnd - start)
 
         let lastLine = ns.lineRange(for: NSRange(location: max(start, end - 1), length: 0))
+        // Fork: the closing run is the opener's backticks or tildes, after up to 3 spaces.
         var bt = lastLine.location
-        while bt < NSMaxRange(lastLine), ns.character(at: bt) == 0x60 { bt += 1 }
+        while bt < NSMaxRange(lastLine), ns.character(at: bt) == 0x20 { bt += 1 }
+        let fenceChar = bt < NSMaxRange(lastLine) ? ns.character(at: bt) : 0x60
+        while bt < NSMaxRange(lastLine), ns.character(at: bt) == fenceChar, fenceChar == 0x60 || fenceChar == 0x7E { bt += 1 }
         let closeFence = NSRange(location: lastLine.location, length: bt - lastLine.location)
         let codeRange = NSRange(location: start, length: NSMaxRange(closeFence) - start)
         let content = NSRange(location: openEnd, length: max(0, lastLine.location - openEnd))
 
         var language: String?
         if openFence.length > 3 {
-            let raw = ns.substring(with: NSRange(location: start + 3, length: openFence.length - 3))
+            let raw = ns.substring(with: openFence).drop { $0 == " " }.drop { $0 == "`" || $0 == "~" }
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             language = raw.isEmpty ? nil : raw
         }
@@ -1064,7 +1073,7 @@ enum MarkdownASTStyler {
                 for item in items { shrinkInlineMarkers(item.inlines, ctx: ctx, into: &attrs) }
             case .ext(let node):
                 shrinkInlineMarkers(node.inlines, ctx: ctx, into: &attrs)
-            case .codeBlock, .blockLatex, .table, .thematicBreak, .blank:
+            case .codeBlock, .indentedCode, .html, .blockLatex, .table, .thematicBreak, .blank:
                 break
             }
         }

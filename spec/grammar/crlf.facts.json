@@ -22,6 +22,10 @@
     {
       "line": 1,
       "target": "Item"
+    },
+    {
+      "line": 7,
+      "target": "X"
     }
   ],
   "embeds": [],
@@ -29,8 +33,25 @@
     {
       "line": 0,
       "tag": "tag"
+    },
+    {
+      "line": 7,
+      "tag": "t"
     }
   ],
-  "callouts": [],
-  "tables": []
+  "callouts": [
+    {
+      "type": "tip",
+      "title": "Tip",
+      "startLine": 9,
+      "endLine": 10
+    }
+  ],
+  "tables": [
+    {
+      "startLine": 5,
+      "endLine": 7,
+      "columns": 2
+    }
+  ]
 }

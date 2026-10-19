@@ -8,27 +8,27 @@
 
 import Foundation
 
-public struct MarkdownFacts: Equatable, Sendable {
-    public struct Heading: Equatable, Sendable {
+public struct MarkdownFacts: Hashable, Sendable {
+    public struct Heading: Hashable, Sendable {
         public var line: Int
         public var level: Int
         /// As written, without the `#` markers or a closing `#` run.
         public var text: String
     }
 
-    public struct Task: Equatable, Sendable {
+    public struct TaskItem: Hashable, Sendable {
         public var line: Int
         public var marker: Character
-        /// After the box, trimmed.
+        /// The rest of the item's first line, trimmed, as written.
         public var text: String
     }
 
-    public struct Link: Equatable, Sendable {
+    public struct Link: Hashable, Sendable {
         public var line: Int
         public var parts: WikiLinkParts
     }
 
-    public struct Embed: Equatable, Sendable {
+    public struct Embed: Hashable, Sendable {
         public var line: Int
         public var target: String
         public var heading: String?
@@ -37,13 +37,13 @@ public struct MarkdownFacts: Equatable, Sendable {
         public var segments: [String]
     }
 
-    public struct Tag: Equatable, Sendable {
+    public struct Tag: Hashable, Sendable {
         public var line: Int
         /// Without `#`.
         public var name: String
     }
 
-    public struct Callout: Equatable, Sendable {
+    public struct Callout: Hashable, Sendable {
         public enum Fold: Sendable { case open, folded }
         /// As written, lowercased.
         public var type: String
@@ -53,16 +53,17 @@ public struct MarkdownFacts: Equatable, Sendable {
         public var endLine: Int
     }
 
-    public struct Table: Equatable, Sendable {
+    public struct Table: Hashable, Sendable {
         public var startLine: Int
         public var endLine: Int
         public var columns: Int
     }
 
-    /// The first top-level paragraph's text, without inline markup.
+    /// The first top-level paragraph's text, without inline markup. A list item's or quote's continuation
+    /// lines aren't top-level.
     public var summary: String?
     public var headings: [Heading] = []
-    public var tasks: [Task] = []
+    public var tasks: [TaskItem] = []
     public var links: [Link] = []
     public var embeds: [Embed] = []
     public var tags: [Tag] = []
@@ -78,7 +79,11 @@ public struct MarkdownFacts: Equatable, Sendable {
 }
 
 private struct FactScanner {
-    private static let registry = ExtensionRegistry(syntax: [], tags: true)
+    /// Tags, GFM strikethrough and Obsidian highlight.
+    private static let registry = ExtensionRegistry(syntax: [
+        (id: "strikethrough", inline: InlineSyntax(open: "~~", close: "~~", rejectsCloserRun: true), block: nil),
+        (id: "highlight", inline: InlineSyntax(open: "==", close: "=="), block: nil),
+    ], tags: true)
 
     private let text: String
     private let ns: NSString
@@ -91,19 +96,44 @@ private struct FactScanner {
         self.text = text
         ns = text as NSString
         self.firstLineIndex = firstLineIndex
+        // Lines as the block parser splits them (`\n`, `\r\n`, `\r`, U+2028…).
         var starts = [0]
-        for i in 0..<ns.length where ns.character(at: i) == 0x0A { starts.append(i + 1) }
+        var cursor = 0
+        while cursor < ns.length {
+            cursor = NSMaxRange(ns.lineRange(for: NSRange(location: cursor, length: 0)))
+            if cursor < ns.length { starts.append(cursor) }
+        }
         lineStarts = starts
     }
 
     mutating func scan() {
-        for block in DocumentAST.parse(text, registry: Self.registry) {
+        // Its own block parse: the parser's memo belongs to the editor.
+        let blocks = BlockParser.computeBlocks(text, registry: Self.registry)
+        var previous: BlockNode?
+        var afterBlank = false
+        for block in DocumentAST.parse(text, precomputedBlocks: blocks, registry: Self.registry) {
+            defer {
+                if case .blank = block { afterBlank = true } else { previous = block; afterBlank = false }
+            }
             switch block {
-            case .paragraph(_, let inlines):
-                if facts.summary == nil { facts.summary = plainText(inlines) }
+            case .paragraph(let range, let inlines):
+                switch (previous, afterBlank) {
+                case (.blockquote(let quote, _, _), false):
+                    // A lazy line continues the quote and the callouts that reached its end.
+                    let quoteEnd = lastLine(of: quote)
+                    for i in facts.callouts.indices where facts.callouts[i].endLine == quoteEnd {
+                        facts.callouts[i].endLine = lastLine(of: range)
+                    }
+                case (.list, false):
+                    break   // a lazy line of the last item
+                case (.list, true) where isIndented(range):
+                    break   // a later paragraph of the last item
+                default:
+                    if facts.summary == nil { facts.summary = plainText(inlines) }
+                }
                 collect(inlines)
-            case .heading(let level, let range, _, let inlines):
-                facts.headings.append(.init(line: line(range.location), level: level, text: headingText(range)))
+            case .heading(let level, let range, let markers, let inlines):
+                facts.headings.append(.init(line: line(range.location), level: level, text: headingText(range, markers: markers)))
                 collect(inlines)
             case .blockquote(let range, let inlines, let items):
                 addCallouts(in: range)
@@ -114,7 +144,7 @@ private struct FactScanner {
                 for item in items { collect(item.inlines) }
             case .table(let range):
                 addTable(range)
-            case .codeBlock, .blockLatex, .thematicBreak, .blank, .ext:
+            case .codeBlock, .indentedCode, .html, .blockLatex, .thematicBreak, .blank, .ext:
                 break
             }
         }
@@ -133,7 +163,32 @@ private struct FactScanner {
 
     private func string(_ range: NSRange) -> String { ns.substring(with: range) }
 
-    private func headingText(_ range: NSRange) -> String {
+    /// The line `range` ends on, its line break aside.
+    private func lastLine(of range: NSRange) -> Int {
+        var end = NSMaxRange(range)
+        while end > range.location, isLineBreak(ns.character(at: end - 1)) { end -= 1 }
+        return line(max(range.location, end - 1))
+    }
+
+    private func isLineBreak(_ c: unichar) -> Bool {
+        c == 0x0A || c == 0x0D || c == 0x2028 || c == 0x2029 || c == 0x85
+    }
+
+    /// Whether `range` starts with 2 or more columns of indent (an item's content column).
+    private func isIndented(_ range: NSRange) -> Bool {
+        guard range.length > 0 else { return false }
+        let c = ns.character(at: range.location)
+        return c == 0x09 || (c == 0x20 && range.length > 1 && [0x20, 0x09].contains(ns.character(at: range.location + 1)))
+    }
+
+    private func headingText(_ range: NSRange, markers: [NSRange]) -> String {
+        // A setext heading's marker is its underline line; its text is the lines above, joined.
+        if let underline = markers.first, line(underline.location) > line(range.location) {
+            return string(NSRange(location: range.location, length: underline.location - range.location))
+                .split(whereSeparator: \.isNewline)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .joined(separator: " ")
+        }
         var s = Substring(string(range)).trimmingCharacters(in: .whitespacesAndNewlines)[...]
         s = s.drop { $0 == "#" }
         s = s.drop { $0 == " " || $0 == "\t" }
@@ -172,12 +227,11 @@ private struct FactScanner {
     }
 
     private mutating func addTable(_ range: NSRange) {
-        let source = string(range)
-        let trimmed = source.hasSuffix("\n") ? String(source.dropLast()) : source
-        guard let table = MarkdownTable.parse(trimmed) else { return }
+        var end = NSMaxRange(range)
+        while end > range.location, isLineBreak(ns.character(at: end - 1)) { end -= 1 }
+        guard let table = MarkdownTable.parse(string(NSRange(location: range.location, length: end - range.location))) else { return }
         let startLine = line(range.location)
-        facts.tables.append(.init(startLine: startLine, endLine: line(range.location + (trimmed as NSString).length),
-                                  columns: table.columnCount))
+        facts.tables.append(.init(startLine: startLine, endLine: lastLine(of: range), columns: table.columnCount))
         // Each cell is read as a paragraph of its own, unescaped as the editor draws it (`\|` is a link's alias bar).
         for row in 0..<table.rowCount {
             let rowLine = startLine + (row == 0 ? 0 : row + 1)
@@ -229,7 +283,9 @@ private struct FactScanner {
         func walk(_ nodes: [InlineNode]) {
             for node in nodes {
                 switch node {
-                case .text(let range), .wikiLink(let range, _, _, _), .imageEmbed(let range, _, _),
+                case .text(let range):
+                    out += Self.withoutHTML(string(range))
+                case .wikiLink(let range, _, _, _), .imageEmbed(let range, _, _),
                      .tag(let range, _), .inlineLatex(let range, _, _):
                     out += string(range)
                 case .code(_, let content): out += string(content)
@@ -245,5 +301,42 @@ private struct FactScanner {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .joined(separator: " ")
             .trimmingCharacters(in: .whitespaces)
+    }
+
+    // MARK: - HTML in text
+
+    private static let htmlTag = try! NSRegularExpression(
+        pattern: #"<!--.*?-->|</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>"#, options: [.dotMatchesLineSeparators])
+    private static let entity = try! NSRegularExpression(pattern: #"&(?:#[0-9]{1,7}|#[xX][0-9A-Fa-f]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});"#)
+    private static let namedEntities: [String: String] = [
+        "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": "\u{00A0}", "copy": "©", "reg": "®",
+        "trade": "™", "hellip": "…", "mdash": "—", "ndash": "–", "lsquo": "‘", "rsquo": "’", "ldquo": "“", "rdquo": "”",
+    ]
+
+    /// Text with inline HTML tags dropped and character references decoded.
+    static func withoutHTML(_ text: String) -> String {
+        guard text.contains("<") || text.contains("&") else { return text }
+        var s = htmlTag.stringByReplacingMatches(in: text, range: NSRange(location: 0, length: (text as NSString).length),
+                                                withTemplate: "")
+        let ns = s as NSString
+        var out = ""
+        var last = 0
+        for match in entity.matches(in: s, range: NSRange(location: 0, length: ns.length)) {
+            out += ns.substring(with: NSRange(location: last, length: match.range.location - last))
+            let body = ns.substring(with: NSRange(location: match.range.location + 1, length: match.range.length - 2))
+            var decoded: String?
+            if body.hasPrefix("#x") || body.hasPrefix("#X") {
+                decoded = UInt32(body.dropFirst(2), radix: 16).flatMap(Unicode.Scalar.init).map(String.init)
+            } else if body.hasPrefix("#") {
+                decoded = UInt32(body.dropFirst()).flatMap(Unicode.Scalar.init).map(String.init)
+            } else {
+                decoded = namedEntities[body]
+            }
+            out += decoded ?? ns.substring(with: match.range)
+            last = NSMaxRange(match.range)
+        }
+        out += ns.substring(from: last)
+        s = out
+        return s
     }
 }

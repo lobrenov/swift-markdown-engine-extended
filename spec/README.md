@@ -28,7 +28,7 @@ Tables a consumer can load or check its own against. Each file has a `descriptio
 
 ### `grammar/<name>.md` and `<name>.facts.json`
 
-A markdown body (no frontmatter) and the facts it yields. A case passes when a reader's facts equal the file's, key for key. Every key is present; an optional field is left out when it has no value. Lines are 0-based. Text is as written, without markup.
+A markdown body (no frontmatter) and the facts it yields. A case passes when a reader's facts equal the file's, key for key. Every top-level key is present (`summary` may be null). In an entry, an optional field is left out when it has no value: an empty `heading`, `block` or `alias` (`[[Note#]]`) is no value. Lines are 0-based; `\n`, `\r\n`, `\r`, U+2028, U+2029 and U+0085 each end a line. Heading and task `text` are raw source; only `summary` drops markup.
 
 ```json
 {
@@ -43,19 +43,15 @@ A markdown body (no frontmatter) and the facts it yields. A case passes when a r
 }
 ```
 
-- `tasks`: a list item whose marker is followed by `[c]` and a space or tab, `c` from `task-markers.json`; `text` is what follows, trimmed.
-- `links` and `embeds`: in text order. An embed's `segments` are its `|`-separated parts after the target, as written.
+- `tasks`: a list item whose marker is followed by `[c]` and a space or tab, `c` from `task-markers.json`; `text` is the rest of its first line, trimmed. A line continuing an item (lazy, or indented after a blank line) belongs to the item, not to the summary.
+- `links` and `embeds`: in text order. An embed's `segments` are its `|`-separated parts after the target, as written, empty ones included; left out when there's no `|`.
 - `tags`: in text order, as written, without `#`.
-- `callouts`: `type` as written, lowercased; `fold` is `open`, `folded`, or left out; `title` left out when empty.
+- `callouts`: `type` as written, lowercased; `fold` is `open`, `folded`, or left out; `title` left out when empty. A lazy line after a callout's last quote line continues it.
 - `tables`: GFM pipe tables; `columns` counts the delimiter row's cells. A cell is read as a paragraph of its own, with `\|` as `|`, so `[[Target\|alias]]` in a cell is a link with an alias.
-- `summary`: the first top-level paragraph, with emphasis, code backticks, markdown link and image syntax and backslash escapes removed; wiki links, embeds and tags as written; inline HTML tags dropped and entities decoded; each line break a space.
+- `summary`: the first top-level paragraph, with emphasis, `~~strikethrough~~`, `==highlight==`, code backticks, markdown link, image and autolink syntax and backslash escapes removed; wiki links, embeds and tags as written; inline HTML tags dropped and entities decoded; each line break a space.
 - `headings`: ATX and setext; `text` is as written, without the `#` markers or a closing `#` run.
 
 A case that a reader can't pass yet may carry `"skip": { "<reader>": "<reason>" }`; a skip without a reason is a failure.
-
-## Known gaps in the Swift reader
-
-Cases skipped for `swift`, each with its reason: setext headings, indented code, `~~~` fences, HTML blocks, autolinks, tables without leading pipes, and strikethrough, inline HTML and entities in a summary.
 
 ## Edits
 

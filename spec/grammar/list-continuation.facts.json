@@ -1,0 +1,42 @@
+{
+  "summary": "First paragraph.",
+  "headings": [],
+  "tasks": [
+    {
+      "line": 0,
+      "marker": " ",
+      "text": "a"
+    },
+    {
+      "line": 2,
+      "marker": "x",
+      "text": "b"
+    }
+  ],
+  "links": [
+    {
+      "line": 1,
+      "target": "One"
+    },
+    {
+      "line": 11,
+      "target": "Two"
+    }
+  ],
+  "embeds": [],
+  "tags": [
+    {
+      "line": 4,
+      "tag": "later"
+    }
+  ],
+  "callouts": [
+    {
+      "type": "note",
+      "title": "T",
+      "startLine": 10,
+      "endLine": 11
+    }
+  ],
+  "tables": []
+}

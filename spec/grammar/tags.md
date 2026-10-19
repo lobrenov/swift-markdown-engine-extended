@@ -5,3 +5,4 @@ issue#42 and #42 and #2026 and #2026/10
 ![[a #b]] #after
 *#lead* and **x #inner** and a*#no*
 日本　#タグ
+[a](b)#t `x`#t [[A]]#t ![i](p)#t &amp;#t

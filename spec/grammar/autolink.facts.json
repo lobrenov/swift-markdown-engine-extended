@@ -6,8 +6,5 @@
   "embeds": [],
   "tags": [],
   "callouts": [],
-  "tables": [],
-  "skip": {
-    "swift": "The inline parser has no autolinks."
-  }
+  "tables": []
 }

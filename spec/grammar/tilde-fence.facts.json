@@ -6,8 +6,5 @@
   "embeds": [],
   "tags": [],
   "callouts": [],
-  "tables": [],
-  "skip": {
-    "swift": "The block parser reads only backtick fences."
-  }
+  "tables": []
 }

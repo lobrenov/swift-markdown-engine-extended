@@ -55,7 +55,8 @@ struct ListParsingTests {
     }
 
     @Test func indentIsCaptured() {
-        #expect(items("    - nested\n")?.first?.indent == 4)
+        // Fork: under a parent, since a first line indented 4 columns is indented code.
+        #expect(items("- a\n    - nested\n")?.last?.indent == 4)
     }
 
     @Test func itemInlineContentIsParsed() {

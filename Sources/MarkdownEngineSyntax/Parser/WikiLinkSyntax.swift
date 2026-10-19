@@ -9,7 +9,7 @@
 
 import Foundation
 
-public struct WikiLinkParts: Equatable, Sendable {
+public struct WikiLinkParts: Hashable, Sendable {
     /// The link as written before any `#` or `|`, e.g. `folder/Title`.
     public var target: String
     /// After `#`, when it doesn't start with `^`.
@@ -20,7 +20,7 @@ public struct WikiLinkParts: Equatable, Sendable {
     public var alias: String?
 
     /// An empty target is the same file (`[[#heading]]`, `[[#^block]]`). Nil when there's neither a target nor a
-    /// heading or block (`[[|alias]]`, `[[#]]`).|alias]]`).
+    /// heading or block (`[[|alias]]`, `[[#]]`). An empty heading, block or alias is none.
     public init?(inner: String) {
         var rest = Substring(inner)
         if let bar = rest.firstIndex(of: "|") {
@@ -37,6 +37,10 @@ public struct WikiLinkParts: Equatable, Sendable {
             rest = rest[..<hash]
         }
         target = rest.trimmingCharacters(in: .whitespaces)
+        // An empty part is no part (`[[Note#]]`, `[[Note|]]`).
+        if heading?.isEmpty == true { heading = nil }
+        if block?.isEmpty == true { block = nil }
+        if alias?.isEmpty == true { alias = nil }
         if target.isEmpty, (heading ?? block ?? "").isEmpty { return nil }
     }
 }

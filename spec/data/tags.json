@@ -1,10 +1,32 @@
 {
-  "description": "Inline #tags. A tag is # at the start of a text run or after whitespace, then tag characters, with at least one that isn't a digit or /. Trailing /s stay out of the tag. Any other character ends it.",
-  "start": ["textStart", "afterWhitespace"],
-  "characters": { "letters": true, "digits": true, "other": ["_", "-", "/"] },
+  "description": "Inline #tags. A tag is # at the start of a paragraph, a line, or emphasis content, or after Unicode whitespace (U+00A0 and U+3000 included), then tag characters, with at least one that isn't a digit or /. A # right after other markup (a link, code, an entity) starts no tag. Trailing /s stay out of the tag. Any other character ends it.",
+  "start": [
+    "paragraphStart",
+    "lineStart",
+    "emphasisContentStart",
+    "afterWhitespace"
+  ],
+  "characters": {
+    "letters": true,
+    "digits": true,
+    "other": [
+      "_",
+      "-",
+      "/"
+    ]
+  },
   "requiresOneOf": "a character that isn't a digit or /",
   "trailingSlashes": "excluded",
   "nesting": "/",
-  "noTagsIn": ["inlineCode", "codeBlock", "html", "url", "linkText", "wikiLink", "escapedHash", "headingMarker"],
+  "noTagsIn": [
+    "inlineCode",
+    "codeBlock",
+    "html",
+    "url",
+    "linkText",
+    "wikiLink",
+    "escapedHash",
+    "headingMarker"
+  ],
   "afterEmphasisRun": "a tag after a run of * or _ stands only when the run opens emphasis"
 }
