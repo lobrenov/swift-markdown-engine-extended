@@ -30,8 +30,9 @@ package enum PerfTrace {
     package static let verifyEnabled = false
 #endif
 
-    // All call sites run on the main thread (the coordinator + text view are
-    // main-actor), so plain static state is safe under the package's Swift 5 mode.
+    // Fork: the parser also runs off the main thread (an embedder indexing in the background),
+    // so every entry point records on the main thread only, where the editor's frame is; plain
+    // static state is then safe under the package's Swift 5 mode.
     private static var active = false
     private static var frameStart: UInt64 = 0
     private static var docLength = 0
@@ -54,7 +55,7 @@ package enum PerfTrace {
     /// textDidChange attach to it. A frame left open by an edit that never
     /// reached textDidChange is considered stale after 1s and reset.
     package static func begin(docLength len: Int) {
-        guard enabled else { return }
+        guard Thread.isMainThread, enabled else { return }
         let now = DispatchTime.now().uptimeNanoseconds
         docLength = len
         if active, Double(now - frameStart) / 1_000_000 < 1_000 { return }
@@ -71,7 +72,7 @@ package enum PerfTrace {
     /// per keystroke and would otherwise stay invisible in the frame.
     @discardableResult
     package static func accumulate<T>(_ label: String, _ body: () -> T) -> T {
-        guard enabled, active else { return body() }
+        guard Thread.isMainThread, enabled, active else { return body() }
         let t0 = nowMs()
         let result = body()
         let dt = nowMs() - t0
@@ -87,7 +88,7 @@ package enum PerfTrace {
     /// Time one sequential top-level phase of the current frame.
     @discardableResult
     package static func measure<T>(_ label: String, _ body: () -> T) -> T {
-        guard enabled, active else { return body() }
+        guard Thread.isMainThread, enabled, active else { return body() }
         let t0 = nowMs()
         let result = body()
         phases.append((label, nowMs() - t0))
@@ -97,7 +98,7 @@ package enum PerfTrace {
     /// Attach a free-form detail line (e.g. how many tables were re-rendered).
     /// The closure only runs when tracing is active, so it costs nothing when off.
     package static func note(_ make: () -> String) {
-        guard enabled, active else { return }
+        guard Thread.isMainThread, enabled, active else { return }
         notes.append(make())
     }
 
@@ -106,7 +107,7 @@ package enum PerfTrace {
     /// the measured spans locate work the spans don't cover (AppKit edit
     /// application, layout, notification dispatch between our callbacks).
     package static func checkpoint(_ label: String) {
-        guard enabled, active else { return }
+        guard Thread.isMainThread, enabled, active else { return }
         phases.append(("@" + label, Double(DispatchTime.now().uptimeNanoseconds - frameStart) / 1_000_000))
     }
 
@@ -114,7 +115,7 @@ package enum PerfTrace {
     /// `other` = total − Σ(phases + accumulated): time inside the frame that
     /// no span covers (AppKit edit processing, layout, unmeasured code).
     package static func end() {
-        guard enabled, active else { return }
+        guard Thread.isMainThread, enabled, active else { return }
         active = false
         let total = Double(DispatchTime.now().uptimeNanoseconds - frameStart) / 1_000_000
         var breakdown = phases.map { String(format: "%@=%.2f", $0.0, $0.1) }.joined(separator: " ")
@@ -130,7 +131,7 @@ package enum PerfTrace {
     /// Standalone timing print for a cost that runs *outside* the keystroke frame
     /// (e.g. the async wide-table overlay reconcile fired after the edit settles).
     package static func stamp(_ label: String, _ ms: Double, _ detail: @autoclosure () -> String = "") {
-        guard enabled else { return }
+        guard Thread.isMainThread, enabled else { return }
         print(String(format: "⏱️ PERF %@ %.2fms %@", label, ms, detail()))
     }
 }

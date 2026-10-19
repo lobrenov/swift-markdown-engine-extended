@@ -20,6 +20,8 @@ let package = Package(
     platforms: [.macOS(.v14), .iOS("26.0")],
     products: [
         .library(name: "MarkdownEngine", targets: ["MarkdownEngine"]),
+        // Fork: the grammar alone, for an embedder that reads its markdown off the main thread.
+        .library(name: "MarkdownEngineSyntax", targets: ["MarkdownEngineSyntax"]),
         .library(name: "MarkdownEngineCodeBlocks", targets: ["MarkdownEngineCodeBlocks"]),
         .library(name: "MarkdownEngineLatex", targets: ["MarkdownEngineLatex"]),
     ],

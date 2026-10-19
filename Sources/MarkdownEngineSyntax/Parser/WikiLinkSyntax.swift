@@ -9,18 +9,18 @@
 
 import Foundation
 
-package struct WikiLinkParts: Equatable, Sendable {
+public struct WikiLinkParts: Equatable, Sendable {
     /// The link as written before any `#` or `|`, e.g. `folder/Title`.
-    package var target: String
+    public var target: String
     /// After `#`, when it doesn't start with `^`.
-    package var heading: String?
+    public var heading: String?
     /// After `#^`.
-    package var block: String?
+    public var block: String?
     /// After `|`.
-    package var alias: String?
+    public var alias: String?
 
     /// Nil when there's no target (`[[#heading]]`, `[[|alias]]`).
-    package init?(inner: String) {
+    public init?(inner: String) {
         var rest = Substring(inner)
         if let bar = rest.firstIndex(of: "|") {
             alias = String(rest[rest.index(after: bar)...])

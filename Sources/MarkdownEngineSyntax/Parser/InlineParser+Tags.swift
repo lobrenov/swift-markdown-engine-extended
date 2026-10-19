@@ -7,9 +7,9 @@
 
 import Foundation
 
-package enum TagSyntax {
+public enum TagSyntax {
     /// A character a tag's name may hold: a letter, a digit, `_`, `-` or `/`.
-    package static func isTagCharacter(_ c: Character) -> Bool {
+    public static func isTagCharacter(_ c: Character) -> Bool {
         c.isLetter || c.isNumber || c == "_" || c == "-" || c == "/"
     }
 }
