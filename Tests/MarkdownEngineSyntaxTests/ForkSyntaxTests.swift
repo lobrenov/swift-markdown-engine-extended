@@ -23,17 +23,23 @@ struct WikiLinkPartsTests {
         #expect(WikiLinkParts(inner: "Title|alias #1") == parts("Title", alias: "alias #1"))
     }
 
-    @Test func noTargetIsNoLink() {
-        #expect(WikiLinkParts(inner: "#Intro") == nil)
+    @Test func noTargetIsTheSameFile() {
+        #expect(WikiLinkParts(inner: "#Intro") == parts("", heading: "Intro"))
+        #expect(WikiLinkParts(inner: "#^b1|see") == parts("", block: "b1", alias: "see"))
+    }
+
+    @Test func noTargetHeadingOrBlockIsNoLink() {
+        #expect(WikiLinkParts(inner: "#") == nil)
         #expect(WikiLinkParts(inner: "|alias") == nil)
         #expect(WikiLinkParts(inner: "  ") == nil)
     }
 
-    private func parts(_ target: String, heading: String? = nil, block: String? = nil, alias: String? = nil) -> WikiLinkParts? {
-        var p = WikiLinkParts(inner: target)
-        p?.heading = heading
-        p?.block = block
-        p?.alias = alias
+    private func parts(_ target: String, heading: String? = nil, block: String? = nil, alias: String? = nil) -> WikiLinkParts {
+        var p = WikiLinkParts(inner: "x")!
+        p.target = target
+        p.heading = heading
+        p.block = block
+        p.alias = alias
         return p
     }
 }

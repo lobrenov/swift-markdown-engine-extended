@@ -1,5 +1,5 @@
 {
-  "description": "Obsidian links. [[inner]] is a link; ![[inner]] is an embed. The inner text splits on the first | (alias, or an embed's size), then on the first # of what's left: #^ gives a block id, # a heading. The target is what precedes, trimmed of spaces and tabs. An empty target ([[#Heading]]) is an open decision: see spec/README.md. Inner text never holds [, ] or a line break.",
+  "description": "Obsidian links. [[inner]] is a link; ![[inner]] is an embed. The inner text splits on the first | (alias, or an embed's size), then on the first # of what's left: #^ gives a block id, # a heading. The target is what precedes, trimmed of spaces and tabs. An empty target ([[#Heading]], [[#^block]]) is the same file; with no heading or block either ([[|alias]]) it is not a link. Inner text never holds [, ] or a line break.",
   "open": "[[",
   "close": "]]",
   "embedPrefix": "!",
@@ -8,5 +8,5 @@
   "block": "#^",
   "innerExcludes": ["[", "]", "\n"],
   "titleBreakers": ["[", "]", "#", "^", "|"],
-  "emptyTarget": "open"
+  "emptyTarget": "sameFile"
 }

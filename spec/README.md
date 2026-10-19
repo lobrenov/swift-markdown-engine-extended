@@ -64,9 +64,5 @@ Where readers of this dialect have disagreed, the spec chooses. Each choice has 
 | `[/]` | `open`, labelled In progress | Read as a distinct in-progress state; the spec's `state` is the recommended reading, so a reader may refine it. |
 | Markers outside the reference set (`[y]`) | Text, not a task | Drawn as a generic task. |
 | A tag of digits and `/` (`#2026/10`) | Not a tag | Read as a tag when only digits are excluded. |
-| An image embed's segments | A positive number is the width; others are kept as `segments` | `name|alt|width` and `WxH` sizes; some editors write an id segment. |
-| `[[#Heading]]` (no target) | Open: see below | A link to a heading in the same file. |
-
-### Open
-
-- `[[#Heading]]` and `[[#^block]]`: Obsidian reads these as links within the same file. To decide: report them as links with an empty `target`, or not at all.
+| An image embed's segments | A positive number is the width; others are kept as `segments` | `name\|alt\|width` and `WxH` sizes; some editors write an id segment. |
+| `[[#Heading]]`, `[[#^block]]` (no target) | A link with an empty `target`: the same file | Not a link. |

@@ -4,7 +4,7 @@
 //
 //  Fork: the parts of an Obsidian link, read from the text between `[[` and `]]`:
 //  `target#heading|alias` or `target#^block|alias`. The `|` splits first, then the
-//  first `#`; the target is trimmed of spaces and tabs.
+//  first `#`; the target is trimmed of spaces and tabs, and empty for the same file.
 //
 
 import Foundation
@@ -19,7 +19,8 @@ public struct WikiLinkParts: Equatable, Sendable {
     /// After `|`.
     public var alias: String?
 
-    /// Nil when there's no target (`[[#heading]]`, `[[|alias]]`).
+    /// An empty target is the same file (`[[#heading]]`, `[[#^block]]`). Nil when there's neither a target nor a
+    /// heading or block (`[[|alias]]`, `[[#]]`).|alias]]`).
     public init?(inner: String) {
         var rest = Substring(inner)
         if let bar = rest.firstIndex(of: "|") {
@@ -36,6 +37,6 @@ public struct WikiLinkParts: Equatable, Sendable {
             rest = rest[..<hash]
         }
         target = rest.trimmingCharacters(in: .whitespaces)
-        if target.isEmpty { return nil }
+        if target.isEmpty, (heading ?? block ?? "").isEmpty { return nil }
     }
 }
