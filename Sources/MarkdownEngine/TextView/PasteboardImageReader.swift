@@ -1,6 +1,7 @@
 //
 //  PasteboardImageReader.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Created by Luca Chen on 16.03.26.
 //

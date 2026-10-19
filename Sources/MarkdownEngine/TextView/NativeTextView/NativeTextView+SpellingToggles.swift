@@ -1,6 +1,7 @@
 //
 //  NativeTextView+SpellingToggles.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Created by Nicolas Mallinckrodt on 19.05.26.
 //

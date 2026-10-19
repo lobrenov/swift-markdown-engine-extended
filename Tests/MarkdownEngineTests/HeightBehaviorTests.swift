@@ -1,6 +1,7 @@
 //
 //  HeightBehaviorTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Configuration, inflation gating, overscroll zeroing, intrinsic content
 //  size, runtime switching, async re-report, readingWidth composition, and

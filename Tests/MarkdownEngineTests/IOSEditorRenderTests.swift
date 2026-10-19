@@ -15,14 +15,14 @@ import UIKit
 @MainActor
 struct IOSEditorRenderTests {
     static let sample = """
-    # Update my claude.md files
+    # Release checklist
 
-    Bring the project instruction files in line with how I **actually** work now, see [[Project notes]].
+    Get the next version **ready** to ship, see [[Release notes]].
 
-    - [x] Audit the global file
-    - [/] Trim the repo's own file
-    - [ ] Add Swift test conventions
-    - [!] Remove stale vault paths
+    - [x] Freeze the feature list
+    - [/] Update the `README` file
+    - [ ] Run the full test suite
+    - [!] Fix the failing build
 
     > [!tip] Keep it short
     > One line per rule. The repo's docs hold the ==rest==.

@@ -1,6 +1,7 @@
 //
 //  ThematicBreakMarkTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  `---`, `***` and `___` are one construct with one meaning, and the engine
 //  drew one rule for all three. `ThematicBreakStyle` lets an embedder give a

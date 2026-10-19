@@ -1,6 +1,7 @@
 //
 //  MarkdownDirective.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  The directive seam: a NAMED, ARGUMENT-CARRYING inline command —
 //  `@pagebreak`, `@font(size: 18){styled text}` — contributed by the embedder

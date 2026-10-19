@@ -1,6 +1,7 @@
 //
 //  NativeTextViewContainerTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  The container document view: header-band stacking, scrollable-height
 //  composition, and reading-column centering — headless (no window).

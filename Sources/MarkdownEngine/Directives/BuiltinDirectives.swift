@@ -1,6 +1,7 @@
 //
 //  BuiltinDirectives.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Three directives that between them exercise every part of the seam, and
 //  double as the "is a new command easy to write?" test. Not registered by

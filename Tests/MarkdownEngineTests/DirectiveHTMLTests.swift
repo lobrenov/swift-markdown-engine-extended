@@ -1,6 +1,7 @@
 //
 //  DirectiveHTMLTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  The clean-copy path for directives. Arguments are recovered from the same
 //  prefix geometry the styler uses, so what gets copied can't disagree with

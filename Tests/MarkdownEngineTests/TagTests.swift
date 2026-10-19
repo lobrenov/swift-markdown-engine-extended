@@ -74,10 +74,10 @@ struct TagTests {
     }
 
     @Test func aTagIsABubbleNamingItsTagWithTheHashFainter() {
-        let styled = attrs("Ask #people/Marcus today\nnext")
+        let styled = attrs("Ask #people/Morgan today\nnext")
         let tag = NSRange(location: 4, length: 14)
         #expect(styled.contains { $0.range == tag && $0.attributes[.markdownInlineBubble] is InlineBubbleSpan })
-        #expect(styled.contains { $0.range == tag && $0.attributes[.markdownTag] as? String == "people/Marcus" })
+        #expect(styled.contains { $0.range == tag && $0.attributes[.markdownTag] as? String == "people/Morgan" })
         let hash = styled.last { $0.range == NSRange(location: 4, length: 1) && $0.attributes[.foregroundColor] != nil }
         #expect((hash?.attributes[.foregroundColor] as? PlatformColor)?.alphaComponent == 0.65)
         // The space before and the last character make room for the padding outside the text.

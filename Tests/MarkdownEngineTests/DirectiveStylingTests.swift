@@ -1,6 +1,7 @@
 //
 //  DirectiveStylingTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  STRUCTURAL styling behaviour for directives — what must hold regardless of
 //  what any given directive does with its body:

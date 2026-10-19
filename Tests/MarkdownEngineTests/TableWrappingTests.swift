@@ -1,6 +1,7 @@
 //
 //  TableWrappingTests.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Created by Luca Chen on 13.07.26.
 //

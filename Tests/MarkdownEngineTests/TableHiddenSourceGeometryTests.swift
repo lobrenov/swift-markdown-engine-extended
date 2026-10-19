@@ -1,6 +1,7 @@
 //
 //  TableHiddenSourceGeometryTests.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Created by Luca Chen on 18.08.26.
 //

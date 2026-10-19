@@ -1,6 +1,7 @@
 //
 //  BlockScopedTokenizer.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  The live tokenization pipeline. For each block from `BlockParser`:
 //  block-level tokens (heading, blockquote, table, block LaTeX, code) come from

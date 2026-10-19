@@ -1,6 +1,7 @@
 //
 //  MarkdownASTStyler+Directives.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Phase 2 of the directive seam: a container directive's body picks up the
 //  directive's style, and — the part that matters — its font TRANSFORM

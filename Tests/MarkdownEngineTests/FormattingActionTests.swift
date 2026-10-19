@@ -1,6 +1,7 @@
 //
 //  FormattingActionTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Headless tests for formatting actions wired through the coordinator.
 //

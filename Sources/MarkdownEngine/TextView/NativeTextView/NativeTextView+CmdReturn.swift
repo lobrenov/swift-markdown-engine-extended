@@ -1,6 +1,7 @@
 //
 //  NativeTextView+CmdReturn.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  ⌘↵ ("link & open") for the inline [[…]] preview. AppKit does NOT route ⌘+Return
 //  through doCommandBy(insertNewline:), so we intercept it as a key equivalent — which

@@ -1,6 +1,7 @@
 //
 //  BlockBackgroundFillTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  `.markdownBlockBackground` fills the LINE BOX, not the glyph box: a
 //  highlight that wraps over several lines has to come out as one block with

@@ -1,6 +1,7 @@
 //
 //  NativeTextViewCoordinator+WikiLinkSnapback.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Snap-back: when the caret LEAVES a `[[Name]]` / `![[Name]]` token, re-sync the
 //  token's DISPLAYED name to the target node's CURRENT name (via the resolver) —

@@ -1,6 +1,7 @@
 //
 //  TableCellTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Table cells reuse the shared `InlineParser` (one parser, one truth) instead
 //  of a separate regex re-implementation — so a cell formats identically to

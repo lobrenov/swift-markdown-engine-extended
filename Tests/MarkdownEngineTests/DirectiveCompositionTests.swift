@@ -1,6 +1,7 @@
 //
 //  DirectiveCompositionTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Phase 2 — a container directive's font transform COMPOSES over the font
 //  inherited at that point in the tree, in both directions: the body keeps the

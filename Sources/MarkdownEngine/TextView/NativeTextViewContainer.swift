@@ -1,6 +1,7 @@
 //
 //  NativeTextViewContainer.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Document view of the editor's scroll view. Hosts the `NativeTextView` plus two
 //  optional siblings: the scroll-away header (a top band, stacked ABOVE the text view

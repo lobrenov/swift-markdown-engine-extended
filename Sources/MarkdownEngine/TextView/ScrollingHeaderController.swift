@@ -1,6 +1,7 @@
 //
 //  ScrollingHeaderController.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Owns the scroll-away header hosted above the editor body: an embedder-supplied
 //  SwiftUI view in an `NSHostingView`, inside a clipping band at the top of the

@@ -1,6 +1,7 @@
 //
 //  MarkdownTextMutationTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Exact native edit descriptors for embedders that maintain their own
 //  source authority or mirror an edit into another presentation.

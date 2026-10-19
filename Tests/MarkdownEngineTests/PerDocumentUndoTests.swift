@@ -1,6 +1,7 @@
 //
 //  PerDocumentUndoTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Per-`documentId` undo: a stable manager per document (Cmd+Z survives file
 //  switches) and dropping a stale stack when the document's text was rewritten

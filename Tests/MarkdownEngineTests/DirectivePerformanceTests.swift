@@ -1,6 +1,7 @@
 //
 //  DirectivePerformanceTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  The invariant this guards: per-keystroke restyle cost stays O(edit) —
 //  independent of DOCUMENT SIZE — for a directive-heavy paragraph.

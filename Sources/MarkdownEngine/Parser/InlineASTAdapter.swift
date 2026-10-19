@@ -1,6 +1,7 @@
 //
 //  InlineASTAdapter.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Phase 2.5 bridge: flattens an inline AST (`[InlineNode]`) into the legacy
 //  `[MarkdownToken]` shape the existing styler consumes. Walking the tree and

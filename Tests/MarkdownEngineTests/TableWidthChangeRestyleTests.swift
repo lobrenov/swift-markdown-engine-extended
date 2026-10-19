@@ -1,6 +1,7 @@
 //
 //  TableWidthChangeRestyleTests.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 
 #if os(macOS)

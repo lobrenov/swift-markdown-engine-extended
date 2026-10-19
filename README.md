@@ -59,7 +59,7 @@ Upstream's `MarkdownEngineCodeBlocks` and `MarkdownEngineLatex` products are sti
 ## Requirements
 
 - macOS 14 or later; iOS 26 or later
-- Swift 5.9 or later
+- Swift 5.9 and Xcode 15 or later for macOS; Xcode 26 or later for iOS
 
 ## Tests
 
@@ -75,4 +75,4 @@ xcodebuild -scheme MarkdownEngine-Package -destination 'platform=iOS Simulator,n
 
 ## License
 
-Apache License 2.0, as upstream. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The source marks each change from upstream `Fork:`.
+Apache License 2.0, as upstream. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Each file changed from upstream carries a `Fork:` notice.

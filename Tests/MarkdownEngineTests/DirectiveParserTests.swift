@@ -1,6 +1,7 @@
 //
 //  DirectiveParserTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  The directive seam's parser half: `@name(args){body}` matches only for
 //  registered names at a valid boundary, rejections stay literal text, and the
