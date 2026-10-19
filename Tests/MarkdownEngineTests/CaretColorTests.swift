@@ -9,7 +9,12 @@
 //  color and it disappears.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
@@ -19,7 +24,7 @@ private struct InvertingHighlight: MarkdownExtension {
     var id: String { HighlightExtension.identifier }
     var inline: InlineSyntax? { InlineSyntax(open: "==", close: "==") }
     func contentAttributes(theme: MarkdownEditorTheme) -> [NSAttributedString.Key: Any] {
-        [.backgroundColor: NSColor.white, .foregroundColor: NSColor.black]
+        [.backgroundColor: PlatformColor.white, .foregroundColor: PlatformColor.black]
     }
     func html(childrenHTML: String) -> String { "<mark>\(childrenHTML)</mark>" }
 }
@@ -60,7 +65,7 @@ struct CaretColorTests {
         let body = coordinator.configuration.theme.bodyText
 
         tv.setSelectedRange(NSRange(location: 11, length: 0))   // middle of `marked`
-        #expect(tv.insertionPointColor == NSColor.black)
+        #expect(tv.insertionPointColor == PlatformColor.black)
 
         tv.setSelectedRange(NSRange(location: 2, length: 0))    // back in plain text
         #expect(tv.insertionPointColor == body)
@@ -108,10 +113,11 @@ struct CaretColorTests {
         let (coordinator, tv) = makeEditor(Self.text, extensions: [InvertingHighlight()])
 
         tv.setSelectedRange(NSRange(location: 11, length: 0))
-        #expect(coordinator.resolvedCaretColor == NSColor.black)
+        #expect(coordinator.resolvedCaretColor == PlatformColor.black)
 
         // What updateNSView re-applies (see NativeTextViewWrapper).
         tv.insertionPointColor = coordinator.resolvedCaretColor ?? coordinator.configuration.theme.bodyText
-        #expect(tv.insertionPointColor == NSColor.black)
+        #expect(tv.insertionPointColor == PlatformColor.black)
     }
 }
+#endif

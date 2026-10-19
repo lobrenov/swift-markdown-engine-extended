@@ -11,6 +11,7 @@
 //  current match into view.
 //
 
+#if os(macOS)
 import AppKit
 
 extension NSAttributedString.Key {
@@ -272,3 +273,4 @@ extension NativeTextViewCoordinator {
         }
     }
 }
+#endif

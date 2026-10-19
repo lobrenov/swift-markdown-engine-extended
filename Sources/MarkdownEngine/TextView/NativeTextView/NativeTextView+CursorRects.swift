@@ -7,11 +7,16 @@
 //  Read-only cursor handling: arrow over text, pointing hand over links.
 //
 
+#if os(macOS)
 import AppKit
 
 extension NativeTextView {
 
     override func mouseMoved(with event: NSEvent) {
+        // Fork: the `</>` button over a hovered image.
+        if isEditable { updateImageSourceButton(for: event) }
+        // Fork: a live table's grips show on hover, with an open hand over the grip.
+        if updateTableGridHover(for: event) { return }
         if isInCursorExclusionZone(event) {
             // Editable+excluded = a panel over the editor (#81): own the arrow.
             // Read-only+excluded = a full-window overlay (search/transfer) owns
@@ -23,6 +28,9 @@ extension NativeTextView {
             // on every move, so setting the arrow after it flickers — skip
             // super entirely, like the exclusion-zone branch.
             NSCursor.arrow.set()
+        } else if onTagClick != nil, tagHit(atViewPoint: convert(event.locationInWindow, from: nil)) != nil {
+            // Fork: a drawn tag opens on click, as a link does.
+            NSCursor.pointingHand.set()
         } else if isEditable, isOverWideTableOverlay(event) {
             // Same treatment for wide-table scroll overlays: the overlay is a
             // control surface (rendered image + horizontal scroller), not
@@ -177,3 +185,4 @@ extension NativeTextView {
         cursor.set()
     }
 }
+#endif

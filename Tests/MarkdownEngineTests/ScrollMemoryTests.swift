@@ -9,7 +9,12 @@
 //  `Context` that cannot be built headlessly — verify that in a host app.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
@@ -101,3 +106,4 @@ struct ScrollMemoryTests {
         #expect(coordinator.pendingScrollRestoreDocumentId == nil)
     }
 }
+#endif

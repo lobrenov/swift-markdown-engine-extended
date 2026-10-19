@@ -15,17 +15,21 @@
 //  + undo contract (one isolated, named "Update Link Name" step).
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 extension NativeTextViewCoordinator {
     /// When the caret LEAVES a `[[Name]]` / `![[Name]]` token, re-sync the displayed
     /// name to the target node's current name (via the resolver). Returns the caret
     /// location the caller should re-settle to (delta-adjusted), or nil if it did nothing.
     @discardableResult
-    func resyncWikiLinkNameOnLeave(_ textView: NSTextView, token: MarkdownToken, caretLoc: Int) -> Int? {
+    func resyncWikiLinkNameOnLeave(_ textView: PlatformTextView, token: MarkdownToken, caretLoc: Int) -> Int? {
         guard !isProgrammaticEdit, !textView.hasMarkedText(), !isWritingToolsActive else { return nil }
         guard token.kind == .wikiLink || token.kind == .imageEmbed else { return nil }
-        guard let storage = textView.textStorage else { return nil }
+        guard let storage = textView.optionalTextStorage else { return nil }
         let contentRange = token.contentRange
         let docLen = storage.length
         guard contentRange.location != NSNotFound, contentRange.length > 0,

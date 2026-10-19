@@ -7,7 +7,11 @@
 //  resulting node carries the geometry the styler needs.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine

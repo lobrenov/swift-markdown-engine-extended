@@ -9,7 +9,11 @@
 //  literal text without a registered extension.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine
@@ -114,7 +118,7 @@ struct BlockExtensionTests {
         #expect(background, "content line must carry the container background")
         // The fence line is hidden (clear foreground) while the caret is outside.
         let fenceHidden = attrs.contains { range, a in
-            NSLocationInRange(0, range) && (a[.foregroundColor] as? NSColor) == NSColor.clear
+            NSLocationInRange(0, range) && (a[.foregroundColor] as? PlatformColor) == PlatformColor.clear
         }
         #expect(fenceHidden, "fence must hide while inactive")
     }
@@ -129,7 +133,7 @@ struct BlockExtensionTests {
         )
         let fenceMuted = attrs.contains { range, a in
             NSLocationInRange(0, range)
-                && (a[.foregroundColor] as? NSColor) == MarkdownEditorTheme.default.mutedText
+                && (a[.foregroundColor] as? PlatformColor) == MarkdownEditorTheme.default.mutedText
         }
         #expect(fenceMuted, "fence must show muted while active")
     }

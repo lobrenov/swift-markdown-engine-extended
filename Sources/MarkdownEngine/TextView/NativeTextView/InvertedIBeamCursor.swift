@@ -16,6 +16,7 @@
 //  instead of hand-drawing a cursor that ignores both.
 //
 
+#if os(macOS)
 import AppKit
 
 enum InvertedIBeamCursor {
@@ -96,3 +97,4 @@ enum InvertedIBeamCursor {
          UInt8(clamping: Int(color.blueComponent * 255)))
     }
 }
+#endif

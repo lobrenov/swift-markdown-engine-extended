@@ -13,7 +13,12 @@
 //  assertion passes against the broken code too.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
@@ -131,3 +136,4 @@ struct ContextMenuBindingTests {
         #expect(coordinator.lastSyncedText == published)
     }
 }
+#endif

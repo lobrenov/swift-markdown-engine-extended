@@ -8,7 +8,12 @@
 //  spacing. Headless — the fills are geometry, no window needed.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Testing
 @testable import MarkdownEngine
 
@@ -28,7 +33,7 @@ struct BlockBackgroundFillTests {
         config.paragraph.lineHeightExtraSpacing = extraLineSpacing
         tv.configuration = config
         let (font, style) = TextStylingService.makeBaseFontAndStyle(
-            fontName: NSFont.systemFont(ofSize: fontSize).fontName,
+            fontName: PlatformFont.systemFont(ofSize: fontSize).fontName,
             fontSize: fontSize,
             layoutBridge: tv.layoutBridge,
             configuration: config
@@ -44,14 +49,14 @@ struct BlockBackgroundFillTests {
 
     /// Every fill in the document, in layout order, plus the line boxes they
     /// were painted over.
-    private func fills(in tv: NativeTextView) -> [(rect: CGRect, color: NSColor)] {
+    private func fills(in tv: NativeTextView) -> [(rect: CGRect, color: PlatformColor)] {
         guard let tlm = tv.textLayoutManager, let tcm = tlm.textContentManager else { return [] }
         let delegate = MarkdownLayoutManagerDelegate()
         tlm.delegate = delegate
         tlm.invalidateLayout(for: tlm.documentRange)
         tlm.ensureLayout(for: tlm.documentRange)
 
-        var result: [(rect: CGRect, color: NSColor)] = []
+        var result: [(rect: CGRect, color: PlatformColor)] = []
         tlm.enumerateTextLayoutFragments(from: tcm.documentRange.location, options: [.ensuresLayout]) { fragment in
             guard let fragment = fragment as? MarkdownTextLayoutFragment else { return true }
             // Fragment-local rects lifted into document space, the way the
@@ -82,7 +87,7 @@ struct BlockBackgroundFillTests {
     func wrappedRunIsOneBlock() throws {
         let tv = makeTextView(Self.wrapping)
         let full = NSRange(location: 0, length: (Self.wrapping as NSString).length)
-        tv.textStorage?.addAttribute(.markdownBlockBackground, value: NSColor.systemOrange, range: full)
+        tv.textStorage?.addAttribute(.markdownBlockBackground, value: PlatformColor.systemOrange, range: full)
 
         let rects = fills(in: tv).map(\.rect)
         #expect(rects.count >= 3, "sample must wrap over several lines, got \(rects.count)")
@@ -101,8 +106,8 @@ struct BlockBackgroundFillTests {
         let tight = makeTextView(Self.wrapping, extraLineSpacing: 0)
         let loose = makeTextView(Self.wrapping, extraLineSpacing: 12)
         let full = NSRange(location: 0, length: (Self.wrapping as NSString).length)
-        tight.textStorage?.addAttribute(.markdownBlockBackground, value: NSColor.systemOrange, range: full)
-        loose.textStorage?.addAttribute(.markdownBlockBackground, value: NSColor.systemOrange, range: full)
+        tight.textStorage?.addAttribute(.markdownBlockBackground, value: PlatformColor.systemOrange, range: full)
+        loose.textStorage?.addAttribute(.markdownBlockBackground, value: PlatformColor.systemOrange, range: full)
 
         let tightHeight = try #require(fills(in: tight).first?.rect.height)
         let looseHeight = try #require(fills(in: loose).first?.rect.height)
@@ -120,7 +125,7 @@ struct BlockBackgroundFillTests {
     func partialRunIsClipped() throws {
         let text = "alpha beta"
         let tv = makeTextView(text, width: 400)
-        tv.textStorage?.addAttribute(.markdownBlockBackground, value: NSColor.systemOrange,
+        tv.textStorage?.addAttribute(.markdownBlockBackground, value: PlatformColor.systemOrange,
                                      range: NSRange(location: 0, length: 5))
 
         let rects = fills(in: tv).map(\.rect)
@@ -137,3 +142,4 @@ struct BlockBackgroundFillTests {
         #expect(fills(in: tv).isEmpty)
     }
 }
+#endif

@@ -9,6 +9,7 @@
 //  default underline pass.
 //
 
+#if os(macOS)
 import AppKit
 
 extension NativeTextView {
@@ -44,3 +45,4 @@ extension NativeTextView {
         super.setSpellingState(value, range: charRange)
     }
 }
+#endif

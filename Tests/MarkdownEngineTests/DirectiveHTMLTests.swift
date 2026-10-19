@@ -7,7 +7,11 @@
 //  what was on screen.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine

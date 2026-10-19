@@ -8,7 +8,7 @@
 //  hugs the bottom edge of the visible viewport while typing.
 //
 
-import AppKit
+import CoreGraphics
 import Foundation
 
 struct BottomOverscrollPolicy {

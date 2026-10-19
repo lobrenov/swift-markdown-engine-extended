@@ -6,13 +6,20 @@
 //  height, and removal — headless (no window).
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
 
+// Fork: serialized. The animation tests spin the main run loop, and run in
+// parallel they miss their targets.
 @MainActor
-@Suite("ScrollingHeaderController")
+@Suite("ScrollingHeaderController", .serialized)
 struct ScrollingHeaderControllerTests {
 
     struct Stack {
@@ -204,3 +211,4 @@ struct ScrollingHeaderControllerTests {
         #expect(stack.container.subviews.count == 1)   // text view only
     }
 }
+#endif

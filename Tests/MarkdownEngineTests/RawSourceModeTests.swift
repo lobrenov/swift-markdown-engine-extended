@@ -10,7 +10,12 @@
 //  the two presentations without touching the storage text. Headless.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
@@ -30,11 +35,11 @@ struct RawSourceModeTests {
     }
 
     /// Every (font, link) run in the text view's storage.
-    private func attributeRuns(_ tv: NSTextView) -> [(font: NSFont?, link: Any?)] {
+    private func attributeRuns(_ tv: PlatformTextView) -> [(font: PlatformFont?, link: Any?)] {
         guard let storage = tv.textStorage else { return [] }
-        var runs: [(NSFont?, Any?)] = []
+        var runs: [(PlatformFont?, Any?)] = []
         storage.enumerateAttributes(in: NSRange(location: 0, length: storage.length)) { attrs, _, _ in
-            runs.append((attrs[.font] as? NSFont, attrs[.link]))
+            runs.append((attrs[.font] as? PlatformFont, attrs[.link]))
         }
         return runs
     }
@@ -82,3 +87,4 @@ struct RawSourceModeTests {
         #expect(runs.allSatisfy { $0.font?.pointSize == 16 })
     }
 }
+#endif

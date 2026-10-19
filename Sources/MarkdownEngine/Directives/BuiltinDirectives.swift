@@ -15,7 +15,11 @@
 //  renders as literal text.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 // MARK: - @font(size: 18){…}  — container, font composition
@@ -64,7 +68,7 @@ public struct FontDirective: MarkdownDirective {
             transform.size = .absolute(size)
         }
         transform.familyName = arguments.string("family")
-        if arguments.string("weight") == "bold" { transform.traits = .boldFontMask }
+        if arguments.string("weight") == "bold" { transform.traits = .bold }
         return DirectiveStyle(font: transform)
     }
 
@@ -89,8 +93,8 @@ public struct ColorDirective: MarkdownDirective {
 
     /// Standard colour names, resolved without an asset catalog so
     /// `@color(red){…}` works out of the box. An unlisted name falls back to
-    /// `NSColor(named:)`, so embedders can add their own palette entries.
-    private static let named: [String: NSColor] = [
+    /// `PlatformColor(named:)`, so embedders can add their own palette entries.
+    private static let named: [String: PlatformColor] = [
         "red": .systemRed, "orange": .systemOrange, "yellow": .systemYellow,
         "green": .systemGreen, "mint": .systemMint, "teal": .systemTeal,
         "cyan": .systemCyan, "blue": .systemBlue, "indigo": .systemIndigo,
@@ -116,7 +120,7 @@ public struct ColorDirective: MarkdownDirective {
         guard let name = arguments.positional.first?.asString else { return .inherit }
         // An unresolvable name leaves the body alone rather than guessing —
         // the source stays readable and the mistake is visible.
-        guard let color = Self.named[name.lowercased()] ?? NSColor(named: name) else { return .inherit }
+        guard let color = Self.named[name.lowercased()] ?? PlatformColor(named: name) else { return .inherit }
         return DirectiveStyle(attributes: [.foregroundColor: color])
     }
 

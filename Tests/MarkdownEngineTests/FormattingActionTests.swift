@@ -5,7 +5,12 @@
 //  Headless tests for formatting actions wired through the coordinator.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Testing
 @testable import MarkdownEngine
 import SwiftUI
@@ -223,3 +228,4 @@ struct FormattingActionTests {
         #expect(tv.string == "text![](img.png)")
     }
 }
+#endif

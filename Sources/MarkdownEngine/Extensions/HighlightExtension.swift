@@ -16,7 +16,11 @@
 //  clean-copy path emits `<mark>`.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 public struct HighlightExtension: MarkdownExtension {

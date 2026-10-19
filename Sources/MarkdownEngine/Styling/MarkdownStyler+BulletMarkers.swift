@@ -7,14 +7,20 @@
 //  only reports caret membership so the coordinator can restyle on crossings.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 extension MarkdownStyler {
 
     /// Indented bullet marker at line start (trailing space excludes `---`/`*bold*`), not a checkbox.
+    /// Fork: a box after any spaces, with a space or tab after it, as the AST parser reads one;
+    /// the indent may follow a quote's `>` markers.
     static let bulletListRegex: NSRegularExpression = try! NSRegularExpression(
-        pattern: #"^([ \t]*)([-*+])([ \t]+)(?!\[[ xX]\])"#,
+        pattern: #"^((?:[ \t]*>[ \t]?)*[ \t]*)([-*+])([ \t]++)(?!"# + TaskMarker.boxPattern + #"[ \t])"#,
         options: [.anchorsMatchLines]
     )
 

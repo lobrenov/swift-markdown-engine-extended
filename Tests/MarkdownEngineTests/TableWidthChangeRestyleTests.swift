@@ -3,7 +3,12 @@
 //  MarkdownEngine
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import SwiftUI
 import Testing
@@ -111,7 +116,7 @@ struct TableWidthChangeRestyleTests {
             } else {
                 textContainer.widthTracksTextView = true
             }
-            let font = NSFont.systemFont(ofSize: 16)
+            let font = PlatformFont.systemFont(ofSize: 16)
             let coordinator = NativeTextViewCoordinator(
                 text: .constant(source),
                 fontName: font.fontName,
@@ -196,11 +201,11 @@ struct TableWidthChangeRestyleTests {
         }
 
         struct RenderedTable {
-            let image: NSImage
+            let image: PlatformImage
             let bounds: CGRect
         }
 
-        static func renderedTable(in textView: NSTextView) -> RenderedTable? {
+        static func renderedTable(in textView: PlatformTextView) -> RenderedTable? {
             guard let storage = textView.textStorage,
                   storage.length > 0 else { return nil }
             var result: RenderedTable?
@@ -214,7 +219,7 @@ struct TableWidthChangeRestyleTests {
                         .latexImage,
                         at: range.location,
                         effectiveRange: nil
-                      ) as? NSImage,
+                      ) as? PlatformImage,
                       let bounds = (
                         storage.attribute(
                             .latexBounds,
@@ -229,7 +234,7 @@ struct TableWidthChangeRestyleTests {
         }
 
         static func renderedTables(
-            in textView: NSTextView
+            in textView: PlatformTextView
         ) -> [NSRange: RenderedTable] {
             guard let storage = textView.textStorage,
                   storage.length > 0 else { return [:] }
@@ -245,7 +250,7 @@ struct TableWidthChangeRestyleTests {
                         .latexImage,
                         at: range.location,
                         effectiveRange: nil
-                      ) as? NSImage,
+                      ) as? PlatformImage,
                       let bounds = (
                         storage.attribute(
                             .latexBounds,
@@ -262,7 +267,7 @@ struct TableWidthChangeRestyleTests {
         }
 
         struct VisibleWideTable {
-            let image: NSImage
+            let image: PlatformImage
             let frame: CGRect
         }
 
@@ -409,7 +414,7 @@ struct TableWidthChangeRestyleTests {
         let nsText = text as NSString
         let tokens = MarkdownTokenizer.parseTokensViaAST(in: text)
         let tableToken = try #require(tokens.first { $0.kind == .table })
-        let font = NSFont.systemFont(ofSize: 15)
+        let font = PlatformFont.systemFont(ofSize: 15)
         let context = MarkdownStyler.StylingContext(
             nsText: nsText,
             tokens: tokens,
@@ -449,7 +454,7 @@ struct TableWidthChangeRestyleTests {
         textContainer.widthTracksTextView = false
         textContainer.size = NSSize(width: 804, height: 10_000)
         textContainer.widthTracksTextView = true
-        let font = NSFont.systemFont(ofSize: 16)
+        let font = PlatformFont.systemFont(ofSize: 16)
         let context = MarkdownStyler.StylingContext(
             nsText: "" as NSString,
             tokens: [],
@@ -479,7 +484,7 @@ struct TableWidthChangeRestyleTests {
         textView.textContainerInset = NSSize(width: 48, height: 0)
         textContainer.widthTracksTextView = false
         textContainer.size = NSSize(width: 500, height: 10_000)
-        let font = NSFont.systemFont(ofSize: 16)
+        let font = PlatformFont.systemFont(ofSize: 16)
         let context = MarkdownStyler.StylingContext(
             nsText: "" as NSString,
             tokens: [],
@@ -864,7 +869,7 @@ struct TableWidthChangeRestyleTests {
         let source = nsText.substring(with: tableToken.range)
         let parsed = try #require(MarkdownStyler.parseTableSource(source))
         let appearance = try #require(NSAppearance(named: .aqua))
-        let font = NSFont.systemFont(ofSize: 16)
+        let font = PlatformFont.systemFont(ofSize: 16)
         let baseContext = MarkdownStyler.StylingContext(
             nsText: nsText,
             tokens: tokens,
@@ -990,3 +995,4 @@ struct TableWidthChangeRestyleTests {
         #expect(recorder.count == countAtTrackingEnd)
     }
 }
+#endif

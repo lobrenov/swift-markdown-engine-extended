@@ -15,13 +15,17 @@
 //  and run every case through BOTH paths — indexed and plain rescan.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Testing
 @testable import MarkdownEngine
 
 private let base: [NSAttributedString.Key: Any] = [
-    .font: NSFont.systemFont(ofSize: 13),
-    .foregroundColor: NSColor.black
+    .font: PlatformFont.systemFont(ofSize: 13),
+    .foregroundColor: PlatformColor.black
 ]
 
 /// Seeded so the whole document carries attributes the apply must clear: `.link`
@@ -31,7 +35,7 @@ private func seededStorage(_ text: String) -> NSMutableAttributedString {
     let storage = NSMutableAttributedString(string: text)
     let full = NSRange(location: 0, length: (text as NSString).length)
     storage.setAttributes([.link: URL(string: "https://example.com")!,
-                           .foregroundColor: NSColor.magenta], range: full)
+                           .foregroundColor: PlatformColor.magenta], range: full)
     return storage
 }
 
@@ -88,8 +92,8 @@ struct RestyleApplyEquivalenceTests {
         let text = String(repeating: "x", count: 120)
         let paragraphs = tiled(count: 12, size: 10)
         let ranges: [StyledRange] = [
-            (NSRange(location: 5, length: 40), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 0, length: 120), [.backgroundColor: NSColor.yellow]),
+            (NSRange(location: 5, length: 40), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 0, length: 120), [.backgroundColor: PlatformColor.yellow]),
             (NSRange(location: 98, length: 22), [.underlineStyle: 1])
         ]
         expectEquivalent(ranges, paragraphs: paragraphs, text: text)
@@ -100,19 +104,19 @@ struct RestyleApplyEquivalenceTests {
         let text = String(repeating: "y", count: 80)
         let paragraphs = tiled(count: 8, size: 10)
         let ranges: [StyledRange] = [
-            (NSRange(location: 20, length: 10), [.foregroundColor: NSColor.red,
-                                                 .backgroundColor: NSColor.yellow]),
-            (NSRange(location: 20, length: 10), [.foregroundColor: NSColor.green]),
-            (NSRange(location: 20, length: 5), [.foregroundColor: NSColor.blue]),
+            (NSRange(location: 20, length: 10), [.foregroundColor: PlatformColor.red,
+                                                 .backgroundColor: PlatformColor.yellow]),
+            (NSRange(location: 20, length: 10), [.foregroundColor: PlatformColor.green]),
+            (NSRange(location: 20, length: 5), [.foregroundColor: PlatformColor.blue]),
             // Emitted last but starting FIRST: sorting by start alone would let the
             // green above overwrite it, so the index has to carry the original order.
-            (NSRange(location: 18, length: 6), [.foregroundColor: NSColor.orange])
+            (NSRange(location: 18, length: 6), [.foregroundColor: PlatformColor.orange])
         ]
         let indexed = applyIndexed(ranges, paragraphs: paragraphs, to: text)
         expectEquivalent(ranges, paragraphs: paragraphs, text: text)
-        #expect(indexed.attribute(.foregroundColor, at: 22, effectiveRange: nil) as? NSColor == .orange)
-        #expect(indexed.attribute(.foregroundColor, at: 27, effectiveRange: nil) as? NSColor == .green)
-        #expect(indexed.attribute(.backgroundColor, at: 27, effectiveRange: nil) as? NSColor == .yellow)
+        #expect(indexed.attribute(.foregroundColor, at: 22, effectiveRange: nil) as? PlatformColor == .orange)
+        #expect(indexed.attribute(.foregroundColor, at: 27, effectiveRange: nil) as? PlatformColor == .green)
+        #expect(indexed.attribute(.backgroundColor, at: 27, effectiveRange: nil) as? PlatformColor == .yellow)
     }
 
     @Test("Ranges entirely outside every paragraph are never applied")
@@ -121,15 +125,15 @@ struct RestyleApplyEquivalenceTests {
         // A gap at 30..<60 and everything past 80 is unstyled territory.
         let paragraphs = [NSRange(location: 0, length: 30), NSRange(location: 60, length: 20)]
         let ranges: [StyledRange] = [
-            (NSRange(location: 35, length: 10), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 85, length: 10), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 10, length: 5), [.foregroundColor: NSColor.blue])
+            (NSRange(location: 35, length: 10), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 85, length: 10), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 10, length: 5), [.foregroundColor: PlatformColor.blue])
         ]
         let indexed = applyIndexed(ranges, paragraphs: paragraphs, to: text)
         expectEquivalent(ranges, paragraphs: paragraphs, text: text)
         // The seed colour outside the paragraphs is untouched — proof nothing leaked.
-        #expect(indexed.attribute(.foregroundColor, at: 40, effectiveRange: nil) as? NSColor == .magenta)
-        #expect(indexed.attribute(.foregroundColor, at: 90, effectiveRange: nil) as? NSColor == .magenta)
+        #expect(indexed.attribute(.foregroundColor, at: 40, effectiveRange: nil) as? PlatformColor == .magenta)
+        #expect(indexed.attribute(.foregroundColor, at: 90, effectiveRange: nil) as? PlatformColor == .magenta)
     }
 
     @Test("Adjacent but non-overlapping ranges do not bleed across the seam")
@@ -137,13 +141,13 @@ struct RestyleApplyEquivalenceTests {
         let text = String(repeating: "w", count: 60)
         let paragraphs = tiled(count: 6, size: 10)
         let ranges: [StyledRange] = (0..<6).map {
-            (NSRange(location: $0 * 10, length: 10), [.foregroundColor: $0 % 2 == 0 ? NSColor.red : NSColor.blue])
+            (NSRange(location: $0 * 10, length: 10), [.foregroundColor: $0 % 2 == 0 ? PlatformColor.red : PlatformColor.blue])
         }
         expectEquivalent(ranges, paragraphs: paragraphs, text: text)
         // A range that ends exactly where the next paragraph starts.
         let touching: [StyledRange] = [
-            (NSRange(location: 0, length: 10), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 10, length: 10), [.foregroundColor: NSColor.blue])
+            (NSRange(location: 0, length: 10), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 10, length: 10), [.foregroundColor: PlatformColor.blue])
         ]
         expectEquivalent(touching, paragraphs: paragraphs, text: text)
     }
@@ -153,12 +157,12 @@ struct RestyleApplyEquivalenceTests {
         let text = String(repeating: "v", count: 60)
         let paragraphs = tiled(count: 6, size: 10)
         let ranges: [StyledRange] = [
-            (NSRange(location: 12, length: 0), [.foregroundColor: NSColor.red]),      // empty
-            (NSRange(location: 20, length: 0), [.foregroundColor: NSColor.red]),      // empty on a boundary
-            (NSRange(location: NSNotFound, length: 4), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 55, length: 999), [.foregroundColor: NSColor.green]),  // past the end
-            (NSRange(location: 30, length: Int.max - 5), [.backgroundColor: NSColor.gray]),  // end overflows
-            (NSRange(location: 4, length: 3), [.foregroundColor: NSColor.blue])
+            (NSRange(location: 12, length: 0), [.foregroundColor: PlatformColor.red]),      // empty
+            (NSRange(location: 20, length: 0), [.foregroundColor: PlatformColor.red]),      // empty on a boundary
+            (NSRange(location: NSNotFound, length: 4), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 55, length: 999), [.foregroundColor: PlatformColor.green]),  // past the end
+            (NSRange(location: 30, length: Int.max - 5), [.backgroundColor: PlatformColor.gray]),  // end overflows
+            (NSRange(location: 4, length: 3), [.foregroundColor: PlatformColor.blue])
         ]
         expectEquivalent(ranges, paragraphs: paragraphs, text: text)
     }
@@ -176,10 +180,10 @@ struct RestyleApplyEquivalenceTests {
             NSRange(location: 0, length: 20)
         ]
         let ranges: [StyledRange] = [
-            (NSRange(location: 20, length: 40), [.backgroundColor: NSColor.gray]),
-            (NSRange(location: 22, length: 30), [.foregroundColor: NSColor.orange]),
+            (NSRange(location: 20, length: 40), [.backgroundColor: PlatformColor.gray]),
+            (NSRange(location: 22, length: 30), [.foregroundColor: PlatformColor.orange]),
             (NSRange(location: 18, length: 8), [.underlineStyle: 1]),
-            (NSRange(location: 50, length: 20), [.foregroundColor: NSColor.purple])
+            (NSRange(location: 50, length: 20), [.foregroundColor: PlatformColor.purple])
         ]
         expectEquivalent(ranges, paragraphs: paragraphs, text: text)
     }
@@ -188,7 +192,7 @@ struct RestyleApplyEquivalenceTests {
     func randomisedEquivalence() {
         let length = 600
         let text = String(repeating: "m", count: length)
-        let colors: [NSColor] = [.red, .green, .blue, .orange, .purple]
+        let colors: [PlatformColor] = [.red, .green, .blue, .orange, .purple]
         // Deterministic generator: a failure must be reproducible from the seed.
         var seed: UInt64 = 0x9E3779B97F4A7C15
         func next(_ bound: Int) -> Int {
@@ -242,7 +246,7 @@ struct RestyleApplyEquivalenceTests {
         }
         for _ in 0..<25 {
             let ranges: [StyledRange] = (0..<200).map { _ in
-                (NSRange(location: next(400), length: next(30)), [.foregroundColor: NSColor.red])
+                (NSRange(location: next(400), length: next(30)), [.foregroundColor: PlatformColor.red])
             }
             var paragraphs = (0..<30).map { _ -> NSRange in
                 NSRange(location: next(400), length: next(40) + 1)

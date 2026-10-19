@@ -7,7 +7,11 @@
 
 // Applies base text styling and refreshes only changed sections so editing
 // stays smooth while Markdown formatting updates.
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 struct TextStylingService {
@@ -17,7 +21,7 @@ struct TextStylingService {
     }
 
     static func makeBaseTypingAttributes(
-        font: NSFont,
+        font: PlatformFont,
         paragraphStyle: NSParagraphStyle,
         theme: MarkdownEditorTheme = .default
     ) -> [NSAttributedString.Key: Any] {
@@ -33,8 +37,8 @@ struct TextStylingService {
         fontSize: CGFloat,
         layoutBridge: LayoutBridge? = nil,
         configuration: MarkdownEditorConfiguration = .default
-    ) -> (font: NSFont, style: NSMutableParagraphStyle) {
-        let baseFont = NSFont(name: fontName, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
+    ) -> (font: PlatformFont, style: NSMutableParagraphStyle) {
+        let baseFont = PlatformFont.named(fontName, size: fontSize) ?? PlatformFont.systemFont(ofSize: fontSize)
         let defaultLineHeight = layoutBridgeDefaultLineHeight(for: baseFont, using: layoutBridge)
         let paragraph = NSMutableParagraphStyle()
         paragraph.minimumLineHeight = ceil(defaultLineHeight) + configuration.paragraph.lineHeightExtraSpacing
@@ -52,10 +56,10 @@ struct TextStylingService {
 
     @discardableResult
     static func restyle(
-        textView: NSTextView,
+        textView: PlatformTextView,
         layoutBridge: LayoutBridge?,
         paragraphCandidates: [NSRange],
-        baseFont: NSFont,
+        baseFont: PlatformFont,
         paragraphStyle: NSMutableParagraphStyle,
         caretLocation: Int,
         selection: NSRange? = nil,
@@ -136,9 +140,9 @@ struct TextStylingService {
             layoutBridge?.removeTemporaryAttribute(.spellingState, forCharacterRange: disabledRange)
         }
 
-        textView.textStorage?.beginEditing()
+        textView.optionalTextStorage?.beginEditing()
         for disabledRange in spellingDisabledRanges {
-            textView.textStorage?.addAttribute(.spellingState, value: 0, range: disabledRange)
+            textView.optionalTextStorage?.addAttribute(.spellingState, value: 0, range: disabledRange)
         }
         let spellMs = Double(DispatchTime.now().uptimeNanoseconds - spellT0) / 1_000_000
         let attrT0 = DispatchTime.now().uptimeNanoseconds
@@ -152,7 +156,8 @@ struct TextStylingService {
             ],
             to: textView.textStorage
         )
-        textView.textStorage?.endEditing()
+        textView.optionalTextStorage?.endEditing()
+        (textView as? NativeTextView)?.fitLeadingCalloutPadding()
         let attrMs = Double(DispatchTime.now().uptimeNanoseconds - attrT0) / 1_000_000
         // No ensureLayout here:
         let evlT0 = DispatchTime.now().uptimeNanoseconds

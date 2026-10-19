@@ -7,14 +7,18 @@
 
 // Handles Markdown typing shortcuts, like continuing lists and keeping block
 // LaTeX on its own line while you type.
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 enum MarkdownInputHandler {
 
     /// `codeTokens` (codeBlock + inlineCode, from the keystroke's existing
     /// parse) answers "is the caret in code?" without the O(doc) document
     /// scan the handler otherwise runs on every space/Enter/Tab.
-    static func handleListInsertion(textView: NSTextView, affectedCharRange: NSRange, replacementString: String?, codeTokens: [MarkdownToken]? = nil) -> Bool {
+    static func handleListInsertion(textView: PlatformTextView, affectedCharRange: NSRange, replacementString: String?, codeTokens: [MarkdownToken]? = nil) -> Bool {
         let isInsideCodeBlock = codeTokens.map {
             MarkdownDetection.isInsideCodeBlock(location: affectedCharRange.location, codeTokens: $0)
         }
@@ -24,7 +28,7 @@ enum MarkdownInputHandler {
 
     // MARK: - Block LaTeX Auto-Wrap
 
-    private static func insertTextProgrammatically(_ textView: NSTextView, text: String, at range: NSRange, cursorAfter: Int) {
+    private static func insertTextProgrammatically(_ textView: PlatformTextView, text: String, at range: NSRange, cursorAfter: Int) {
         if let coord = textView.delegate as? NativeTextViewWrapper.Coordinator {
             coord.isProgrammaticEdit = true
             // Replaces a suppressed keystroke that never applied — reset its
@@ -32,7 +36,11 @@ enum MarkdownInputHandler {
             // tracked edit and textDidChange keeps the trusted fast paths.
             coord.pendingEditCount = 0
         }
+        #if os(macOS)
         textView.insertText(text, replacementRange: range)
+        #else
+        textView.replaceCharacters(in: range, with: text)
+        #endif
         if let coord = textView.delegate as? NativeTextViewWrapper.Coordinator {
             coord.isProgrammaticEdit = false
         }
@@ -41,7 +49,7 @@ enum MarkdownInputHandler {
 
     /// Keeps block LaTeX ($$...$$) on its own line by inserting newlines; returns true if handled.
     static func handleBlockLatexAutoWrap(
-        textView: NSTextView,
+        textView: PlatformTextView,
         affectedCharRange: NSRange,
         replacementString: String?,
         blockLatexTokens: [MarkdownToken]? = nil
@@ -70,7 +78,7 @@ enum MarkdownInputHandler {
     /// start or end of the table stays a normal newline, which is the only way
     /// out of a table that reaches the end of the document.
     static func handleTableCellNewline(
-        textView: NSTextView,
+        textView: PlatformTextView,
         affectedCharRange: NSRange,
         replacementString: String?,
         tableTokens: [MarkdownToken]
@@ -93,7 +101,7 @@ enum MarkdownInputHandler {
 
     /// Ensures image embeds (![[...]]) stay on their own line by automatically inserting newlines.
     static func handleImageEmbedAutoWrap(
-        textView: NSTextView,
+        textView: PlatformTextView,
         affectedCharRange: NSRange,
         replacementString: String?,
         imageEmbedTokens: [MarkdownToken]? = nil
@@ -113,7 +121,7 @@ enum MarkdownInputHandler {
 
     /// Shared auto-wrap logic: ensures a block-level token stays on its own line.
     private static func handleBlockAutoWrap(
-        textView: NSTextView,
+        textView: PlatformTextView,
         affectedCharRange: NSRange,
         replacementString: String?,
         tokens: [MarkdownToken]

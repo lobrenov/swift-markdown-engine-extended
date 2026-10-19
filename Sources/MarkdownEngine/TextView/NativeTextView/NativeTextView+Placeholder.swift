@@ -9,6 +9,7 @@
 //  animation, and scrolls with the content.
 //
 
+#if os(macOS)
 import AppKit
 
 /// Transparent, click-through label drawing the placeholder at the text
@@ -99,3 +100,4 @@ private extension NSRect {
             && abs(size.height - other.size.height) < 0.5
     }
 }
+#endif

@@ -10,7 +10,11 @@
 //  when the syntax highlighter signals an appearance change.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 extension NativeTextViewCoordinator {
     @objc func handleBoldNotification(_ notification: Notification) {
@@ -27,9 +31,7 @@ extension NativeTextViewCoordinator {
 
     @objc func handleHeadingNotification(_ notification: Notification) {
         guard let level = notification.userInfo?["level"] as? Int else { return }
-        let item = NSMenuItem()
-        item.tag = level
-        didMarkdownHeading(item)
+        didMarkdownHeading(level: level)
     }
 
     @objc func handleStrikethroughNotification(_ notification: Notification) {
@@ -71,7 +73,7 @@ extension NativeTextViewCoordinator {
     @objc func handleAppearanceChange(_ notification: Notification) {
         guard let tv = textView else { return }
         // Only react if the notification came from our own text view or from nil (system-wide)
-        if let sender = notification.object as? NSTextView, sender !== tv {
+        if let sender = notification.object as? PlatformTextView, sender !== tv {
             return
         }
         let fullRange = NSRange(location: 0, length: (tv.string as NSString).length)

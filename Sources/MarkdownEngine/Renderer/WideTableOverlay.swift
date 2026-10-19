@@ -7,6 +7,7 @@
 //  cache that defeats in-fragment custom scrolling.
 //
 
+#if os(macOS)
 import AppKit
 
 // MARK: - Faint scroller
@@ -48,19 +49,37 @@ final class WideTableOverlay: NSScrollView {
         }
     }
 
-    private let tableImageView: WideTableImageView
+    private let tableImageView: WideTableImageView?
 
     init(sourceID: Int, image: NSImage, ownerTextView: NativeTextView, anchorLocation: Int) {
         self.sourceID = sourceID
         self.anchorTextLocation = anchorLocation
         self.ownerTextView = ownerTextView
         self.tableImageView = WideTableImageView(frame: CGRect(origin: .zero, size: image.size))
-        tableImageView.image = image
-        tableImageView.imageScaling = .scaleNone
-        tableImageView.imageAlignment = .alignTopLeft
+        tableImageView?.image = image
+        tableImageView?.imageScaling = .scaleNone
+        tableImageView?.imageAlignment = .alignTopLeft
 
         super.init(frame: .zero)
+        configureScrolling()
+        documentView = tableImageView
+        tableImageView?.ownerOverlay = self
+        observeScrolling()
+    }
 
+    /// Fork: hosts a live table grid in the same scroll view.
+    init(sourceID: Int, grid: NSView, ownerTextView: NativeTextView) {
+        self.sourceID = sourceID
+        self.anchorTextLocation = 0
+        self.ownerTextView = ownerTextView
+        self.tableImageView = nil
+        super.init(frame: .zero)
+        configureScrolling()
+        documentView = grid
+        observeScrolling()
+    }
+
+    private func configureScrolling() {
         hasHorizontalScroller = true
         hasVerticalScroller = false
         // Auto-hide: only show the scroller when the table actually overflows.
@@ -77,10 +96,9 @@ final class WideTableOverlay: NSScrollView {
         usesPredominantAxisScrolling = true
         horizontalScroller?.controlSize = .small
         automaticallyAdjustsContentInsets = false
+    }
 
-        documentView = tableImageView
-        tableImageView.ownerOverlay = self
-
+    private func observeScrolling() {
         NotificationCenter.default.addObserver(
             self, selector: #selector(scrollOffsetDidChange),
             name: NSScrollView.didLiveScrollNotification, object: self
@@ -92,6 +110,14 @@ final class WideTableOverlay: NSScrollView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
+
+    /// Fork: a live table grid takes only its cells and grips; the rest of its frame (the margins) is the text's.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let grid = documentView as? TableGridView else { return super.hitTest(point) }
+        let hit = super.hitTest(point)
+        guard hit === self || hit === contentView || hit === grid else { return hit }
+        return grid.claims(grid.convert(point, from: superview)) ? grid : nil
+    }
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
@@ -120,10 +146,9 @@ final class WideTableOverlay: NSScrollView {
 
     /// Swap the rendered image after a restyle regenerated it.
     func updateImage(_ image: NSImage) {
-        if tableImageView.image !== image {
-            tableImageView.image = image
-            tableImageView.frame = CGRect(origin: .zero, size: image.size)
-        }
+        guard let tableImageView, tableImageView.image !== image else { return }
+        tableImageView.image = image
+        tableImageView.frame = CGRect(origin: .zero, size: image.size)
     }
 
     var horizontalOffset: CGFloat {
@@ -176,6 +201,23 @@ extension NativeTextView {
         layoutAlreadySettled: Bool = false,
         knownWideTableAnchorRanges: [NSRange]? = nil
     ) {
+        // Fork: live tables reconcile at once, so a cell's edit and its relayout are one step.
+        if configuration.liveTables {
+            // A table edit and the first grids reconcile at once; other restyles (typing elsewhere) once per turn.
+            if immediately || isEditingTableText || wideTableOverlays.isEmpty {
+                pendingWideTableOverlayUpdate = false
+                performTableGridUpdate()
+                return
+            }
+            if pendingWideTableOverlayUpdate { return }
+            pendingWideTableOverlayUpdate = true
+            RunLoop.main.perform(inModes: [.default, .eventTracking]) { [weak self] in
+                guard let self, self.pendingWideTableOverlayUpdate else { return }
+                self.pendingWideTableOverlayUpdate = false
+                self.performTableGridUpdate()
+            }
+            return
+        }
         if immediately || wideTableOverlays.isEmpty {
             pendingWideTableOverlayUpdate = false
             performWideTableOverlayUpdate(
@@ -355,5 +397,9 @@ extension NativeTextView {
     func removeAllWideTableOverlays() {
         for (_, overlay) in wideTableOverlays { overlay.removeFromSuperview() }
         wideTableOverlays.removeAll()
+        tableGridHeights.removeAll()
+        focusedTableCell = nil
+        coalescingTableEdit = nil
     }
 }
+#endif

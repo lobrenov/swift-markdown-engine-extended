@@ -13,6 +13,7 @@
 //  Pasteboard image inspection lives in `PasteboardImageReader.swift`.
 //
 
+#if os(macOS)
 import AppKit
 import UniformTypeIdentifiers
 
@@ -46,8 +47,31 @@ final class NativeTextView: NSTextView {
     var maxOverscrollPoints: CGFloat = MarkdownEditorConfiguration.default.overscroll.maxPoints
     var minOverscrollPoints: CGFloat = MarkdownEditorConfiguration.default.overscroll.minPoints
 
+    // MARK: Auto-closed pairs
+    /// Fork: the pairs whose closers typing steps over (`MarkdownAutoPairs`). Every applied edit
+    /// moves them; undo and redo forget them.
+    var autoPairs: [AutoPair] = []
+
+    override func shouldChangeText(inRanges affectedRanges: [NSValue], replacementStrings: [String]?) -> Bool {
+        // Fork: a live table's hidden source is edited through its cells (`+TableGrid`).
+        if affectedRanges.count == 1, let replacementStrings, replacementStrings.count == 1,
+           !allowsEdit(of: affectedRanges[0].rangeValue, replacement: replacementStrings[0]) { return false }
+        let allowed = super.shouldChangeText(inRanges: affectedRanges, replacementStrings: replacementStrings)
+        guard allowed, !autoPairs.isEmpty, let replacementStrings else { return allowed }
+        if undoManager?.isUndoing == true || undoManager?.isRedoing == true {
+            autoPairs = []
+        } else {
+            for (range, string) in zip(affectedRanges.map(\.rangeValue), replacementStrings).reversed() {
+                autoPairs = MarkdownAutoPairs.map(autoPairs, replacing: range, with: string.utf16.count)
+            }
+        }
+        return allowed
+    }
+
     // MARK: Editor wiring
     var onPasteImage: ((NSPasteboard) -> String?)?
+    /// Fork: the hovered image's `</>` button (`+ImageSourceButton`).
+    var imageSourceButton: ImageSourceButton?
     weak var layoutBridge: LayoutBridge?
     var baseFont: NSFont = NSFont.systemFont(ofSize: NSFont.systemFontSize)
 
@@ -69,12 +93,53 @@ final class NativeTextView: NSTextView {
     /// Called on every mouse-move with the event location in window coordinates.
     /// Return `true` to show the arrow cursor instead of the edit-mode I-beam.
     var isCursorExcluded: ((CGPoint) -> Bool)?
+    /// Fork: see ``NativeTextViewWrapper/onTaskMarkerMenu``.
+    var onTaskMarkerMenu: ((TaskMarkerMenuRequest) -> Void)?
+    /// Fork: see ``NativeTextViewWrapper/onCalloutMenu``.
+    var onCalloutMenu: ((CalloutMenuRequest) -> Void)?
+    /// Fork: the title line location of the callout whose menu is open.
+    var calloutMenuTarget: Int?
+    /// Fork: see ``NativeTextViewWrapper/onRightClickMenu``.
+    var onRightClickMenu: ((RightClickMenuRequest) -> Void)?
+    /// Fork: see ``NativeTextViewWrapper/onImageEmbed``.
+    var onImageEmbed: ((ImageEmbedRequest) -> Void)?
+    /// Fork: see ``NativeTextViewWrapper/onTagClick``.
+    var onTagClick: ((String) -> Void)?
+    /// Fork: the `![[ ]]` of the selected image, and of the image whose menu is open (`ImageEmbedHits.swift`).
+    var selectedImageEmbed: NSRange?
+    var imageEmbedMenuTarget: NSRange?
 
     // MARK: Wide-table overlay state
     /// Live NSScrollView per wide table; keyed by source-ID hash.
     var wideTableOverlays: [Int: WideTableOverlay] = [:]
     /// Persisted horizontal scroll offset per wide table; survives restyles.
     var tableHorizontalScrollOffsets: [Int: CGFloat] = [:]
+    /// Fork: each live grid's measured height by table ordinal, which the styler reserves (`+TableGrid`).
+    var tableGridHeights: [Int: CGFloat] = [:]
+    var isUpdatingTableGrids = false
+    /// Fork: a table edit is in progress, so its grid updates at once instead of on the next run-loop turn.
+    var isEditingTableText = false
+    /// Fork: a table cell's editor hides syntax like a read-only view until it has the keyboard.
+    var hidesSyntaxUnlessFocused = false
+    var hasEditingFocus = false
+    /// Fork: the table cell editor that has the keyboard (`+TableGrid`).
+    weak var focusedTableCell: TableCellEditor?
+    /// Fork: for a table cell's editor, the cell it is.
+    weak var tableCell: TableCellEditor?
+    /// Fork: the table edit whose typing the next typed edit in the same cell continues (`+TableGrid`).
+    var coalescingTableEdit: TableEdit?
+
+    /// Fork: a right-click on a task box offers its markers; on a drawn image, goes to `onImageEmbed`. Checked before super,
+    /// which moves the caret to the click — onto the box's line, revealing the raw `[ ]`.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        if let hit = taskCheckboxHit(for: event) { return taskMarkerMenu(for: hit) }
+        if showImageEmbedMenuIfHit(event: event) { return nil }
+        if let onCalloutMenu, let hit = calloutTitleHit(for: event) {
+            showCalloutMenu(for: hit, onCalloutMenu)
+            return nil
+        }
+        return super.menu(for: event)
+    }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -105,3 +170,4 @@ final class NativeTextView: NSTextView {
 
     deinit { caretIndicatorObservation?.invalidate() }
 }
+#endif

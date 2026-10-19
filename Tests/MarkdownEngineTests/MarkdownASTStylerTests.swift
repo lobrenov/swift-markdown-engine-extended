@@ -6,7 +6,12 @@
 //  of overwriting them (the flat 18-pass styler's flaw).
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine
@@ -15,7 +20,7 @@ import Testing
 struct MarkdownASTStylerTests {
 
     private let base: CGFloat = 14
-    private var fontName: String { NSFont.systemFont(ofSize: 14).fontName }
+    private var fontName: String { PlatformFont.systemFont(ofSize: 14).fontName }
 
     @MainActor
     @Test("scoped styling of a continuous list emits only intersecting ranges")
@@ -91,10 +96,10 @@ struct MarkdownASTStylerTests {
     }
 
     /// Effective font at `pos`: the last styled range covering it that sets `.font`.
-    private func font(in attrs: [StyledRange], at pos: Int) -> NSFont? {
-        var result: NSFont?
+    private func font(in attrs: [StyledRange], at pos: Int) -> PlatformFont? {
+        var result: PlatformFont?
         for (range, a) in attrs where NSLocationInRange(pos, range) {
-            if let f = a[.font] as? NSFont { result = f }
+            if let f = a[.font] as? PlatformFont { result = f }
         }
         return result
     }
@@ -209,10 +214,10 @@ struct MarkdownASTStylerTests {
     }
 
     /// Effective color at `pos`: the last styled range covering it that sets `.foregroundColor`.
-    private func color(in attrs: [StyledRange], at pos: Int) -> NSColor? {
-        var result: NSColor?
+    private func color(in attrs: [StyledRange], at pos: Int) -> PlatformColor? {
+        var result: PlatformColor?
         for (range, a) in attrs where NSLocationInRange(pos, range) {
-            if let c = a[.foregroundColor] as? NSColor { result = c }
+            if let c = a[.foregroundColor] as? PlatformColor { result = c }
         }
         return result
     }
@@ -220,10 +225,10 @@ struct MarkdownASTStylerTests {
     /// Whether the last `.font` attribute covering `pos` is the hidden marker font.
     private func isHiddenMarkerFont(in attrs: [StyledRange], at pos: Int, configuration: MarkdownEditorConfiguration = .default) -> Bool {
         let hiddenSize = configuration.markers.hiddenMarkerFontSize
-        let hiddenFont = NSFont(name: fontName, size: hiddenSize) ?? .systemFont(ofSize: hiddenSize)
-        var result: NSFont?
+        let hiddenFont = PlatformFont(name: fontName, size: hiddenSize) ?? .systemFont(ofSize: hiddenSize)
+        var result: PlatformFont?
         for (range, a) in attrs where NSLocationInRange(pos, range) {
-            if let f = a[.font] as? NSFont { result = f }
+            if let f = a[.font] as? PlatformFont { result = f }
         }
         return result?.pointSize == hiddenFont.pointSize
     }
@@ -298,8 +303,8 @@ struct MarkdownASTStylerTests {
 struct TaskCheckboxGeometryStylerTests {
 
     private let base: CGFloat = 14
-    private var fontName: String { NSFont.systemFont(ofSize: 14).fontName }
-    private var baseFont: NSFont { NSFont(name: fontName, size: base) ?? .systemFont(ofSize: base) }
+    private var fontName: String { PlatformFont.systemFont(ofSize: 14).fontName }
+    private var baseFont: PlatformFont { PlatformFont(name: fontName, size: base) ?? .systemFont(ofSize: base) }
     private var hiddenSize: CGFloat { MarkdownEditorConfiguration.default.markers.hiddenMarkerFontSize }
     private var indentPerLevel: CGFloat { MarkdownEditorConfiguration.default.lists.indentPerLevel }
 
@@ -309,10 +314,10 @@ struct TaskCheckboxGeometryStylerTests {
     }
 
     /// Effective font at `pos`: the last styled range covering it that sets `.font`.
-    private func font(in attrs: [StyledRange], at pos: Int) -> NSFont? {
-        var result: NSFont?
+    private func font(in attrs: [StyledRange], at pos: Int) -> PlatformFont? {
+        var result: PlatformFont?
         for (range, a) in attrs where NSLocationInRange(pos, range) {
-            if let f = a[.font] as? NSFont { result = f }
+            if let f = a[.font] as? PlatformFont { result = f }
         }
         return result
     }
@@ -330,7 +335,7 @@ struct TaskCheckboxGeometryStylerTests {
         MarkdownASTStyler.styleAttributes(text: text, fontName: fontName, fontSize: base, caretLocation: caret)
     }
 
-    @Test("hidden task: [ ] collapses to the hidden font and indent equals a bullet's")
+    @Test("hidden task: [ ] collapses to the hidden font and indent fits the box (Fork)")
     func hiddenTaskSharesBulletIndent() {
         // "- [ ] task": marker 0..1, spacer 1..2, box 2..5, gap 5..6, content 6...
         let attrs = style("- [ ] task")
@@ -345,14 +350,18 @@ struct TaskCheckboxGeometryStylerTests {
         #expect(font(in: attrs, at: 0)?.pointSize != hiddenSize)
         #expect(font(in: attrs, at: 1)?.pointSize != hiddenSize)
 
-        // Hanging indent measures only "- " — identical to a bullet item.
+        // Fork: the "- " slot widens to fit the box plus its gap, so wrapped
+        // lines hang under the content, which now starts right of a bullet's.
         let taskIndent = headIndent(in: attrs, at: 0)
-        let expected = indentPerLevel + width("- ")
+        let checkbox = TaskCheckboxStyle.default
+        let boxSlot = TaskCheckboxGeometry.size(for: PlatformFont(name: fontName, size: base) ?? .systemFont(ofSize: base),
+                                                style: checkbox) + checkbox.contentGap
+        let expected = indentPerLevel + max(width("- "), boxSlot)
         #expect(taskIndent != nil)
         #expect(abs((taskIndent ?? -1) - expected) < 0.01)
 
         let bulletIndent = headIndent(in: style("- task"), at: 0)
-        #expect(taskIndent == bulletIndent)
+        #expect((taskIndent ?? 0) > (bulletIndent ?? 0))
 
         // [x] hits the identical collapse branch as [ ].
         #expect(headIndent(in: style("- [x] task"), at: 0) == taskIndent)
@@ -395,3 +404,4 @@ private func styleKeySnapshot(_ ranges: [StyledRange]) -> String {
 private func fmt(_ r: NSRange) -> String {
     r.location == NSNotFound ? "∅" : "\(r.location)+\(r.length)"
 }
+#endif

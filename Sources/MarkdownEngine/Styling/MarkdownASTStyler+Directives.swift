@@ -23,7 +23,11 @@
 //  restyle its own body at worst.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 extension MarkdownASTStyler {
@@ -36,10 +40,10 @@ extension MarkdownASTStyler {
     /// no body, and their glyph presentation lands in Phase 3.
     static func directiveBodyFont(
         for node: ExtensionInlineNode,
-        font: NSFont,
+        font: PlatformFont,
         ctx: Ctx,
         into attrs: inout [StyledRange]
-    ) -> NSFont? {
+    ) -> PlatformFont? {
         guard let directiveID = DirectiveRegistry.directiveID(forNodeID: node.extensionID) else { return nil }
         // Linear scan, not a dictionary build: registries hold a handful of
         // directives and this runs per directive NODE per restyle, so the

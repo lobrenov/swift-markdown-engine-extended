@@ -8,7 +8,12 @@
 //  is the only line break a cell has — a row IS one source line.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Testing
 @testable import MarkdownEngine
 
@@ -51,7 +56,7 @@ struct TableCellSourceTests {
     @Test func aCellBrokenByBrMakesItsRowTaller() throws {
         func height(_ source: String) throws -> CGFloat {
             let parsed = try #require(MarkdownStyler.parseTableSource(source))
-            let font = NSFont.systemFont(ofSize: 15)
+            let font = PlatformFont.systemFont(ofSize: 15)
             var ctx = MarkdownStyler.StylingContext(
                 nsText: source as NSString,
                 tokens: [], codeTokens: [], activeTokenIndices: [],
@@ -72,8 +77,8 @@ struct TableCellSourceTests {
 
     // MARK: - Return inside a row
 
-    private func textView(_ text: String) -> NSTextView {
-        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+    private func textView(_ text: String) -> PlatformTextView {
+        let tv = PlatformTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
         tv.string = text
         return tv
     }
@@ -127,3 +132,4 @@ struct TableCellSourceTests {
         #expect(tv.string == source)
     }
 }
+#endif

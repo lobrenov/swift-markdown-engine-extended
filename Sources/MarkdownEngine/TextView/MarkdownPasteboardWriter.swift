@@ -12,6 +12,7 @@
 //  keep the raw markdown itself as the plain-text flavor.
 //
 
+#if os(macOS)
 import AppKit
 
 enum MarkdownPasteboardWriter {
@@ -107,3 +108,4 @@ enum MarkdownPasteboardWriter {
         )
     }
 }
+#endif

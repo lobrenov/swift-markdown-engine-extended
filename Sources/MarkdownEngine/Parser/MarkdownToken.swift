@@ -7,7 +7,11 @@
 
 // Defines the basic Markdown building blocks the editor works with (bold,
 // links, code, LaTeX, etc.), plus shared text attributes.
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 extension NSAttributedString.Key {
@@ -33,6 +37,8 @@ enum MarkdownTokenKind: Equatable {
     case table
     /// A CommonMark backslash escape; marker is the `\`, content the escaped literal char.
     case backslashEscape
+    /// Fork: a `#tag`; marker is the `#`.
+    case tag
     /// A span contributed by a registered `MarkdownExtension`,
     /// carrying the extension's id (e.g. `.extensionSpan("highlight")`).
     case extensionSpan(String)

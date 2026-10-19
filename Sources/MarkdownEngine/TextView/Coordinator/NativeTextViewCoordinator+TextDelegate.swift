@@ -4,39 +4,48 @@
 //
 //  Created by Luca Chen on 16.03.26.
 //
-//  The hot NSTextViewDelegate path: keystroke handling, selection-change
-//  reaction, link-click forwarding, and the typing-attributes shim that
-//  prevents AppKit from leaking heading paragraphStyle into the trailing
-//  extra-line fragment. Restyle scoping (which paragraphs to re-tokenize on
+//  The hot text-delegate path, shared by AppKit and UIKit: keystroke handling
+//  and selection-change reaction. The platform delegate methods that call it
+//  are in `+AppKitDelegate.swift` and `iOS/NativeTextViewCoordinatorIOS.swift`. Restyle scoping (which paragraphs to re-tokenize on
 //  each event) lives here too — it sets up the inputs that
 //  `+Restyling.swift` then consumes.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 extension NativeTextViewCoordinator {
 
     /// The complete leading syntax whose mutation can change list membership,
     /// indentation, or the positional numbering of following ordered items.
     private static let listStructurePrefixRegex = try! NSRegularExpression(
-        pattern: #"^[ \t]*(?:(?:\d+[.)])|[-•*+])(?:[ \t]+\[[ xX]\])?[ \t]+"#
+        pattern: #"^[ \t]*(?:(?:\d+[.)])|[-•*+])(?:[ \t]+"# + TaskMarker.boxPattern + #")?[ \t]+"#
     )
 
     /// Supplies a per-document `UndoManager` to the text view.
     ///
-    /// AppKit reuses one `NSTextView` across every open document, so the built-in
+    /// AppKit reuses one `PlatformTextView` across every open document, so the built-in
     /// view-wide undo manager would blend files together (and used to be wiped on
     /// each switch). Returning a manager keyed on the current `documentId` gives
     /// each file its own undo stack that survives switching away and back.
     /// Returning the *same* instance for a given document on every call is
     /// required — a fresh manager per call breaks undo.
-    public func undoManager(for view: NSTextView) -> UndoManager? {
+    func undoManager(forDocument documentId: String?) -> UndoManager {
         let key = documentId ?? "__default__"
         if let existing = undoManagers[key] {
             return existing
         }
         let manager = UndoManager()
         undoManagers[key] = manager
+        #if os(macOS)
+        // Fork: see `undoManagerDidUndoOrRedo`.
+        for name in [Notification.Name.NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange] {
+            NotificationCenter.default.addObserver(self, selector: #selector(undoManagerDidUndoOrRedo(_:)), name: name, object: manager)
+        }
+        #endif
         return manager
     }
 
@@ -53,29 +62,9 @@ extension NativeTextViewCoordinator {
         return true
     }
 
-    /// Force base typingAttributes on every change so AppKit's auto-inheritance
-    /// can't bleed a heading paragraphStyle into the trailing extra-line
-    /// fragment's metrics.
-    public func textView(
-        _ textView: NSTextView,
-        shouldChangeTypingAttributes oldTypingAttributes: [String: Any],
-        toAttributes newTypingAttributes: [NSAttributedString.Key: Any]
-    ) -> [NSAttributedString.Key: Any] {
-        let (baseFont, baseParagraphStyle) = TextStylingService.makeBaseFontAndStyle(
-            fontName: fontName,
-            fontSize: fontSize,
-            layoutBridge: layoutBridge,
-            configuration: configuration
-        )
-        var result = newTypingAttributes
-        result[.paragraphStyle] = baseParagraphStyle
-        result[.font] = baseFont
-        result[.foregroundColor] = configuration.theme.bodyText
-        return result
-    }
-
-    public func textDidChange(_ notification: Notification) {
-        guard let tv = notification.object as? NSTextView else { return }
+    func textDidChange(in tv: PlatformTextView) {
+        // Fork: see `undoManagerDidUndoOrRedo`.
+        if tv.undoManager?.isUndoing == true || tv.undoManager?.isRedoing == true { sawUndoRedoTextChange = true }
         PerfTrace.checkpoint("didIn")
         let completedTextMutation = pendingEditCount == 1
             ? pendingTextMutation
@@ -84,7 +73,9 @@ extension NativeTextViewCoordinator {
         // Typing means the reader is here, so an unlanded restore must not fire.
         pendingScrollRestoreDocumentId = nil
         // Before the early returns: the first keystroke must hide the placeholder.
+        #if os(macOS)
         (tv as? NativeTextView)?.refreshPlaceholderVisibility()
+        #endif
         // Raw mode: display IS storage — sync the binding, skip the restyle.
         if configuration.rawSourceMode {
             pendingEditCount = 0
@@ -92,16 +83,15 @@ extension NativeTextViewCoordinator {
             guard !tv.hasMarkedText() else { return }
             if tv.string != lastSyncedText {
                 let rawText = tv.string
-                DispatchQueue.main.async {
-                    self.lastSyncedText = rawText
-                    self.text = rawText
-                }
+                publish(rawText)
             }
+            #if os(macOS)
             if let bottomTextView = tv as? NativeTextView,
                let scrollView = tv.enclosingScrollView {
                 bottomTextView.recalcOverscroll(for: scrollView, debugTag: "textDidChange")
                 (scrollView as? ClampedScrollView)?.clampToInsets()
             }
+            #endif
             if let completedTextMutation {
                 onTextMutation?(completedTextMutation)
             }
@@ -109,7 +99,7 @@ extension NativeTextViewCoordinator {
         }
         let wtActive = isWritingToolsActive
         if wtActive, wtDetectedMode == .unknown {
-            let firstEditLen = tv.textStorage?.editedRange.length ?? 0
+            let firstEditLen = tv.optionalTextStorage?.editedRange.length ?? 0
             if let sel = wtInitialSelectionRange, sel.length > 0 {
                 let threshold = max(10, Int(Double(sel.length) * 0.6))
                 wtDetectedMode = firstEditLen >= threshold ? .rewrite : .proofread
@@ -120,17 +110,18 @@ extension NativeTextViewCoordinator {
         if wtActive && wtDetectedMode == .proofread { return }
 
 
-        let rawSelRange = tv.selectedRange()
+        let rawSelRange = tv.currentSelectedRange
         let docString = tv.string
         let fullText = docString as NSString
         let fullLength = fullText.length
-        // NSTextView's undo machinery can mutate storage without replaying
+        // PlatformTextView's undo machinery can mutate storage without replaying
         // shouldChangeTextIn. Treat an in-flight undo/redo as structural when
         // it intersects an ordered run below; this preserves numbering while
         // ordinary content keystrokes retain their narrow paragraph scope.
         let activeUndoManager = undoManagers[documentId ?? "__default__"]
         let isUndoRedo = activeUndoManager?.isUndoing == true
             || activeUndoManager?.isRedoing == true
+            || isReplayingUndoRedo
         guard !tv.hasMarkedText() else { return }
         let safeLocation = min(rawSelRange.location, fullLength)
         let safeSelRange = NSRange(location: safeLocation, length: 0)
@@ -140,7 +131,7 @@ extension NativeTextViewCoordinator {
 
         // Edit descriptor, hoisted above the wiki sync so both it and the
         // paragraph scoping below share it.
-        let editedRange = pendingEditedRange ?? tv.textStorage?.editedRange ?? safeSelRange
+        let editedRange = pendingEditedRange ?? tv.optionalTextStorage?.editedRange ?? safeSelRange
         pendingEditedRange = nil
         // Exactly one proposed edit since the last completed cycle means the
         // descriptor describes THIS transition; anything else (interceptor
@@ -196,10 +187,7 @@ extension NativeTextViewCoordinator {
             }
 #endif
             if storageState.storage != self.lastSyncedText {
-                DispatchQueue.main.async {
-                    self.lastSyncedText = storageState.storage
-                    self.text = storageState.storage
-                }
+                publish(storageState.storage)
             }
         }
 
@@ -245,12 +233,11 @@ extension NativeTextViewCoordinator {
         let tokens = parsed.tokens
         let codeTokens = parsed.codeTokens
         let latexTokens = parsed.latexTokens
-        let blockLatexTokens = parsed.blockLatexTokens
         let preEditActiveTokenIndices = pendingPreEditActiveTokenIndices ?? previousActiveTokenIndices
         pendingPreEditActiveTokenIndices = nil
 
         activeTokenIndices = PerfTrace.measure("activeTok") {
-            activeTokenIndices(parsed: parsed, selection: safeSelRange, in: fullText, suppressed: !tv.isEditable)
+            activeTokenIndices(parsed: parsed, selection: safeSelRange, in: fullText, suppressed: !tv.revealsSyntax)
         }
         filterImageEmbedActiveTokens(parsed: parsed, text: fullText, selectionLocation: safeSelRange.location)
         updateAutocorrectSettings(
@@ -365,6 +352,7 @@ extension NativeTextViewCoordinator {
             PerfTrace.end()
             return
         }
+        #if os(macOS)
         PerfTrace.measure("overscroll") {
             if let bottomTextView = tv as? NativeTextView,
                let scrollView = tv.enclosingScrollView {
@@ -372,15 +360,22 @@ extension NativeTextViewCoordinator {
                 (scrollView as? ClampedScrollView)?.clampToInsets()
             }
         }
+        #endif
         previousActiveTokenIndices = activeTokenIndices
         if let completedTextMutation {
             onTextMutation?(completedTextMutation)
         }
+        onDisplayTextChange?(docString)
         PerfTrace.end()
     }
 
-    public func textViewDidChangeSelection(_ notification: Notification) {
-        guard let tv = notification.object as? NSTextView else { return }
+    func selectionDidChange(in tv: PlatformTextView) {
+        // Fork: a table cell's layout may follow its caret (a span's syntax shows or hides), once the restyle ran.
+        if let onSelectionChange { DispatchQueue.main.async(execute: onSelectionChange) }
+        // Fork: forget auto-closed pairs the caret has left.
+        if let native = tv as? NativeTextView, !native.autoPairs.isEmpty {
+            native.autoPairs = MarkdownAutoPairs.keeping(native.autoPairs, selection: tv.currentSelectedRange)
+        }
         // Raw mode: plain source — no reveal, snap-back, or inline previews.
         if configuration.rawSourceMode { return }
         if isWritingToolsActive { return }
@@ -395,8 +390,16 @@ extension NativeTextViewCoordinator {
         // one surviving side effect (updateAutocorrectSettings + selection bookkeeping) at
         // its end.
         if isRebuildingDocument { return }
-        let selRange = tv.selectedRange()
-        let currentEventType = NSApp.currentEvent?.type
+        // Fork: keep the slash menu's query in step with the caret, and the caret out of a drawn image.
+        snapCaretOutOfImageEmbed(in: tv)
+        snapCaretOutOfTable(in: tv)
+        updateSelectedImageEmbed(in: tv)
+        #if os(macOS)
+        (tv as? NativeTextView)?.hideImageSourceButton()
+        #endif
+        updateSlashCommand(in: tv)
+        let selRange = tv.currentSelectedRange
+        let currentInput = currentInputKind(of: tv)
         // ONE bridge of the document text — this handler fires on every
         // keystroke (mid-edit) and every caret move, and used to re-copy
         // `tv.string` (O(doc) each) at a dozen separate sites below. The
@@ -404,9 +407,9 @@ extension NativeTextViewCoordinator {
         let docText = tv.string
         let nsText = docText as NSString
         // Mouse-/Wake-Fokus auf Link: kein Preview, erst Navigation. Gilt für alle Nicht-Key-Events.
-        if currentEventType != .keyDown,
+        if currentInput != .key,
            selRange.location < nsText.length,
-           tv.textStorage?.attribute(.link, at: selRange.location, effectiveRange: nil) != nil {
+           tv.optionalTextStorage?.attribute(.link, at: selRange.location, effectiveRange: nil) != nil {
             isImageEmbedActive = false
             isWikiLinkActive = false
             onInlineSelectionChange?(nil)
@@ -431,11 +434,10 @@ extension NativeTextViewCoordinator {
         let tokens = parsed.tokens
         let codeTokens = parsed.codeTokens
         let latexTokens = parsed.latexTokens
-        let blockLatexTokens = parsed.blockLatexTokens
 
         let prevActive = activeTokenIndices
         PerfTrace.measure("selActive") {
-            activeTokenIndices = activeTokenIndices(parsed: parsed, selection: selRange, in: nsText, suppressed: !tv.isEditable)
+            activeTokenIndices = activeTokenIndices(parsed: parsed, selection: selRange, in: nsText, suppressed: !tv.revealsSyntax)
             filterImageEmbedActiveTokens(parsed: parsed, text: nsText, selectionLocation: selRange.location)
         }
 
@@ -453,7 +455,7 @@ extension NativeTextViewCoordinator {
 
         // Snap-back: when the caret LEFT a wiki/image token, re-sync its displayed name to the live target name.
         if selRange.length == 0,
-           currentEventType != .leftMouseDragged, currentEventType != .periodic,
+           currentInput != .drag,
            !isProgrammaticEdit, !tv.hasMarkedText() {
             let leftTokens = prevActive.subtracting(activeTokenIndices)
             for idx in leftTokens.sorted() where idx >= 0 && idx < tokens.count {
@@ -555,7 +557,7 @@ extension NativeTextViewCoordinator {
             && ((previousSelectedRange?.length ?? 0) > 0 || selRange.length > 0)
             && (paragraphsTouchRevealSyntax(previousSelectedRange) || paragraphsTouchRevealSyntax(selRange))
         // Mid-drag restyle is suppressed (revealing markers shifts the layout → drag hit-test lands short, dropping trailing chars) and replayed on release.
-        let isDragSelecting = currentEventType == .leftMouseDragged || currentEventType == .periodic
+        let isDragSelecting = currentInput == .drag
         if shouldSkipSelectionRestyle {
             needsRestyleAfterDrag = false // textDidChange restyles this edit cycle.
         } else if isDragSelecting {
@@ -611,8 +613,7 @@ extension NativeTextViewCoordinator {
 
         // Auto-select content when clicking (mouse) into a rendered (previously inactive) latex or image embed
         if selRange.length == 0,
-           let eventType = currentEventType,
-           eventType == .leftMouseUp || eventType == .leftMouseDown {
+           currentInput == .click {
             let newlyActive = activeTokenIndices.subtracting(previousActiveTokenIndices)
             for idx in newlyActive {
                 let token = tokens[idx]
@@ -631,7 +632,7 @@ extension NativeTextViewCoordinator {
 
         // Text unchanged past this point (the snap-back branch returned above);
         // only the selection may have moved.
-        let selLocation = tv.selectedRange().location
+        let selLocation = tv.currentSelectedRange.location
         let inlineContext = PerfTrace.measure("selCtx") {
             inlineTokenContext(
                 at: selLocation,
@@ -652,7 +653,7 @@ extension NativeTextViewCoordinator {
             return selLocation >= start && selLocation <= end
         }()
 
-        let isTyping = currentEventType == .keyDown
+        let isTyping = currentInput == .key
         let imageEmbedShowsInlinePreview = isInsideImageEmbedContent && isTyping
         var inlineSelectionState: InlineSelectionState? = nil
         if let inlineContext {
@@ -676,7 +677,7 @@ extension NativeTextViewCoordinator {
                 ? storageRange(containingDisplayLocation: selLocation) ?? storageRange(forDisplayRange: displayRange)
                 : nil
             let previewRect = tv.viewRect(forCharacterRange: displayRange, using: layoutBridge)
-                ?? tv.viewRect(forCharacterRange: tv.selectedRange(), using: layoutBridge)
+                ?? tv.viewRect(forCharacterRange: tv.currentSelectedRange, using: layoutBridge)
 
             // Only autocomplete while TYPING — not when the caret merely lands in an existing link via
             // a click (mirrors the image-embed gate). Clicking into a complete [[Name]] shouldn't pop
@@ -816,7 +817,7 @@ extension NativeTextViewCoordinator {
         return count
     }
 
-    public func textView(_ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?) -> Bool {
+    func shouldChangeText(in textView: PlatformTextView, affectedCharRange: NSRange, replacementString: String?) -> Bool {
         // ONE bridge of the pre-edit text — every `textView.string` read is an
         // O(doc) copy of the mutable backing store; this function used to take
         // four of them per keystroke.
@@ -898,11 +899,16 @@ extension NativeTextViewCoordinator {
             return true
         }
         guard let parsed = preEditParsed else { return true }
+        // Fork: a typed `/`, `[[` or `![[` may open the slash or link menu.
+        noteSlashCommandEdit(affectedCharRange, replacement: replacementString, in: preNS, codeTokens: parsed.codeTokens)
+        defer { isOpeningSlashCommand = false }
+        // Fork: ⌫ after a drawn image removes it whole.
+        if deleteImageEmbedIfAdjacent(affectedCharRange, replacement: replacementString, in: textView) { return false }
         pendingPreEditActiveTokenIndices = activeTokenIndices(
             parsed: parsed,
-            selection: textView.selectedRange(),
+            selection: textView.currentSelectedRange,
             in: preNS,
-            suppressed: !textView.isEditable
+            suppressed: !textView.revealsSyntax
         )
 
         defer { PerfTrace.checkpoint("shouldOut") }
@@ -940,102 +946,9 @@ extension NativeTextViewCoordinator {
         }
     }
 
-    public func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        // Raw mode: default key handling (no ⇧⇥ outdent, no preview routing).
-        if configuration.rawSourceMode { return false }
-        if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
-            return handleBacktab(textView)
-        }
-        // While an inline [[…]] / ![[…]] preview is open, route ↑/↓/Enter/Esc to the embedder's
-        // autocomplete list (it returns true to consume the key; false → normal editor handling).
-        if (isWikiLinkActive || isImageEmbedActive), let handler = onInlinePreviewKey {
-            let key: InlinePreviewKey?
-            switch commandSelector {
-            case #selector(NSResponder.moveUp(_:)): key = .moveUp
-            case #selector(NSResponder.moveDown(_:)): key = .moveDown
-            case #selector(NSResponder.insertNewline(_:)): key = .confirm   // ⌘↵ → handled in performKeyEquivalent
-            case #selector(NSResponder.cancelOperation(_:)): key = .cancel
-            default: key = nil
-            }
-            if let key, handler(key) { return true }
-        }
-        return false
-    }
-
-    public func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
-        // Record that the delegate ran this press, so mouseDown's fallback knows
-        // AppKit didn't drop the dispatch.
-        (textView as? NativeTextView)?.linkClickDidFire = true
-        // Edit zone: a click on the outer ~30% of a link's first/last visible char places the caret
-        // just outside the markers (before '[[' / '[' , after ']]' / ')') to reveal the source for
-        // editing instead of navigating. Applies to both wiki links [[…]] and web links [text](url).
-        // Editable views only — read-only links must stay navigable.
-        if textView.isEditable, let storage = textView.textStorage {
-            var linkRange = NSRange(location: NSNotFound, length: 0)
-            let editZoneMinNameLength = 3   // 1–2 char names stay fully clickable for navigation
-            if storage.attribute(.link, at: charIndex, longestEffectiveRange: &linkRange,
-                                 in: NSRange(location: 0, length: storage.length)) != nil,
-               linkRange.length >= editZoneMinNameLength {
-                // Caret lands on the token's outer markers ('[['/'[' or ']]'/')'), which carry no
-                // .link, so the mouse-on-link guard in textViewDidChangeSelection doesn't suppress
-                // the reveal. Web links (.link) get the same edit zone as wiki links (.wikiLink); the
-                // .link attribute only spans the visible text, so without the full token range a web
-                // link would drop the caret between its brackets instead of just outside them.
-                let token = parsedDocument(for: textView.string).tokens
-                    .first { ($0.kind == .wikiLink || $0.kind == .link) && NSLocationInRange(charIndex, $0.range) }
-                let edgeFraction: CGFloat = 0.3
-                let frac = clickFractionThroughGlyph(textView, charIndex: charIndex)
-                if charIndex == linkRange.location, frac.map({ $0 <= edgeFraction }) ?? true {
-                    let caret = token?.range.location ?? linkRange.location          // before '[[' / '['
-                    textView.setSelectedRange(NSRange(location: caret, length: 0))
-                    return true
-                }
-                if charIndex == NSMaxRange(linkRange) - 1, frac.map({ $0 >= 1 - edgeFraction }) ?? true {
-                    let caret = token.map { NSMaxRange($0.range) } ?? NSMaxRange(linkRange)  // after ']]' / ')'
-                    textView.setSelectedRange(NSRange(location: caret, length: 0))
-                    return true
-                }
-            }
-        }
-        guard let target = WikiLinkService.resolveIdentifier(link: link, textView: textView, at: charIndex) else {
-            // Web link (URL-valued): returning false lets AppKit open the URL
-            // (the mouseDown fallback mirrors that). Opening a link is navigation
-            // too — flag it so mouseDown restores the pre-click caret.
-            (textView as? NativeTextView)?.linkClickDidNavigate = true
-            return false
-        }
-        // Direkt deaktivieren, bevor der Navigation-Callback läuft.
-        (textView as? NativeTextView)?.linkClickDidNavigate = true
-        self.isWikiLinkActive = false
-        DispatchQueue.main.async {
-            self.onLinkClick?(target)
-        }
-        return true
-    }
-
-    /// Horizontal fraction (0 = leading, 1 = trailing) of the current click through the glyph at
-    /// `charIndex`, or nil if unresolved. Coordinates mirror NativeTextView+CursorRects.
-    private func clickFractionThroughGlyph(_ textView: NSTextView, charIndex: Int) -> CGFloat? {
-        guard let event = NSApp.currentEvent,
-              let tlm = textView.textLayoutManager,
-              let tcm = tlm.textContentManager,
-              let start = tcm.location(tlm.documentRange.location, offsetBy: charIndex),
-              let end = tcm.location(start, offsetBy: 1),
-              let range = NSTextRange(location: start, end: end) else { return nil }
-        let viewPoint = textView.convert(event.locationInWindow, from: nil)
-        let containerX = viewPoint.x - textView.textContainerOrigin.x
-        var glyphFrame: CGRect?
-        tlm.enumerateTextSegments(in: range, type: .standard, options: []) { _, segFrame, _, _ in
-            glyphFrame = segFrame
-            return false
-        }
-        guard let f = glyphFrame, f.width > 0 else { return nil }
-        return (containerX - f.minX) / f.width
-    }
-
-    func updateSelectionStates(_ tv: NSTextView, nsText: NSString? = nil) {
+    func updateSelectionStates(_ tv: PlatformTextView, nsText: NSString? = nil) {
         let nsText = nsText ?? (tv.string as NSString)
-        let selRange = tv.selectedRange()
+        let selRange = tv.currentSelectedRange
         let bus = configuration.services.bus
         let center = NotificationCenter.default
         if let name = bus.selectionBoldDidChange {
@@ -1058,9 +971,11 @@ extension NativeTextViewCoordinator {
         }
     }
 
-    func handleBacktab(_ textView: NSTextView) -> Bool {
+    func handleBacktab(_ textView: PlatformTextView) -> Bool {
+        // Fork: every selected list line (and its children).
+        if MarkdownLists.outdentListLines(textView, selection: textView.currentSelectedRange) != nil { return true }
         let nsText = textView.string as NSString
-        let caretLoc = textView.selectedRange().location
+        let caretLoc = textView.currentSelectedRange.location
         let lineRange = nsText.lineRange(for: NSRange(location: caretLoc, length: 0))
         let line = nsText.substring(with: lineRange)
 

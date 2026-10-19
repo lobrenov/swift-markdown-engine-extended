@@ -6,6 +6,7 @@
 //
 
 // Scroll view that keeps vertical scrolling within a clean top and bottom range.
+#if os(macOS)
 import AppKit
 
 final class ClampedScrollView: NSScrollView {
@@ -178,3 +179,4 @@ final class ClampedScrollView: NSScrollView {
         }
     }
 }
+#endif

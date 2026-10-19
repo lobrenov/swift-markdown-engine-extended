@@ -27,7 +27,11 @@
 //  knowing about.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine
@@ -38,7 +42,7 @@ private let directivePerfEnabled = ProcessInfo.processInfo.environment["MDE_PERF
 @Suite("Directives — performance")
 struct DirectivePerformanceTests {
 
-    private var fontName: String { NSFont.systemFont(ofSize: 16).fontName }
+    private var fontName: String { PlatformFont.systemFont(ofSize: 16).fontName }
 
     private var configuration: MarkdownEditorConfiguration {
         MarkdownEditorConfiguration(directives: [FontDirective(), ColorDirective()])
@@ -105,7 +109,7 @@ struct DirectivePerformanceTests {
                 .map { entry in
                     let offset = entry.range.location - paragraph.location
                     let keys = entry.attributes.keys.map(\.rawValue).sorted().joined(separator: ",")
-                    let size = (entry.attributes[.font] as? NSFont).map { "\($0.pointSize)" } ?? "-"
+                    let size = (entry.attributes[.font] as? PlatformFont).map { "\($0.pointSize)" } ?? "-"
                     return "\(offset):\(entry.range.length)[\(keys)]\(size)"
                 }
                 .sorted()

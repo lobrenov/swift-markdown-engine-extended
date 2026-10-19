@@ -7,7 +7,11 @@
 //  Image embed (`![[...]]`) styling and layout.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 extension MarkdownStyler {
@@ -97,7 +101,7 @@ extension MarkdownStyler {
                     // range and stays visible unless we collapse it too.
                     let urlText = ctx.nsText.substring(with: urlRange)
                     attrs.append((urlRange, [
-                        .foregroundColor: NSColor.clear,
+                        .foregroundColor: PlatformColor.clear,
                         .font: ctx.latexMarkerFont,
                         .kern: -HeadingHelpers.textWidth(urlText, font: ctx.latexMarkerFont)
                     ]))
@@ -185,10 +189,19 @@ extension MarkdownStyler {
                 }
                 if !rendered {
                     appendSecondaryMarkers(for: token, to: &attrs, theme: ctx.configuration.theme)
+                } else if imageEmbedConfig.cornerRadius > 0 || imageEmbedConfig.selectionRing != nil {
+                    attrs.append((token.range, [.imageCornerRadius: imageEmbedConfig.cornerRadius]))
                 }
             } else {
                 // Image not found — show syntax with marker coloring (like broken link)
                 appendSecondaryMarkers(for: token, to: &attrs, theme: ctx.configuration.theme)
+                // Fork: a missing image's name in its own colour, with a dashed underline.
+                if let missing = ctx.configuration.imageEmbed.missingText {
+                    attrs.append((token.contentRange, [
+                        .foregroundColor: missing, .underlineColor: missing,
+                        .underlineStyle: NSUnderlineStyle.single.union(.patternDash).rawValue
+                    ]))
+                }
             }
         }
         return attrs

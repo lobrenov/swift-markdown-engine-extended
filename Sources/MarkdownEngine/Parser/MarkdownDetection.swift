@@ -34,6 +34,13 @@ enum MarkdownDetection {
                 indices.insert(index)
                 continue
             }
+            // Fork: a tag is plain source anywhere on the caret's line.
+            if token.kind == .tag, caretLocation >= 0, caretLocation <= text.length {
+                var lineStart = 0, contentsEnd = 0
+                text.getLineStart(&lineStart, end: nil, contentsEnd: &contentsEnd, for: token.range)
+                if caretLocation >= lineStart && caretLocation <= contentsEnd { indices.insert(index) }
+                continue
+            }
             if caretLocation == end {
                 let lastIndex = end - 1
                 if lastIndex >= start && lastIndex < text.length {
@@ -85,7 +92,9 @@ enum MarkdownDetection {
             let start = token.range.location
             let end = start + token.range.length
             if range.length == 0 {
-                if range.location >= start && range.location <= end { return true }
+                // Fork: a caret just after inline code's closing backtick is outside it.
+                let inclusiveEnd = token.kind == .inlineCode ? end - 1 : end
+                if range.location >= start && range.location <= inclusiveEnd { return true }
             } else {
                 if range.location < end && range.location + range.length > start { return true }
             }

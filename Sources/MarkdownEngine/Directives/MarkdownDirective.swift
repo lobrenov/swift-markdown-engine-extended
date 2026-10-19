@@ -41,7 +41,11 @@
 //       one.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 // MARK: - Values
@@ -195,17 +199,17 @@ public struct DirectiveFontTransform {
     }
 
     public var size: Size?
-    public var traits: NSFontTraitMask?
+    public var traits: PlatformFontDescriptor.SymbolicTraits?
     public var familyName: String?
-    public var custom: ((NSFont) -> NSFont)?
+    public var custom: ((PlatformFont) -> PlatformFont)?
 
     public static let inherit = DirectiveFontTransform()
 
     public init(
         size: Size? = nil,
-        traits: NSFontTraitMask? = nil,
+        traits: PlatformFontDescriptor.SymbolicTraits? = nil,
         familyName: String? = nil,
-        custom: ((NSFont) -> NSFont)? = nil
+        custom: ((PlatformFont) -> PlatformFont)? = nil
     ) {
         self.size = size
         self.traits = traits
@@ -216,17 +220,20 @@ public struct DirectiveFontTransform {
     /// Compose over the INHERITED font — the whole point. `@font(size: 18)`
     /// inside a heading keeps the heading's bold; `**bold**` inside the body
     /// keeps 18pt.
-    public func apply(to font: NSFont, manager: NSFontManager = .shared) -> NSFont {
+    public func apply(to font: PlatformFont) -> PlatformFont {
         var result = font
         if let familyName {
-            result = NSFont(name: familyName, size: result.pointSize) ?? result
+            result = PlatformFont.named(familyName, size: result.pointSize) ?? result
         }
         switch size {
-        case .absolute(let points): result = manager.convert(result, toSize: points)
-        case .scale(let factor):    result = manager.convert(result, toSize: result.pointSize * factor)
+        case .absolute(let points): result = PlatformFont(descriptor: result.fontDescriptor, size: points) ?? result
+        case .scale(let factor):    result = PlatformFont(descriptor: result.fontDescriptor, size: result.pointSize * factor) ?? result
         case nil:                   break
         }
-        if let traits { result = manager.convert(result, toHaveTrait: traits) }
+        if let traits {
+            let descriptor = result.fontDescriptor.withSymbolicTraits(result.fontDescriptor.symbolicTraits.union(traits))
+            result = PlatformFont(descriptor: descriptor, size: result.pointSize) ?? result
+        }
         if let custom { result = custom(result) }
         return result
     }
@@ -255,12 +262,12 @@ public struct DirectiveContext {
     public let theme: MarkdownEditorTheme
     /// Font inherited at the directive's position (heading font inside a
     /// heading, body font in a paragraph).
-    public let inheritedFont: NSFont
+    public let inheritedFont: PlatformFont
     /// True when the caret is inside the directive — source is revealed.
     public let isActive: Bool
     public let marker: Character
 
-    public init(theme: MarkdownEditorTheme, inheritedFont: NSFont, isActive: Bool, marker: Character) {
+    public init(theme: MarkdownEditorTheme, inheritedFont: PlatformFont, isActive: Bool, marker: Character) {
         self.theme = theme
         self.inheritedFont = inheritedFont
         self.isActive = isActive

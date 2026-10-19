@@ -17,7 +17,11 @@
 //  via the ``WikiLinkResolver`` protocol.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import os
 
@@ -299,15 +303,10 @@ public enum WikiLinkService {
         return result
     }
 
-    /// Resolve a clicked link's id from the caret's `.wikiLinkID` attribute, else its display string.
-    public static func resolveIdentifier(link: Any, textView: NSTextView, at charIndex: Int) -> String? {
-        if let idAttr = textView.textStorage?.attribute(.wikiLinkID, at: charIndex, effectiveRange: nil) as? String {
-            return idAttr
-        }
-        if let name = link as? String {
-            return name
-        }
-        return nil
+    /// Resolve a clicked wiki-link's target name (the styler stores it as the `.link` value).
+    /// Fork: the `.wikiLinkID` suffix is an Obsidian alias, not an id, so it is never reported.
+    public static func resolveIdentifier(link: Any, textView: PlatformTextView, at charIndex: Int) -> String? {
+        link as? String
     }
 
     /// Split a storage fragment `[[Name|<id>]]` into its display form and the opaque id.

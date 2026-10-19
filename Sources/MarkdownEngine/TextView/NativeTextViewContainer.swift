@@ -16,6 +16,7 @@
 //  overlap is geometrically impossible.
 //
 
+#if os(macOS)
 import AppKit
 
 final class NativeTextViewContainer: NSView {
@@ -116,3 +117,4 @@ extension NSScrollView {
         (documentView as? NativeTextViewContainer)?.textView
     }
 }
+#endif

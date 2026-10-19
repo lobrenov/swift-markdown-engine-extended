@@ -18,7 +18,11 @@
 //  engine, identical for every extension.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 // MARK: - Syntax rule
@@ -123,6 +127,8 @@ public protocol MarkdownExtension: Sendable {
     /// Wrap the rendered inner HTML for the clean-copy path
     /// (`childrenHTML` is already escaped / recursively rendered).
     func html(childrenHTML: String) -> String
+    /// Fork: draws the span, markers included, as a rounded bubble. nil (default) draws none.
+    func bubble(theme: MarkdownEditorTheme) -> InlineBubble?
 }
 
 public extension MarkdownExtension {
@@ -132,6 +138,7 @@ public extension MarkdownExtension {
     // first.
     var inline: InlineSyntax? { nil }
     var block: BlockSyntax? { nil }
+    func bubble(theme: MarkdownEditorTheme) -> InlineBubble? { nil }
 }
 
 // MARK: - Parser-facing registry (internal)
@@ -161,28 +168,33 @@ struct ExtensionRegistry {
     /// already keys on — registering a directive invalidates those caches with
     /// no second key to thread through the pipeline.
     let directives: DirectiveRegistry
+    /// Fork: whether `#tags` are read (`MarkdownEditorConfiguration.tags` is set).
+    let tags: Bool
     /// Stable fingerprint for cache keying ("" when empty). Two registries with
     /// the same fingerprint produce identical parses for identical text.
     let fingerprint: String
 
-    static let empty = ExtensionRegistry(entries: [], blockEntries: [], directives: .empty, fingerprint: "")
+    static let empty = ExtensionRegistry(entries: [], blockEntries: [], directives: .empty, tags: false, fingerprint: "")
 
-    private init(entries: [Entry], blockEntries: [BlockEntry], directives: DirectiveRegistry, fingerprint: String) {
+    private init(entries: [Entry], blockEntries: [BlockEntry], directives: DirectiveRegistry, tags: Bool,
+                 fingerprint: String) {
         self.entries = entries
         self.blockEntries = blockEntries
         self.directives = directives
+        self.tags = tags
         self.fingerprint = fingerprint
     }
 
-    init(extensions: [any MarkdownExtension], directives: DirectiveRegistry = .empty) {
+    init(extensions: [any MarkdownExtension], directives: DirectiveRegistry = .empty, tags: Bool = false) {
         // Directives alone are a non-empty grammar: only bail out when BOTH
         // halves are empty, or a directive-only configuration would parse as
         // pure markdown.
-        guard !extensions.isEmpty || !directives.isEmpty else {
+        guard !extensions.isEmpty || !directives.isEmpty || tags else {
             self = .empty
             return
         }
         self.directives = directives
+        self.tags = tags
         self.entries = extensions.compactMap { ext in
             guard let syntax = ext.inline else { return nil }
             return Entry(
@@ -220,12 +232,13 @@ struct ExtensionRegistry {
         // the halves distinguishable; an empty half contributes nothing, so a
         // directive-free registry keeps the fingerprint it had before
         // directives existed.
-        self.fingerprint = directives.isEmpty
+        let grammarFingerprint = directives.isEmpty
             ? extensionFingerprint
             : extensionFingerprint + "~" + directives.fingerprint
+        self.fingerprint = tags ? grammarFingerprint + "#tags" : grammarFingerprint
     }
 
-    var isEmpty: Bool { entries.isEmpty && blockEntries.isEmpty && directives.isEmpty }
+    var isEmpty: Bool { entries.isEmpty && blockEntries.isEmpty && directives.isEmpty && !tags }
 
     /// The first registered block rule whose fence opens `line` (column 0),
     /// or nil. Registration order is precedence, matching the inline rules.
@@ -242,7 +255,7 @@ struct ExtensionRegistry {
 extension MarkdownEditorConfiguration {
     /// The parser-facing registry derived from `extensions` and `directives`.
     var extensionRegistry: ExtensionRegistry {
-        ExtensionRegistry(extensions: extensions, directives: directiveRegistry)
+        ExtensionRegistry(extensions: extensions, directives: directiveRegistry, tags: tags != nil)
     }
 
     /// Styler-facing lookup: extension behavior by id.

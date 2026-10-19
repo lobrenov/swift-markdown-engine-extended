@@ -13,7 +13,11 @@
 //  override individual fields without forking the engine.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 // MARK: - Top-level Configuration
@@ -95,6 +99,17 @@ public struct MarkdownEditorConfiguration: Sendable {
     public var directives: [any MarkdownDirective]
     /// Marker configuration for ``directives`` (default `@`).
     public var directiveSettings: DirectiveRegistrySettings
+    /// Fork: draws Obsidian callouts (`> [!type] Title`) as panels. nil keeps them plain quotes.
+    public var callouts: CalloutStyle? = nil
+    /// Fork: reads `#tags` and draws them as bubbles. nil keeps them plain text.
+    public var tags: TagStyle? = nil
+    /// Fork: on the Mac, a table is a live grid of cell editors over its source (`TableGridView`), and the caret
+    /// never enters its source lines. Off keeps the rendered image and the revealed source.
+    public var liveTables: Bool = false
+    /// Fork: the colour of a live table's selected row or column ring and its drop line; `theme.link` when nil.
+    public var tableAccent: PlatformColor? = nil
+    /// Fork: callouts folded or opened on screen, by title line, overriding the file's `+` or `-`.
+    var calloutFoldOverrides: [String: Bool] = [:]
 
     public init(
         theme: MarkdownEditorTheme = .default,
@@ -167,11 +182,11 @@ public struct MarkdownEditorConfiguration: Sendable {
 /// at `makeNSView` time; afterwards the user's context-menu choices take
 /// precedence and are surfaced via ``NativeTextViewWrapper/onSpellCheckingPolicyChanged``.
 public struct SpellCheckingPolicy: Sendable {
-    /// Mirrors `NSTextView.isContinuousSpellCheckingEnabled`.
+    /// Mirrors `PlatformTextView.isContinuousSpellCheckingEnabled`.
     public var continuousSpellChecking: Bool
-    /// Mirrors `NSTextView.isGrammarCheckingEnabled`.
+    /// Mirrors `PlatformTextView.isGrammarCheckingEnabled`.
     public var grammarChecking: Bool
-    /// Mirrors `NSTextView.isAutomaticSpellingCorrectionEnabled`.
+    /// Mirrors `PlatformTextView.isAutomaticSpellingCorrectionEnabled`.
     public var automaticSpellingCorrection: Bool
 
     public init(
@@ -218,7 +233,7 @@ public struct ScrollersPolicy: Sendable {
 
 // MARK: - Text insets
 
-/// Margins inside the text view (`NSTextView.textContainerInset`). Scroll bar stays at the outer edge.
+/// Margins inside the text view (`PlatformTextView.textContainerInset`). Scroll bar stays at the outer edge.
 public struct TextInsets: Sendable {
     public var horizontal: CGFloat
     public var vertical: CGFloat
@@ -294,9 +309,12 @@ public struct CodeBlockStyle: Sendable {
 public struct InlineCodeStyle: Sendable {
     /// Inline-code reuses the code block font size scale by default.
     public var fontSizeScale: CGFloat
+    /// Fork: draws each span as a rounded bubble instead of a flat code-coloured fill.
+    public var bubble: InlineBubble?
 
-    public init(fontSizeScale: CGFloat = 0.85) {
+    public init(fontSizeScale: CGFloat = 0.85, bubble: InlineBubble? = nil) {
         self.fontSizeScale = fontSizeScale
+        self.bubble = bubble
     }
 
     public static let `default` = InlineCodeStyle()
@@ -312,25 +330,42 @@ public struct ListStyle: Sendable {
     public var helpersEnabled: Bool
     /// Master switch for auto-closing pairs `()`, `{}`, `[]` while typing.
     public var autoClosePairsEnabled: Bool
+    /// Fork: auto-closing formatting markers `*`, `**`, `_`, `__`, `~~`, `==` and `` ` `` while typing.
+    public var autoCloseFormattingEnabled: Bool
+    /// Fork: completing `[[` (and `![[`) to `[[]]` while typing.
+    public var autoCloseWikiLinksEnabled: Bool
     /// Indent (in points) that one nesting level adds to the list item.
     public var indentPerLevel: CGFloat
     /// Maximum nesting level reachable by pressing Tab inside a list.
     public var maximumNestingLevel: Int
     /// Extra line height added on top of the default to give list items room.
     public var extraLineHeight: CGFloat
+    /// Fork: SF Symbols drawn for bullets, by nesting depth (cycling).
+    /// Empty draws the original `•` glyph.
+    public var bulletSymbolNames: [String]
+    /// Fork: bullet symbol point size as a fraction of the body font size.
+    public var bulletSymbolScale: CGFloat
 
     public init(
         helpersEnabled: Bool = true,
         autoClosePairsEnabled: Bool = true,
+        autoCloseFormattingEnabled: Bool = false,
+        autoCloseWikiLinksEnabled: Bool = true,
         indentPerLevel: CGFloat = 27.5,
         maximumNestingLevel: Int = 3,
-        extraLineHeight: CGFloat = 2
+        extraLineHeight: CGFloat = 2,
+        bulletSymbolNames: [String] = ["circle.fill", "circle", "square.fill", "diamond.fill"],
+        bulletSymbolScale: CGFloat = 0.4
     ) {
         self.helpersEnabled = helpersEnabled
         self.autoClosePairsEnabled = autoClosePairsEnabled
+        self.autoCloseFormattingEnabled = autoCloseFormattingEnabled
+        self.autoCloseWikiLinksEnabled = autoCloseWikiLinksEnabled
         self.indentPerLevel = indentPerLevel
         self.maximumNestingLevel = maximumNestingLevel
         self.extraLineHeight = extraLineHeight
+        self.bulletSymbolNames = bulletSymbolNames
+        self.bulletSymbolScale = bulletSymbolScale
     }
 
     public static let `default` = ListStyle()
@@ -338,27 +373,69 @@ public struct ListStyle: Sendable {
 
 // MARK: - Task checkboxes
 
-/// SF Symbol names used to draw task-list checkboxes (`- [ ]` / `- [x]`).
+/// How task-list checkboxes draw and respond to clicks.
 ///
-/// Any SF Symbol available on the deployment target can be substituted, for
-/// example `"circle"` / `"checkmark.circle.fill"`. A name that doesn't
-/// resolve falls back to the corresponding default symbol at draw time, so a
-/// typo degrades to the stock look instead of drawing nothing. Tint colors
-/// stay theme-driven (`MarkdownEditorTheme/mutedText` unchecked,
-/// `MarkdownEditorTheme/bodyText` checked).
+/// Fork: every character in ``TaskMarker/all`` is a checkbox, not just
+/// `[ ]` / `[x]`. Each marker maps to an SF Symbol and an optional tint; a
+/// marker without a tint uses `MarkdownEditorTheme/mutedText` for `[ ]` and
+/// `MarkdownEditorTheme/bodyText` for everything else. A symbol name that
+/// doesn't resolve falls back to `square`. A `draw` closure replaces the symbols.
 public struct TaskCheckboxStyle: Sendable {
-    /// SF Symbol drawn for an unchecked task item (`[ ]`).
-    public var uncheckedSymbolName: String
-    /// SF Symbol drawn for a checked task item (`[x]`).
-    public var checkedSymbolName: String
+    /// SF Symbol drawn for each marker character.
+    public var symbolNames: [Character: String]
+    /// Tint per marker character; missing entries use the theme defaults above.
+    public var tints: [Character: PlatformColor]
+    /// Markers whose item text is struck through.
+    public var struckMarkers: Set<Character>
+    /// What a click on the box changes the marker to. Markers without an entry ignore clicks.
+    public var clickTransitions: [Character: Character]
+    /// Entries of the box's right-click menu, in order: marker and title.
+    public var menuItems: [(marker: Character, title: String)]
+    /// Box side as a fraction of the body line height.
+    public var sizeScale: CGFloat
+    /// Space between the box and the item text, in points.
+    public var contentGap: CGFloat
+    /// Draws a marker's box into the current (flipped) graphics context, given the box rect
+    /// and the marker's tint. When set, it replaces `symbolNames` on the page and in the menu.
+    public var draw: (@Sendable (_ marker: Character, _ rect: CGRect, _ tint: PlatformColor) -> Void)?
 
     public init(
-        uncheckedSymbolName: String = "square",
-        checkedSymbolName: String = "checkmark.square.fill"
+        symbolNames: [Character: String] = TaskCheckboxStyle.referenceSymbols,
+        tints: [Character: PlatformColor] = [:],
+        struckMarkers: Set<Character> = ["x", "X"],
+        clickTransitions: [Character: Character] = [" ": "x", "x": " ", "X": " "],
+        menuItems: [(marker: Character, title: String)] = TaskCheckboxStyle.referenceMenu,
+        sizeScale: CGFloat = 1.0,
+        contentGap: CGFloat = 6,
+        draw: (@Sendable (_ marker: Character, _ rect: CGRect, _ tint: PlatformColor) -> Void)? = nil
     ) {
-        self.uncheckedSymbolName = uncheckedSymbolName
-        self.checkedSymbolName = checkedSymbolName
+        self.symbolNames = symbolNames
+        self.tints = tints
+        self.struckMarkers = struckMarkers
+        self.clickTransitions = clickTransitions
+        self.menuItems = menuItems
+        self.sizeScale = sizeScale
+        self.contentGap = contentGap
+        self.draw = draw
     }
+
+    /// SF Symbol equivalents of the reference set's Lucide icons.
+    public static let referenceSymbols: [Character: String] = [
+        " ": "square", "x": "checkmark.square.fill", "X": "checkmark.square.fill",
+        "/": "square.dashed", "-": "nosign", ">": "paperplane", "<": "calendar",
+        "?": "questionmark.circle", "!": "exclamationmark.triangle", "*": "star", "\"": "quote.opening",
+        "l": "mappin", "b": "bookmark", "i": "info.circle", "S": "dollarsign", "I": "lightbulb",
+        "p": "hand.thumbsup", "c": "hand.thumbsdown", "f": "flame", "k": "key", "w": "trophy",
+        "u": "chart.line.uptrend.xyaxis", "d": "chart.line.downtrend.xyaxis",
+    ]
+
+    public static let referenceMenu: [(marker: Character, title: String)] = [
+        (" ", "Not started"), ("/", "Doing"), ("x", "Done"), ("-", "Cancelled"),
+        (">", "Forwarded"), ("<", "Scheduling"), ("?", "Question"), ("!", "Important"),
+        ("*", "Star"), ("\"", "Quote"), ("l", "Location"), ("b", "Bookmark"), ("i", "Information"),
+        ("S", "Savings"), ("I", "Idea"), ("p", "Pros"), ("c", "Cons"), ("f", "Fire"),
+        ("k", "Key"), ("w", "Win"), ("u", "Up"), ("d", "Down"),
+    ]
 
     public static let `default` = TaskCheckboxStyle()
 }
@@ -500,6 +577,28 @@ public struct ImageEmbedStyle: Sendable {
     public var paragraphSpacing: CGFloat
     /// Gap between the source line and the rendered image (visibleSource mode).
     public var imageGap: CGFloat
+    /// Fork: whether the caret in an image's paragraph shows its `![[ ]]` source. When false, an image shows
+    /// its source only after ``SlashCommandProxy/revealImageEmbed(at:)``, until the caret leaves its paragraph.
+    public var revealsSourceAtCaret = true
+    /// Fork: the colour of a missing image's name, which gets a dashed underline too. Nil leaves it a link.
+    public var missingText: PlatformColor?
+    /// Fork: the corner radius images are clipped to.
+    public var cornerRadius: CGFloat = 0
+    /// Fork: on the Mac, a `</>` button over a hovered image shows its source. No button when nil.
+    public var sourceButton: SourceButtonColors?
+    /// Fork: with a colour, a click on a drawn image selects its `![[ ]]` and rings the image in this colour, as
+    /// does an open image menu.
+    public var selectionRing: PlatformColor?
+
+    /// Fork: the source button's colours, and while the pointer is on it.
+    public struct SourceButtonColors: Sendable {
+        public var fill, hoverFill, ring, tint, hoverTint: PlatformColor
+
+        public init(fill: PlatformColor, hoverFill: PlatformColor, ring: PlatformColor, tint: PlatformColor,
+                    hoverTint: PlatformColor) {
+            (self.fill, self.hoverFill, self.ring, self.tint, self.hoverTint) = (fill, hoverFill, ring, tint, hoverTint)
+        }
+    }
 
     public init(
         minimumWidth: CGFloat = 50,

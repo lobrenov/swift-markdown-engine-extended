@@ -3,6 +3,8 @@
 //  MarkdownEngineLatexTests
 //
 
+// Fork: macOS only; the target is empty on iOS.
+#if canImport(AppKit)
 import AppKit
 import Testing
 import MarkdownEngine
@@ -23,3 +25,4 @@ struct SwiftMathBridgeModeTests {
         #expect(display.size.width < inline.size.width)
     }
 }
+#endif

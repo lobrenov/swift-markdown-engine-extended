@@ -6,7 +6,11 @@
 //
 
 // Small helper values for heading size/spacing, plus shared text measurements.
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 enum HeadingHelpers {
 
@@ -16,7 +20,7 @@ enum HeadingHelpers {
     static func latexFontSize(
         for token: MarkdownToken,
         headings: [MarkdownToken],
-        baseFont: NSFont,
+        baseFont: PlatformFont,
         configuration: HeadingStyle = .default
     ) -> CGFloat {
         if let headingToken = headings.first(where: { NSLocationInRange(token.contentRange.location, $0.contentRange) }) {
@@ -38,7 +42,7 @@ enum HeadingHelpers {
         return c
     }()
 
-    static func textWidth(_ text: String, font: NSFont) -> CGFloat {
+    static func textWidth(_ text: String, font: PlatformFont) -> CGFloat {
         let key = "\(font.fontName)|\(font.pointSize)|\(text)" as NSString
         if let cached = widthCache.object(forKey: key) {
             return CGFloat(cached.doubleValue)

@@ -9,7 +9,12 @@
 //  document-wide, which erased their block until something else restyled.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
@@ -19,7 +24,7 @@ private struct InvertingHighlight: MarkdownExtension {
     var id: String { HighlightExtension.identifier }
     var inline: InlineSyntax? { InlineSyntax(open: "==", close: "==") }
     func contentAttributes(theme: MarkdownEditorTheme) -> [NSAttributedString.Key: Any] {
-        [.backgroundColor: NSColor.white, .foregroundColor: NSColor.black]
+        [.backgroundColor: PlatformColor.white, .foregroundColor: PlatformColor.black]
     }
     func html(childrenHTML: String) -> String { "<mark>\(childrenHTML)</mark>" }
 }
@@ -63,8 +68,8 @@ struct FindHighlightRestoreTests {
         return (coordinator, tv, window)
     }
 
-    private func background(_ tv: NativeTextView, at location: Int) -> NSColor? {
-        tv.textStorage?.attribute(.backgroundColor, at: location, effectiveRange: nil) as? NSColor
+    private func background(_ tv: NativeTextView, at location: Int) -> PlatformColor? {
+        tv.textStorage?.attribute(.backgroundColor, at: location, effectiveRange: nil) as? PlatformColor
     }
 
     private func find(_ query: String, _ coordinator: NativeTextViewCoordinator) {
@@ -85,14 +90,14 @@ struct FindHighlightRestoreTests {
     func blockReturnsAfterClearingItsOwnMatch() {
         let (coordinator, tv, window) = makeEditor(Self.text)
         defer { window.contentView = nil }
-        #expect(background(tv, at: Self.blockContent.location) == NSColor.white)
+        #expect(background(tv, at: Self.blockContent.location) == PlatformColor.white)
 
         find("marked", coordinator)
-        #expect(background(tv, at: Self.blockContent.location) != NSColor.white)
+        #expect(background(tv, at: Self.blockContent.location) != PlatformColor.white)
 
         done(coordinator)
         // No click, no selection change: the block is back on its own.
-        #expect(background(tv, at: Self.blockContent.location) == NSColor.white)
+        #expect(background(tv, at: Self.blockContent.location) == PlatformColor.white)
     }
 
     @Test("a match somewhere else never touches the block")
@@ -101,10 +106,10 @@ struct FindHighlightRestoreTests {
         defer { window.contentView = nil }
 
         find("tail", coordinator)
-        #expect(background(tv, at: Self.blockContent.location) == NSColor.white)
+        #expect(background(tv, at: Self.blockContent.location) == PlatformColor.white)
 
         done(coordinator)
-        #expect(background(tv, at: Self.blockContent.location) == NSColor.white)
+        #expect(background(tv, at: Self.blockContent.location) == PlatformColor.white)
         #expect(background(tv, at: 17) == nil)
     }
 
@@ -132,7 +137,8 @@ struct FindHighlightRestoreTests {
         find("marked", coordinator)
         find("tail", coordinator)
 
-        #expect(background(tv, at: Self.blockContent.location) == NSColor.white)
+        #expect(background(tv, at: Self.blockContent.location) == PlatformColor.white)
         #expect(background(tv, at: 17) != nil)
     }
 }
+#endif

@@ -10,12 +10,16 @@
 //  `TextStylingService`.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 extension NativeTextViewCoordinator {
     /// Atomically rebuilds contents + base attrs + Markdown styling from storage-form `text`.
     func rebuildTextStorageAndStyle(
-        _ textView: NSTextView,
+        _ textView: PlatformTextView,
         from text: String,
         invalidateLayout: Bool = false
     ) {
@@ -96,12 +100,12 @@ extension NativeTextViewCoordinator {
             parsedForReplay = parsed
             let tokens = parsed.tokens
             // Hide caret from styling when read-only, else clicks reveal raw token syntax.
-            let caretLocation = textView.isEditable ? textView.selectedRange().location : -1
+            let caretLocation = textView.revealsSyntax ? textView.currentSelectedRange.location : -1
             activeTokenIndices = activeTokenIndices(
                 parsed: parsed,
-                selection: textView.selectedRange(),
+                selection: textView.currentSelectedRange,
                 in: nsDisplay,
-                suppressed: !textView.isEditable
+                suppressed: !textView.revealsSyntax
             )
 
             let ranges = MarkdownStyler.styleAttributes(
@@ -112,7 +116,7 @@ extension NativeTextViewCoordinator {
                 caretLocation: caretLocation,
                 // Selection-revealed syntax (task checkboxes) needs the full
                 // range, not just the caret; read-only suppresses it like the caret.
-                selection: textView.isEditable ? textView.selectedRange() : nil,
+                selection: textView.revealsSyntax ? textView.currentSelectedRange : nil,
                 activeTokenIndices: activeTokenIndices,
                 // FIX: apply .wikiLinkID attributes on load/node-switch too. Without this the uuid
                 // survived only in the range-keyed wikiLinkMetadata; once a later writeback shifted a
@@ -148,9 +152,10 @@ extension NativeTextViewCoordinator {
 
         // ONE live-storage mutation carries the whole styled document across. This is the
         // only edit that touches the layout-connected storage.
-        textView.textStorage?.beginEditing()
-        textView.textStorage?.setAttributedString(built)
-        textView.textStorage?.endEditing()
+        textView.optionalTextStorage?.beginEditing()
+        textView.optionalTextStorage?.setAttributedString(built)
+        textView.optionalTextStorage?.endEditing()
+        applyParagraphAlignment(to: textView)
 
 
         textView.typingAttributes = TextStylingService.makeBaseTypingAttributes(
@@ -159,6 +164,7 @@ extension NativeTextViewCoordinator {
             theme: configuration.theme
         )
 
+        (textView as? NativeTextView)?.fitLeadingCalloutPadding()
         if let tlm = textView.textLayoutManager {
             if invalidateLayout {
                 tlm.invalidateLayout(for: tlm.documentRange)
@@ -174,7 +180,8 @@ extension NativeTextViewCoordinator {
         // mode / active Writing Tools skip both, exactly as the suppressed handler's own
         // rawSourceMode / isWritingToolsActive early-returns would have.
         if let parsed = parsedForReplay, !isWritingToolsActive {
-            let finalSelection = textView.selectedRange()
+            let finalSelection = textView.currentSelectedRange
+            #if os(macOS)
             updateAutocorrectSettings(
                 textView,
                 caretLocation: finalSelection.location,
@@ -182,20 +189,36 @@ extension NativeTextViewCoordinator {
                 latexTokens: parsed.latexTokens,
                 allTokens: parsed.tokens
             )
+            #endif
             previousActiveTokenIndices = activeTokenIndices
             previousCaretLocation = finalSelection.location
             previousSelectedRange = finalSelection
         }
 
         // Reconcile wide-table overlays after layout settles.
+        #if os(macOS)
         if let nativeTextView = textView as? NativeTextView {
             nativeTextView.updateWideTableOverlays()
         }
+        #endif
+    }
+
+    /// Fork: sets a table cell's column alignment on every paragraph (the styler's paragraph styles are left-aligned).
+    func applyParagraphAlignment(to textView: PlatformTextView) {
+        guard let alignment = paragraphAlignment, let storage = textView.optionalTextStorage, storage.length > 0 else { return }
+        storage.beginEditing()
+        storage.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
+            let style = (value as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            guard style.alignment != alignment else { return }
+            style.alignment = alignment
+            storage.addAttribute(.paragraphStyle, value: style, range: range)
+        }
+        storage.endEditing()
     }
 
     @discardableResult
     func restyleTextView(
-        _ textView: NSTextView,
+        _ textView: PlatformTextView,
         paragraphCandidates: [NSRange],
         tokens: [MarkdownToken]? = nil,
         classified: MarkdownStyler.ClassifiedStyleTokens? = nil,
@@ -205,6 +228,14 @@ extension NativeTextViewCoordinator {
     ) -> [NSRange] {
         // Raw mode: no restyling; typing keeps base attrs via the typing shim.
         guard !configuration.rawSourceMode else { return [] }
+        // Fork: a callout's lines draw from the whole quote, so restyle every quote a candidate touches.
+        var paragraphCandidates = paragraphCandidates
+        if configuration.callouts != nil, let blocks {
+            let candidates = paragraphCandidates
+            paragraphCandidates += blocks.filter { block in
+                block.kind == .blockquote && candidates.contains { NSIntersectionRange($0, block.range).length > 0 }
+            }.map(\.range)
+        }
         let (baseFont, paragraphStyle) = TextStylingService.makeBaseFontAndStyle(
             fontName: fontName,
             fontSize: fontSize,
@@ -218,11 +249,11 @@ extension NativeTextViewCoordinator {
             paragraphCandidates: paragraphCandidates,
             baseFont: baseFont,
             paragraphStyle: paragraphStyle,
-            caretLocation: textView.isEditable ? textView.selectedRange().location : -1,
+            caretLocation: textView.revealsSyntax ? textView.currentSelectedRange.location : -1,
             // Selection-revealed task syntax: this is the per-keystroke /
             // selection-change restyle path, so the styler needs the full
             // selected range here too (read-only suppresses it like the caret).
-            selection: textView.isEditable ? textView.selectedRange() : nil,
+            selection: textView.revealsSyntax ? textView.currentSelectedRange : nil,
             activeTokenIndices: activeTokenIndices,
             wikiLinkIDProvider: { [weak self] range in
                 self?.wikiLinkID(for: range)
@@ -234,13 +265,16 @@ extension NativeTextViewCoordinator {
             content: content,
             configuration: configuration
         )
+        applyParagraphAlignment(to: textView)
         // Width-specific callers already have the exact new wide-table anchor
         // set and reconcile it after the one full height layout. Ordinary
         // styling still uses the coalesced storage-discovery path.
+        #if os(macOS)
         if case .all = content,
            let nativeTextView = textView as? NativeTextView {
             nativeTextView.updateWideTableOverlays()
         }
+        #endif
         return wideTableAnchorRanges
     }
 
@@ -405,30 +439,56 @@ extension NativeTextViewCoordinator {
         return paragraphs
     }
 
-    func restyleParagraphs(_ paragraphs: [NSRange], in textView: NSTextView) {
+    func restyleParagraphs(_ paragraphs: [NSRange], in textView: PlatformTextView) {
         let docText = textView.string      // one O(doc) bridge, reused below
         let parsed = parsedDocument(for: docText)
         let tokens = parsed.tokens
         let nsText = docText as NSString
         activeTokenIndices = activeTokenIndices(
             parsed: parsed,
-            selection: textView.selectedRange(),
+            selection: textView.currentSelectedRange,
             in: nsText,
-            suppressed: !textView.isEditable
+            suppressed: !textView.revealsSyntax
         )
         restyleTextView(textView, paragraphCandidates: paragraphs, tokens: tokens,
                         classified: parsed.classified, blocks: parsed.blocks)
+    }
+
+    /// Fork: the text view took or gave up the keyboard, so `revealsSyntax` changed:
+    /// restyle the caret's paragraph and the tokens that start or stop showing their syntax.
+    func editingFocusDidChange(in textView: PlatformTextView) {
+        guard !configuration.rawSourceMode, !isRebuildingDocument else { return }
+        let docText = textView.string
+        let nsText = docText as NSString
+        let parsed = parsedDocument(for: docText)
+        let previous = activeTokenIndices
+        activeTokenIndices = activeTokenIndices(
+            parsed: parsed,
+            selection: textView.currentSelectedRange,
+            in: nsText,
+            suppressed: !textView.revealsSyntax
+        )
+        let selection = NSIntersectionRange(textView.currentSelectedRange, NSRange(location: 0, length: nsText.length))
+        let paragraphs = [nsText.paragraphRange(for: selection)] + tokenRestyleParagraphs(
+            in: nsText,
+            tokens: parsed.tokens,
+            currentActiveTokenIndices: activeTokenIndices,
+            previousActiveTokenIndices: previous
+        )
+        restyleTextView(textView, paragraphCandidates: paragraphs, tokens: parsed.tokens,
+                        classified: parsed.classified, blocks: parsed.blocks)
+        previousActiveTokenIndices = activeTokenIndices
     }
 
     /// Width changes cannot alter non-table Markdown styling. Reuse the
     /// current parse and its indexed table paragraphs, then run only the table
     /// renderer so a resize does not traverse the generic AST or unrelated
     /// image passes.
-    func restyleTablesForWidthChange(in textView: NSTextView) -> [NSRange] {
+    func restyleTablesForWidthChange(in textView: PlatformTextView) -> [NSRange] {
         let documentText: String
         let parsed: ParsedDocument
         if cachedParseGeneration == parseGeneration,
-           cachedParsedLength == textView.textStorage?.length,
+           cachedParsedLength == textView.optionalTextStorage?.length,
            let cachedParsedText,
            let cachedParsedDocument {
             documentText = cachedParsedText
@@ -442,9 +502,9 @@ extension NativeTextViewCoordinator {
         let nsText = documentText as NSString
         activeTokenIndices = activeTokenIndices(
             parsed: parsed,
-            selection: textView.selectedRange(),
+            selection: textView.currentSelectedRange,
             in: nsText,
-            suppressed: !textView.isEditable
+            suppressed: !textView.revealsSyntax
         )
         return restyleTextView(
             textView,
@@ -457,7 +517,7 @@ extension NativeTextViewCoordinator {
         )
     }
 
-    func applyInlineReplacement(_ request: InlineReplacementRequest, to textView: NSTextView) {
+    func applyInlineReplacement(_ request: InlineReplacementRequest, to textView: PlatformTextView) {
         lastAppliedInlineReplacementID = request.id
 
         let currentText = textView.string as NSString
@@ -483,7 +543,7 @@ extension NativeTextViewCoordinator {
             return
         }
 
-        textView.textStorage?.replaceCharacters(in: range, with: replacementDisplay)
+        textView.optionalTextStorage?.replaceCharacters(in: range, with: replacementDisplay)
 
         if let linkID, !linkID.isEmpty {
             let isImage = replacementDisplay.hasPrefix("![[")
@@ -491,7 +551,7 @@ extension NativeTextViewCoordinator {
             let contentLength = max(0, (replacementDisplay as NSString).length - (openLen + 2))
             if contentLength > 0 {
                 let contentRange = NSRange(location: range.location + openLen, length: contentLength)
-                textView.textStorage?.addAttribute(.wikiLinkID, value: linkID, range: contentRange)
+                textView.optionalTextStorage?.addAttribute(.wikiLinkID, value: linkID, range: contentRange)
             }
         }
 
@@ -509,7 +569,11 @@ extension NativeTextViewCoordinator {
         if let bottomTextView = textView as? NativeTextView {
             bottomTextView.suppressAutoRevealOnce = true
         }
+        #if os(macOS)
         textView.window?.makeFirstResponder(textView)
+        #else
+        textView.becomeFirstResponder()
+        #endif
         textView.setSelectedRange(clampedCaret)
     }
 }

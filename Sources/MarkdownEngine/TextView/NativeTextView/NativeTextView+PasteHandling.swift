@@ -6,12 +6,27 @@
 //
 //
 
+#if os(macOS)
 import AppKit
 
 extension NativeTextView {
     private static let pastableTextExtensions: Set<String> = [
         "md", "markdown", "mdown", "mkd", "txt", "text"
     ]
+
+    /// Fork: an image file dropped from Finder goes to `onPasteImage`, and its embed goes on its own line where
+    /// it was dropped.
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        let pasteboard = sender.draggingPasteboard
+        guard isEditable, sender.draggingSource == nil, PasteboardImageReader.imageFileURL(from: pasteboard) != nil,
+              let embed = onPasteImage?(pasteboard), !embed.isEmpty else {
+            return super.performDragOperation(sender)
+        }
+        let location = characterIndexForInsertion(at: convert(sender.draggingLocation, from: nil))
+        setSelectedRange(NSRange(location: location, length: 0))
+        insertBlockEmbed(embed)
+        return true
+    }
 
     override func paste(_ sender: Any?) {
         guard isEditable else {
@@ -204,3 +219,4 @@ extension NativeTextView {
         return count
     }
 }
+#endif

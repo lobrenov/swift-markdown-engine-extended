@@ -11,7 +11,12 @@
 //  minimums genuinely don't fit).
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine
@@ -26,9 +31,9 @@ struct TableWrappingTests {
     | GbR | Notar und Handelsregister etwa dreihundert bis fünfhundert Euro | Gesellschaftervertrag empfohlen, Anwalt fünfhundert bis eintausendfünfhundert |
     """
 
-    private func render(_ source: String, availableWidth: CGFloat) throws -> NSImage {
+    private func render(_ source: String, availableWidth: CGFloat) throws -> PlatformImage {
         let parsed = try #require(MarkdownStyler.parseTableSource(source))
-        let font = NSFont.systemFont(ofSize: 15)
+        let font = PlatformFont.systemFont(ofSize: 15)
         var ctx = MarkdownStyler.StylingContext(
             nsText: source as NSString,
             tokens: [],
@@ -99,7 +104,7 @@ struct TableWrappingTests {
     @Test func differentAvailableWidthsRenderFreshImages() throws {
         let source = "| wrapcache | test |\n|---|---|\n| some fairly long sentence that needs wrapping in narrow layouts | x |"
         let parsed = try #require(MarkdownStyler.parseTableSource(source))
-        let font = NSFont.systemFont(ofSize: 15)
+        let font = PlatformFont.systemFont(ofSize: 15)
         let ctx = MarkdownStyler.StylingContext(
             nsText: source as NSString,
             tokens: [], codeTokens: [], activeTokenIndices: [],
@@ -119,3 +124,4 @@ struct TableWrappingTests {
         #expect(first.image.size.width != second.image.size.width)
     }
 }
+#endif

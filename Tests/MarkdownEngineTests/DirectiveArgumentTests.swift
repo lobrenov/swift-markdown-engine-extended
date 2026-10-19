@@ -7,7 +7,11 @@
 //  be wrong — without ever throwing or partially applying.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine

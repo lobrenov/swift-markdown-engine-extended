@@ -12,13 +12,17 @@
 //  old loop rather than against hand-written expectations.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Testing
 @testable import MarkdownEngine
 
 private let base: [NSAttributedString.Key: Any] = [
-    .font: NSFont.systemFont(ofSize: 13),
-    .foregroundColor: NSColor.black
+    .font: PlatformFont.systemFont(ofSize: 13),
+    .foregroundColor: PlatformColor.black
 ]
 
 /// The loop `flattenedRuns` replaced, kept here as the oracle.
@@ -50,8 +54,8 @@ struct FlattenedRunsTests {
     func disjoint() {
         let text = "The quick brown fox jumps over the lazy dog"
         let ranges: [StyledRange] = [
-            (NSRange(location: 4, length: 5), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 16, length: 3), [.foregroundColor: NSColor.blue])
+            (NSRange(location: 4, length: 5), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 16, length: 3), [.foregroundColor: PlatformColor.blue])
         ]
         #expect(applyFlattened(ranges, to: text).isEqual(to: applyNaively(ranges, to: text)))
     }
@@ -60,26 +64,26 @@ struct FlattenedRunsTests {
     func overlapPrecedence() {
         let text = "abcdefghij"
         let ranges: [StyledRange] = [
-            (NSRange(location: 0, length: 6), [.foregroundColor: NSColor.red,
-                                               .backgroundColor: NSColor.yellow]),
+            (NSRange(location: 0, length: 6), [.foregroundColor: PlatformColor.red,
+                                               .backgroundColor: PlatformColor.yellow]),
             // Overrides the color on 2..<8 but must leave the background from the
             // first range standing on 2..<6.
-            (NSRange(location: 2, length: 6), [.foregroundColor: NSColor.green])
+            (NSRange(location: 2, length: 6), [.foregroundColor: PlatformColor.green])
         ]
         let flattened = applyFlattened(ranges, to: text)
         #expect(flattened.isEqual(to: applyNaively(ranges, to: text)))
-        #expect(flattened.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor == .green)
-        #expect(flattened.attribute(.backgroundColor, at: 3, effectiveRange: nil) as? NSColor == .yellow)
+        #expect(flattened.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? PlatformColor == .green)
+        #expect(flattened.attribute(.backgroundColor, at: 3, effectiveRange: nil) as? PlatformColor == .yellow)
     }
 
     @Test("Fully nested and identical ranges")
     func nested() {
         let text = String(repeating: "x", count: 40)
         let ranges: [StyledRange] = [
-            (NSRange(location: 0, length: 40), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 10, length: 20), [.backgroundColor: NSColor.gray]),
-            (NSRange(location: 10, length: 20), [.foregroundColor: NSColor.blue]),
-            (NSRange(location: 15, length: 1), [.foregroundColor: NSColor.green])
+            (NSRange(location: 0, length: 40), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 10, length: 20), [.backgroundColor: PlatformColor.gray]),
+            (NSRange(location: 10, length: 20), [.foregroundColor: PlatformColor.blue]),
+            (NSRange(location: 15, length: 1), [.foregroundColor: PlatformColor.green])
         ]
         #expect(applyFlattened(ranges, to: text).isEqual(to: applyNaively(ranges, to: text)))
     }
@@ -89,7 +93,7 @@ struct FlattenedRunsTests {
         let text = String(repeating: "y", count: 50)
         // The shape `styleIncompleteLinkBrackets` used to emit: one range per char.
         let ranges: [StyledRange] = (0..<50).map {
-            (NSRange(location: $0, length: 1), [.foregroundColor: NSColor.red])
+            (NSRange(location: $0, length: 1), [.foregroundColor: PlatformColor.red])
         }
         #expect(applyFlattened(ranges, to: text).isEqual(to: applyNaively(ranges, to: text)))
         // 50 equal single-char ranges must collapse to one run.
@@ -100,8 +104,8 @@ struct FlattenedRunsTests {
     func touchingNotMerged() {
         let text = String(repeating: "z", count: 10)
         let ranges: [StyledRange] = [
-            (NSRange(location: 0, length: 5), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 5, length: 5), [.foregroundColor: NSColor.blue])
+            (NSRange(location: 0, length: 5), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 5, length: 5), [.foregroundColor: PlatformColor.blue])
         ]
         let runs = MarkdownStyler.flattenedRuns(ranges, base: base, documentLength: 10)
         #expect(runs.count == 2)
@@ -112,10 +116,10 @@ struct FlattenedRunsTests {
     func degenerate() {
         let text = String(repeating: "w", count: 20)
         let ranges: [StyledRange] = [
-            (NSRange(location: 5, length: 0), [.foregroundColor: NSColor.red]),
-            (NSRange(location: NSNotFound, length: 3), [.foregroundColor: NSColor.red]),
-            (NSRange(location: 18, length: 10), [.foregroundColor: NSColor.red]),   // past the end
-            (NSRange(location: 2, length: 4), [.foregroundColor: NSColor.blue])
+            (NSRange(location: 5, length: 0), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: NSNotFound, length: 3), [.foregroundColor: PlatformColor.red]),
+            (NSRange(location: 18, length: 10), [.foregroundColor: PlatformColor.red]),   // past the end
+            (NSRange(location: 2, length: 4), [.foregroundColor: PlatformColor.blue])
         ]
         let runs = MarkdownStyler.flattenedRuns(ranges, base: base, documentLength: 20)
         #expect(runs.count == 1)
@@ -126,7 +130,7 @@ struct FlattenedRunsTests {
     func randomisedEquivalence() {
         let length = 400
         let text = String(repeating: "m", count: length)
-        let colors: [NSColor] = [.red, .green, .blue, .orange, .purple]
+        let colors: [PlatformColor] = [.red, .green, .blue, .orange, .purple]
         // Deterministic generator: a failure must be reproducible from the seed.
         var seed: UInt64 = 0x9E3779B97F4A7C15
         func next(_ bound: Int) -> Int {

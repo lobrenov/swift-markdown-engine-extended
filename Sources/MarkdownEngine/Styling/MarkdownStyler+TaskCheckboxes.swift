@@ -8,14 +8,19 @@
 //  coordinator can trigger a restyle when the caret enters/leaves.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 extension MarkdownStyler {
 
     /// Task-list line: indent, marker (`-`/`*`/`+`/`•`/`N.` matching the AST), spacer, `[ ]`/`[x]` box.
+    /// Fork: the indent may follow a quote's `>` markers.
     static let taskListRegex: NSRegularExpression = try! NSRegularExpression(
-        pattern: #"^([ \t]*)([-•*+]|\d+\.)([ \t]+)(\[[ xX]\])(?=[ \t])"#,
+        pattern: #"^((?:[ \t]*>[ \t]?)*[ \t]*)([-•*+]|\d+\.)([ \t]+)("# + TaskMarker.boxPattern + #")(?=[ \t])"#,
         options: [.anchorsMatchLines]
     )
 

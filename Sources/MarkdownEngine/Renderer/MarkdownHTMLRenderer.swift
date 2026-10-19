@@ -88,7 +88,7 @@ public enum MarkdownHTMLRenderer {
         case .paragraph(_, let inlines):
             return "<p>\(renderInlines(inlines, ns: ns, env: env))</p>"
 
-        case .blockquote(let range, _):
+        case .blockquote(let range, _, _):
             return renderBlockquote(range: range, ns: ns, env: env)
 
         case .list(_, let items):
@@ -221,11 +221,16 @@ public enum MarkdownHTMLRenderer {
         guard let parsed = MarkdownStyler.parseTableSource(raw) else {
             return "<pre>\(escape(raw.trimmingCharacters(in: .newlines)))</pre>"
         }
-        let head = parsed.header.map { "<th>\(escape($0))</th>" }.joined()
+        let head = parsed.header.map { "<th>\(cellHTML($0))</th>" }.joined()
         let body = parsed.rows.map { row in
-            "<tr>" + row.map { "<td>\(escape($0))</td>" }.joined() + "</tr>"
+            "<tr>" + row.map { "<td>\(cellHTML($0))</td>" }.joined() + "</tr>"
         }.joined()
         return "<table><thead><tr>\(head)</tr></thead><tbody>\(body)</tbody></table>"
+    }
+
+    /// Fork: a cell's line breaks (`<br>` in the file) stay line breaks.
+    private static func cellHTML(_ cell: String) -> String {
+        escape(cell).replacingOccurrences(of: "\n", with: "<br>")
     }
 
     // MARK: - Inlines
@@ -263,6 +268,9 @@ public enum MarkdownHTMLRenderer {
 
         case .wikiLink(_, let name, _, _):
             return escape(ns.substring(with: name))
+
+        case .tag(let range, _):
+            return escape(ns.substring(with: range))
 
         case .imageEmbed(_, let target, _):
             let t = escape(ns.substring(with: target))

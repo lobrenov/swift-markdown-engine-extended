@@ -7,6 +7,7 @@
 //  fires first for ⌘-combos — and forward `.confirmAndOpen` to the embedder.
 //
 
+#if os(macOS)
 import AppKit
 
 extension NativeTextView {
@@ -22,3 +23,4 @@ extension NativeTextView {
         return super.performKeyEquivalent(with: event)
     }
 }
+#endif

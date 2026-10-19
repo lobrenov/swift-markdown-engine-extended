@@ -11,7 +11,11 @@
 //  positional, so it gets tested from both ends and through nesting.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine
@@ -20,7 +24,7 @@ import Testing
 struct DirectiveCompositionTests {
 
     private let base: CGFloat = 14
-    private var fontName: String { NSFont.systemFont(ofSize: 14).fontName }
+    private var fontName: String { PlatformFont.systemFont(ofSize: 14).fontName }
 
     /// A directive that only scales, to prove relative units compose.
     private struct ScaleDirective: MarkdownDirective {
@@ -48,21 +52,21 @@ struct DirectiveCompositionTests {
     }
 
     /// Effective font at the first occurrence of `needle`.
-    private func font(_ text: String, at needle: String, caret: Int = -1) -> NSFont? {
+    private func font(_ text: String, at needle: String, caret: Int = -1) -> PlatformFont? {
         let position = (text as NSString).range(of: needle).location
-        var result: NSFont?
+        var result: PlatformFont?
         for (range, attributes) in style(text, caret: caret) where NSLocationInRange(position, range) {
-            if let font = attributes[.font] as? NSFont { result = font }
+            if let font = attributes[.font] as? PlatformFont { result = font }
         }
         return result
     }
 
     /// Effective foreground colour at the first occurrence of `needle`.
-    private func color(_ text: String, at needle: String) -> NSColor? {
+    private func color(_ text: String, at needle: String) -> PlatformColor? {
         let position = (text as NSString).range(of: needle).location
-        var result: NSColor?
+        var result: PlatformColor?
         for (range, attributes) in style(text) where NSLocationInRange(position, range) {
-            if let color = attributes[.foregroundColor] as? NSColor { result = color }
+            if let color = attributes[.foregroundColor] as? PlatformColor { result = color }
         }
         return result
     }
@@ -88,7 +92,7 @@ struct DirectiveCompositionTests {
 
     @Test("a non-font directive applies its attributes")
     func attributesApply() {
-        // `@color` resolves through NSColor(named:), unavailable in tests — so
+        // `@color` resolves through PlatformColor(named:), unavailable in tests — so
         // assert the directive is reached and leaves the body's font alone.
         #expect(font("@color(red){hello}", at: "hello")?.pointSize == base)
     }
@@ -210,7 +214,7 @@ struct DirectiveCompositionTests {
             .filter { NSIntersectionRange($0.range, paragraph).length > 0 }
             .map { entry in
                 let keys = entry.attributes.keys.map(\.rawValue).sorted().joined(separator: ",")
-                let size = (entry.attributes[.font] as? NSFont).map { "\($0.pointSize)" } ?? "-"
+                let size = (entry.attributes[.font] as? PlatformFont).map { "\($0.pointSize)" } ?? "-"
                 return "\(entry.range.location):\(entry.range.length)[\(keys)]\(size)"
             }
             .sorted()
@@ -228,9 +232,9 @@ struct DirectiveCompositionTests {
             caretLocation: -1, configuration: .default
         )
         let position = ("@font(size: 18){hello}" as NSString).range(of: "hello").location
-        var result: NSFont?
+        var result: PlatformFont?
         for (range, attributes) in attrs where NSLocationInRange(position, range) {
-            if let font = attributes[.font] as? NSFont { result = font }
+            if let font = attributes[.font] as? PlatformFont { result = font }
         }
         #expect(result == nil || result?.pointSize == base)
     }

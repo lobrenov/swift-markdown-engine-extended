@@ -58,6 +58,9 @@ enum InlineASTAdapter {
 
         case .escape(let range, let character, let marker):
             result.append(MarkdownToken(kind: .backslashEscape, range: range, contentRange: character, markerRanges: [marker]))
+
+        case .tag(let range, let marker):
+            result.append(MarkdownToken(kind: .tag, range: range, contentRange: range, markerRanges: [marker]))
         }
     }
 

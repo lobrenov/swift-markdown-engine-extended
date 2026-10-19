@@ -10,6 +10,7 @@
 //  content reveals/hides.
 //
 
+#if os(macOS)
 import AppKit
 import SwiftUI
 
@@ -430,3 +431,4 @@ final class ScrollingHeaderController {
         if instant { container.layoutSubtreeIfNeeded() }
     }
 }
+#endif

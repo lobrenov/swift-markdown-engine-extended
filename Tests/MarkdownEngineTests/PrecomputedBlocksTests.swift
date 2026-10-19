@@ -9,7 +9,12 @@
 //  re-extracting + memcmp'ing the full document buffer every keystroke.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine
@@ -77,7 +82,7 @@ struct PrecomputedBlocksTests {
         let state = DocumentParseState()
         _ = state.tokens(for: text, edit: nil)
         let blocks = state.currentBlocks
-        let fontName = NSFont.systemFont(ofSize: 14).fontName
+        let fontName = PlatformFont.systemFont(ofSize: 14).fontName
 
         let fresh = MarkdownASTStyler.styleAttributes(text: text, fontName: fontName, fontSize: 14)
         let reused = MarkdownASTStyler.styleAttributes(text: text, fontName: fontName, fontSize: 14,
@@ -91,3 +96,4 @@ struct PrecomputedBlocksTests {
         }
     }
 }
+#endif

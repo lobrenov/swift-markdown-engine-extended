@@ -11,7 +11,12 @@
 //  display text.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
@@ -58,13 +63,15 @@ struct InterceptorStorageSyncTests {
 
     // Tab list-indent: the edit lands at the line start, not at the caret the
     // suppressed keystroke described.
+    // Fork: the item needs a previous sibling to nest under.
     @Test func tabIndentSyncsStorage() {
-        let (tv, coord) = makeEditor(text: "- hello")
-        tv.setSelectedRange(NSRange(location: 7, length: 0))   // end of the item
+        let (tv, coord) = makeEditor(text: "- a\n- hello")
+        tv.setSelectedRange(NSRange(location: 11, length: 0))   // end of the item
 
-        tv.insertText("\t", replacementRange: NSRange(location: 7, length: 0))
+        tv.insertText("\t", replacementRange: NSRange(location: 11, length: 0))
 
-        #expect(tv.string == "\t- hello")
-        #expect(coord.lastComputedStorage == "\t- hello")
+        #expect(tv.string == "- a\n\t- hello")
+        #expect(coord.lastComputedStorage == "- a\n\t- hello")
     }
 }
+#endif

@@ -7,12 +7,16 @@
 
 // Applies the Markdown look (bold, links, code, headings, etc.). Most styling
 // is now produced by the AST-native styler (`MarkdownASTStyler`); this type
-// builds the `StylingContext` and runs the NSImage rendering passes that still
+// builds the `StylingContext` and runs the PlatformImage rendering passes that still
 // consume tokens:
 //   - MarkdownStyler+Latex.swift   (block + inline LaTeX rendering)
 //   - MarkdownStyler+Images.swift  (image embeds / image links)
 //   - MarkdownStyler+Tables.swift  (rendered tables)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 // MARK: - Styling Context
@@ -22,7 +26,7 @@ extension MarkdownStyler {
 
     /// Per-kind token arrays (each with the token's index into the full array,
     /// for activeTokenIndices), built ONCE in the parse classification and
-    /// reused across keystrokes. Lets the NSImage passes iterate a small,
+    /// reused across keystrokes. Lets the PlatformImage passes iterate a small,
     /// scope-sliced array instead of walking every document token per pass.
     struct ClassifiedStyleTokens {
         let inlineLatex: [IndexedToken]
@@ -38,16 +42,16 @@ extension MarkdownStyler {
         let tokens: [MarkdownToken]
         let codeTokens: [MarkdownToken]
         let activeTokenIndices: Set<Int>
-        let baseFont: NSFont
+        let baseFont: PlatformFont
         let layoutBridge: LayoutBridge?
         let baseDefaultLineHeight: CGFloat
-        let codeBackgroundColor: NSColor
-        let latexMarkerFont: NSFont
+        let codeBackgroundColor: PlatformColor
+        let latexMarkerFont: PlatformFont
         let configuration: MarkdownEditorConfiguration
         let wikiLinkIDProvider: (NSRange) -> String?
         /// Union bounds of the restyle's paragraph scope; nil = whole document
         /// (initial load). Attribute application clips per paragraph anyway,
-        /// so the NSImage passes can skip tokens wholly outside these bounds
+        /// so the PlatformImage passes can skip tokens wholly outside these bounds
         /// instead of walking every token in the document per keystroke.
         var scopeBounds: (lo: Int, hi: Int)? = nil
         /// Pre-classified per-kind token arrays; nil for direct callers (tests),
@@ -223,7 +227,7 @@ enum MarkdownStyler {
         )
 
         var result: [StyledRange] = []
-        // AST-native styler handles everything but NSImage rendering (incl. the composition fixes).
+        // AST-native styler handles everything but PlatformImage rendering (incl. the composition fixes).
         let astT0 = DispatchTime.now().uptimeNanoseconds
         result += MarkdownASTStyler.styleAttributes(
             text: text, fontName: fontName, fontSize: fontSize,
@@ -232,7 +236,7 @@ enum MarkdownStyler {
             configuration: configuration
         )
         let astMs = Double(DispatchTime.now().uptimeNanoseconds - astT0) / 1_000_000
-        // NSImage rendering reuses the existing, proven machinery.
+        // PlatformImage rendering reuses the existing, proven machinery.
         let imgT0 = DispatchTime.now().uptimeNanoseconds
         result += styleBlockLatex(ctx)
         result += styleInlineLatex(ctx)
@@ -303,8 +307,8 @@ enum MarkdownStyler {
         let codeTokens = classified?.code ?? tokens.filter {
             $0.kind == .codeBlock || $0.kind == .inlineCode
         }
-        let baseFont = NSFont(name: fontName, size: fontSize)
-            ?? NSFont.systemFont(ofSize: fontSize)
+        let baseFont = PlatformFont.named(fontName, size: fontSize)
+            ?? PlatformFont.systemFont(ofSize: fontSize)
         let baseDefaultLineHeight = ceil(
             layoutBridge?.defaultLineHeight(for: baseFont)
                 ?? (baseFont.ascender - baseFont.descender + baseFont.leading)
@@ -320,8 +324,8 @@ enum MarkdownStyler {
             baseDefaultLineHeight: baseDefaultLineHeight,
             codeBackgroundColor: configuration.services.syntaxHighlighter
                 .backgroundColor(),
-            latexMarkerFont: NSFont(name: fontName, size: hiddenMarkerSize)
-                ?? NSFont.systemFont(ofSize: hiddenMarkerSize),
+            latexMarkerFont: PlatformFont.named(fontName, size: hiddenMarkerSize)
+                ?? PlatformFont.systemFont(ofSize: hiddenMarkerSize),
             configuration: configuration,
             wikiLinkIDProvider: wikiLinkIDProvider,
             scopeBounds: scopeBounds,
@@ -351,14 +355,15 @@ extension MarkdownStyler {
         case collapsedSourceScrollable(
             markerTexts: [String],
             displayWidth: CGFloat,
-            sourceID: Int
+            sourceID: Int,
+            scrollerStrip: CGFloat = MarkdownTextLayoutFragment.scrollableBlockScrollerStrip
         )
     }
 
     static func appendRenderedStandaloneBlock(
         for token: MarkdownToken,
         rawContent: String,
-        image: NSImage,
+        image: PlatformImage,
         imageBounds: CGRect,
         paragraphSpacingBefore: CGFloat,
         paragraphSpacing: CGFloat,
@@ -396,8 +401,7 @@ extension MarkdownStyler {
                 attrs: &attrs
             )
 
-        case .collapsedSourceScrollable(let markerTexts, let displayWidth, let sourceID):
-            let scrollerStrip = MarkdownTextLayoutFragment.scrollableBlockScrollerStrip
+        case .collapsedSourceScrollable(let markerTexts, let displayWidth, let sourceID, let scrollerStrip):
             let totalHeight = imageBounds.height + scrollerStrip
             var anchorAttrs = widthChangeAnchorAttrs
             anchorAttrs[.scrollableBlockNaturalWidth] = imageBounds.width
@@ -446,7 +450,7 @@ extension MarkdownStyler {
     /// (e.g. `z` + U+0304) instead laid out at x = +1783 with width -1783,
     /// which poisoned `usageBoundsForTextContainer` for the whole document
     /// (measured -1778…695 instead of 5…695 on a 14-line table).
-    static func hiddenRunKern(_ text: String, font: NSFont) -> CGFloat {
+    static func hiddenRunKern(_ text: String, font: PlatformFont) -> CGFloat {
         let count = max(1, (text as NSString).length)
         return HeadingHelpers.textWidth(text, font: font) / CGFloat(count)
     }
@@ -455,7 +459,7 @@ extension MarkdownStyler {
     private static func emitCollapsedAttrs(
         token: MarkdownToken,
         rawContent: String,
-        image: NSImage,
+        image: PlatformImage,
         imageBounds: CGRect,
         paragraphSpacing: CGFloat,
         para: NSMutableParagraphStyle,
@@ -500,7 +504,7 @@ extension MarkdownStyler {
             let leadingRange = NSRange(location: token.contentRange.location, length: leadingWhitespaceUnits)
             let leadingText = ctx.nsText.substring(with: leadingRange)
             attrs.append((leadingRange, [
-                .foregroundColor: NSColor.clear,
+                .foregroundColor: PlatformColor.clear,
                 .font: ctx.latexMarkerFont,
                 .kern: -hiddenRunKern(leadingText, font: ctx.latexMarkerFont)
             ]))
@@ -512,7 +516,7 @@ extension MarkdownStyler {
             .latexImage: image,
             .latexBounds: NSValue(rect: imageBounds),
             .latexIsBlock: true,
-            .foregroundColor: NSColor.clear,
+            .foregroundColor: PlatformColor.clear,
             .font: ctx.latexMarkerFont,
             .kern: advanceWidth - HeadingHelpers.textWidth(anchorChar, font: ctx.latexMarkerFont)
         ]
@@ -525,7 +529,7 @@ extension MarkdownStyler {
             let trailingRange = NSRange(location: trailingStart, length: trailingLength)
             let trailingText = ctx.nsText.substring(with: trailingRange)
             attrs.append((trailingRange, [
-                .foregroundColor: NSColor.clear,
+                .foregroundColor: PlatformColor.clear,
                 .font: ctx.latexMarkerFont,
                 .kern: -hiddenRunKern(trailingText, font: ctx.latexMarkerFont)
             ]))
@@ -536,7 +540,7 @@ extension MarkdownStyler {
                 ? markerTexts[index]
                 : ctx.nsText.substring(with: markerRange)
             attrs.append((markerRange, [
-                .foregroundColor: NSColor.clear,
+                .foregroundColor: PlatformColor.clear,
                 .font: ctx.latexMarkerFont,
                 .kern: -hiddenRunKern(markerText, font: ctx.latexMarkerFont)
             ]))
@@ -547,7 +551,7 @@ extension MarkdownStyler {
             let preTokenRange = NSRange(location: paraRange.location, length: preTokenLength)
             let preTokenText = ctx.nsText.substring(with: preTokenRange)
             attrs.append((preTokenRange, [
-                .foregroundColor: NSColor.clear,
+                .foregroundColor: PlatformColor.clear,
                 .font: ctx.latexMarkerFont,
                 .kern: -hiddenRunKern(preTokenText, font: ctx.latexMarkerFont)
             ]))

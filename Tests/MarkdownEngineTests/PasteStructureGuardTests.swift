@@ -11,6 +11,7 @@
 //  so its branch selection is exercised through this pure helper.
 //
 
+#if os(macOS)
 import Foundation
 import Testing
 @testable import MarkdownEngine
@@ -53,3 +54,4 @@ struct PasteStructureGuardTests {
         }
     }
 }
+#endif

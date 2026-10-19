@@ -15,7 +15,11 @@
 //  into a longer `~` run), unlike highlight's tolerant `==abc===`.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 public struct StrikethroughExtension: MarkdownExtension {

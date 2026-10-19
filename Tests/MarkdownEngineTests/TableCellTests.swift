@@ -7,7 +7,12 @@
 //  body text, including nested emphasis the old per-cell regexes could not do.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Testing
 @testable import MarkdownEngine
 
@@ -19,7 +24,7 @@ struct TableCellTests {
         _ = NSApplication.shared
         let cfg = MarkdownEditorConfiguration.default
         return MarkdownStyler.formattedCellString(
-            raw, baseFont: NSFont.systemFont(ofSize: 14), header: header,
+            raw, baseFont: PlatformFont.systemFont(ofSize: 14), header: header,
             theme: cfg.theme, codeBackgroundColor: .clear, latex: cfg.services.latex,
             extensions: [HighlightExtension(), StrikethroughExtension()]
         )
@@ -27,11 +32,11 @@ struct TableCellTests {
 
     /// Symbolic traits of the font on the first occurrence of `ch` in the
     /// (marker-stripped) rendered string.
-    private func traits(_ s: NSAttributedString, _ ch: Character) -> NSFontDescriptor.SymbolicTraits {
+    private func traits(_ s: NSAttributedString, _ ch: Character) -> PlatformFontDescriptor.SymbolicTraits {
         let ns = s.string as NSString
         let idx = ns.range(of: String(ch)).location
         guard idx != NSNotFound,
-              let font = s.attribute(.font, at: idx, effectiveRange: nil) as? NSFont else { return [] }
+              let font = s.attribute(.font, at: idx, effectiveRange: nil) as? PlatformFont else { return [] }
         return font.fontDescriptor.symbolicTraits
     }
 
@@ -85,3 +90,4 @@ struct TableCellTests {
         #expect(traits(s, "c").contains(.bold))
     }
 }
+#endif

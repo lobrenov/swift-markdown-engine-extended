@@ -5,6 +5,8 @@
 //  Ready-made SyntaxHighlighter conformance backed by HighlighterSwift.
 //
 
+// Fork: macOS only; the target is empty on iOS.
+#if canImport(AppKit)
 import AppKit
 import Foundation
 import Highlighter
@@ -174,3 +176,4 @@ public final class HighlighterSwiftBridge: SyntaxHighlighter, @unchecked Sendabl
         return nil
     }
 }
+#endif

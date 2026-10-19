@@ -22,7 +22,11 @@
 //  until its closing fence exists).
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 
 public struct ContainerExtension: MarkdownExtension {
@@ -31,19 +35,27 @@ public struct ContainerExtension: MarkdownExtension {
     public static let identifier = "container"
 
     /// Background tint applied to the container block.
-    public var backgroundColor: NSColor
+    public var backgroundColor: PlatformColor
 
     /// The default resolves per appearance: `withAlphaComponent` on a dynamic
     /// system color FREEZES it (same gotcha the table renderer documents), so
     /// the tint is rebuilt inside a dynamic provider and keeps tracking
     /// light/dark mode.
-    public init(backgroundColor: NSColor = NSColor(name: nil) { appearance in
-        var resolved = NSColor.systemBlue
-        appearance.performAsCurrentDrawingAppearance {
-            resolved = NSColor.systemBlue.usingColorSpace(.sRGB) ?? .systemBlue
+    public static var defaultBackground: PlatformColor {
+        #if os(macOS)
+        PlatformColor(name: nil) { appearance in
+            var resolved = PlatformColor.systemBlue
+            appearance.performAsCurrentDrawingAppearance {
+                resolved = PlatformColor.systemBlue.usingColorSpace(.sRGB) ?? .systemBlue
+            }
+            return resolved.withAlphaComponent(0.12)
         }
-        return resolved.withAlphaComponent(0.12)
-    }) {
+        #else
+        PlatformColor { traits in PlatformColor.systemBlue.resolvedColor(with: traits).withAlphaComponent(0.12) }
+        #endif
+    }
+
+    public init(backgroundColor: PlatformColor = ContainerExtension.defaultBackground) {
         self.backgroundColor = backgroundColor
     }
 

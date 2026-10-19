@@ -8,6 +8,7 @@
 //  that keeps drag-selection moving when the cursor sits near a window edge.
 //
 
+#if os(macOS)
 import AppKit
 
 extension NativeTextView {
@@ -20,6 +21,15 @@ extension NativeTextView {
             return ts.attribute(.link, at: idx, effectiveRange: nil) != nil
         }()
         if let toggled = toggleTaskCheckboxIfHit(event: event), toggled { return }
+        // Fork: a click on a drawn image selects it.
+        if selectImageEmbedIfHit(event: event) { return }
+        if toggleCalloutFoldIfHit(event: event) { return }
+        // Fork: a click on a drawn tag opens it.
+        if event.clickCount == 1, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock).isEmpty,
+           let onTagClick, let tag = tagHit(atViewPoint: convert(event.locationInWindow, from: nil)) {
+            onTagClick(tag)
+            return
+        }
         if remapClickInParagraphSpacing(event: event) { return }
         dragStartMouseScreenLoc = NSEvent.mouseLocation
         let boostTimer = Timer(timeInterval: 1.0 / configuration.dragSelection.ticksPerSecond, repeats: true) { [weak self] _ in
@@ -98,3 +108,4 @@ extension NativeTextView {
         (scrollView as? ClampedScrollView)?.clampToInsets()
     }
 }
+#endif

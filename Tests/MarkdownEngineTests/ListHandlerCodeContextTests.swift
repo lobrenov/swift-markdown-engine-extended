@@ -10,7 +10,12 @@
 //  fires outside code and stays inert inside a fenced block.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
@@ -60,3 +65,4 @@ struct ListHandlerCodeContextTests {
         #expect(tv.string == "```\n- hello\n\n```")
     }
 }
+#endif

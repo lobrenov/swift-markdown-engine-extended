@@ -15,7 +15,12 @@
 //    and revealing it renamed the item the reader was pointing at.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Testing
 @testable import MarkdownEngine
@@ -25,7 +30,7 @@ import Testing
 struct OrderedListDisplayNumberingTests {
 
     private let fontSize: CGFloat = 14
-    private var fontName: String { NSFont.systemFont(ofSize: 14).fontName }
+    private var fontName: String { PlatformFont.systemFont(ofSize: 14).fontName }
 
     /// `(markerLocation, paintedMarker)` for every overlaid ordered marker.
     /// Absent = the item paints its own literal digits (styler emits the
@@ -37,7 +42,7 @@ struct OrderedListDisplayNumberingTests {
         .sorted { $0.0 < $1.0 }
     }
 
-    private func overlays(in tv: NSTextView) -> [(loc: Int, text: String)] {
+    private func overlays(in tv: PlatformTextView) -> [(loc: Int, text: String)] {
         guard let storage = tv.textStorage else { return [] }
         var out: [(Int, String)] = []
         storage.enumerateAttribute(.orderedMarker, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
@@ -407,3 +412,4 @@ struct OrderedListDisplayNumberingTests {
         #expect(overlays(in: tv).map(\.text) == ["2.", "3.", "4."])
     }
 }
+#endif

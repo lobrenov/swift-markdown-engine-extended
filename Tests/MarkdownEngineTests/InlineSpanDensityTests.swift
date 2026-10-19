@@ -83,7 +83,8 @@ struct InlineSpanDensityTests {
         }
     }
 
-    /// Swift's `Hasher` is per-process seeded, so fold by hand.
+    /// Swift's `Hasher` is per-process seeded, so fold by hand. Type names are
+    /// folded without their module, so the module's name doesn't change the result.
     private func fingerprint(_ strings: [String], registry: ExtensionRegistry) -> String {
         var fnv: UInt64 = 0xcbf29ce484222325
         func fold(_ s: String) {
@@ -91,7 +92,7 @@ struct InlineSpanDensityTests {
         }
         for s in strings {
             fold(s)
-            fold(String(describing: InlineParser.parse(s, registry: registry)))
+            fold(String(describing: InlineParser.parse(s, registry: registry)).replacingOccurrences(of: "MarkdownEngine.", with: ""))
         }
         return String(fnv, radix: 16)
     }
@@ -102,7 +103,7 @@ struct InlineSpanDensityTests {
             extensions: [HighlightExtension(), StrikethroughExtension()]
         ).extensionRegistry
 
-        #expect(fingerprint(corpus(4000), registry: registry) == "b74649ffbbbe237a")
+        #expect(fingerprint(corpus(4000), registry: registry) == "19f08c199caeb249")
     }
 
     // MARK: - Cost curve, counted

@@ -5,6 +5,8 @@
 //  Ready-made LatexRenderer conformance backed by SwiftMath.
 //
 
+// Fork: macOS only; the target is empty on iOS.
+#if canImport(AppKit)
 import AppKit
 import Foundation
 import CryptoKit
@@ -335,3 +337,4 @@ public final class SwiftMathBridge: LatexRenderer, @unchecked Sendable {
         return (CGFloat(maxX) + 1) * widthInPoints / CGFloat(w)
     }
 }
+#endif

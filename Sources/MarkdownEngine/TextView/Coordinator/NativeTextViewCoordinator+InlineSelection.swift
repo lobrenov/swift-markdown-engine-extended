@@ -10,7 +10,11 @@
 //  activation in sync with the active-token-index set.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 extension NativeTextViewCoordinator {
 
@@ -23,23 +27,23 @@ extension NativeTextViewCoordinator {
         }
     }
 
-    func inlinePreviewRect(in tv: NSTextView) -> CGRect? {
+    func inlinePreviewRect(in tv: PlatformTextView) -> CGRect? {
         let nsText = tv.string as NSString
         let parsed = parsedDocument(for: tv.string)
-        let selectionLocation = tv.selectedRange().location
+        let selectionLocation = tv.currentSelectedRange.location
         guard let inlineContext = inlineTokenContext(
             at: selectionLocation,
             parsed: parsed,
             codeTokens: parsed.codeTokens,
             text: nsText
         ) else {
-            return tv.viewRect(forCharacterRange: tv.selectedRange(), using: layoutBridge)
+            return tv.viewRect(forCharacterRange: tv.currentSelectedRange, using: layoutBridge)
         }
 
         let openingMarkerLength = inlineContext.selectionKind == .imageEmbed ? 3 : 2
         let displayRange = selectionDisplayRange(for: inlineContext.token, openingMarkerLength: openingMarkerLength)
         return tv.viewRect(forCharacterRange: displayRange, using: layoutBridge)
-            ?? tv.viewRect(forCharacterRange: tv.selectedRange(), using: layoutBridge)
+            ?? tv.viewRect(forCharacterRange: tv.currentSelectedRange, using: layoutBridge)
     }
 
     func selectionDisplayRange(for token: MarkdownToken, openingMarkerLength: Int) -> NSRange {
@@ -96,11 +100,19 @@ extension NativeTextViewCoordinator {
     // MARK: - Image Embed Activation
 
     func filterImageEmbedActiveTokens(parsed: ParsedDocument, text: NSString, selectionLocation: Int) {
-        let activeImageEmbedIndex = imageEmbedToken(
+        var activeImageEmbedIndex = imageEmbedToken(
             at: selectionLocation,
             parsed: parsed,
             in: text
         )?.index
+        // Fork: unless the caret reveals sources, only a revealed image shows its source.
+        if !configuration.imageEmbed.revealsSourceAtCaret {
+            if let index = activeImageEmbedIndex, parsed.tokens[index].range.location == revealedImageEmbed {
+            } else {
+                activeImageEmbedIndex = nil
+                revealedImageEmbed = nil
+            }
+        }
 
         for (idx, token) in parsed.tokens.enumerated() where token.kind == .imageEmbed {
             if idx != activeImageEmbedIndex {

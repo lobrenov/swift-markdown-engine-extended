@@ -11,10 +11,13 @@
 //  and keeps the raw markdown as the plain-text flavor.
 //
 
+#if os(macOS)
 import AppKit
 
 extension NativeTextView {
     override func copy(_ sender: Any?) {
+        // Fork: a selected image goes to `onImageEmbed`.
+        if sendSelectedImageEmbed(.copy) { return }
         let sel = selectedRange()
         guard sel.length > 0 else {
             super.copy(sender)
@@ -26,3 +29,4 @@ extension NativeTextView {
                                        directiveSettings: configuration.directiveSettings)
     }
 }
+#endif

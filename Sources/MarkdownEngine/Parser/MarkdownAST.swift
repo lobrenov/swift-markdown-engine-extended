@@ -19,6 +19,8 @@ struct ListItem: Equatable {
     let number: Int?            // ordered start value, e.g. `5.` → 5
     let checkbox: NSRange?
     let checked: Bool
+    /// Fork: the character between the brackets (see `TaskMarker`), nil without a checkbox.
+    let taskMarker: Character?
     let indent: Int
     let contentRange: NSRange   // text after the marker (and checkbox)
     let inlines: [InlineNode]
@@ -39,7 +41,8 @@ struct ExtensionBlockNode: Equatable {
 indirect enum BlockNode: Equatable {
     case paragraph(range: NSRange, inlines: [InlineNode])
     case heading(level: Int, range: NSRange, markers: [NSRange], inlines: [InlineNode])
-    case blockquote(range: NSRange, inlines: [InlineNode])
+    /// Fork: `items` are the list items on the quote's lines (`> - [ ] a`), read after the `>` markers.
+    case blockquote(range: NSRange, inlines: [InlineNode], items: [ListItem])
     case list(range: NSRange, items: [ListItem])
     case codeBlock(range: NSRange)
     case blockLatex(range: NSRange)
@@ -50,7 +53,7 @@ indirect enum BlockNode: Equatable {
 
     var range: NSRange {
         switch self {
-        case .paragraph(let r, _), .heading(_, let r, _, _), .blockquote(let r, _),
+        case .paragraph(let r, _), .heading(_, let r, _, _), .blockquote(let r, _, _),
              .list(let r, _), .codeBlock(let r), .blockLatex(let r), .table(let r),
              .thematicBreak(let r), .blank(let r):
             return r
@@ -169,7 +172,8 @@ enum DocumentAST {
         case .heading:
             return heading(block.range, ns, scoped: scoped, registry: registry)
         case .blockquote:
-            return .blockquote(range: block.range, inlines: scoped ? InlineParser.parse(ns, range: block.range, registry: registry) : [])
+            return .blockquote(range: block.range, inlines: scoped ? InlineParser.parse(ns, range: block.range, registry: registry) : [],
+                               items: quotedListItems(block.range, ns))
         case .list:
             return list(
                 block.range,
@@ -311,10 +315,34 @@ enum DocumentAST {
         return .list(range: range, items: items)
     }
 
+    /// Fork: the list items on a quote's lines. Each line's `>` markers (each with an optional
+    /// space or tab after it) come off first; the quote's own inlines cover the items' text.
+    private static func quotedListItems(_ range: NSRange, _ ns: NSString) -> [ListItem] {
+        var items: [ListItem] = []
+        var lineStart = range.location
+        while lineStart < NSMaxRange(range) {
+            let line = ns.lineRange(for: NSRange(location: lineStart, length: 0))
+            lineStart = NSMaxRange(line)
+            var i = line.location
+            var indent = 0
+            while i < lineStart, indent < 3, ns.character(at: i) == space || ns.character(at: i) == tab { i += 1; indent += 1 }
+            guard i < lineStart, ns.character(at: i) == 0x3E else { continue }   // >
+            while i < lineStart, ns.character(at: i) == 0x3E {
+                i += 1
+                if i < lineStart, ns.character(at: i) == space || ns.character(at: i) == tab { i += 1 }
+            }
+            guard BlockParser.isListItem(ns.substring(with: NSRange(location: i, length: lineStart - i))) else { continue }
+            items.append(listItem(line, ns, from: i, scoped: false))
+        }
+        return items
+    }
+
     /// Parse one list-item line: indent, marker, optional task checkbox, inline content.
-    private static func listItem(_ lineRange: NSRange, _ ns: NSString, scoped: Bool = true, registry: ExtensionRegistry = .empty) -> ListItem {
+    /// Fork: `start` is where the indent begins, after a quote's `>` markers.
+    private static func listItem(_ lineRange: NSRange, _ ns: NSString, from start: Int? = nil, scoped: Bool = true,
+                                 registry: ExtensionRegistry = .empty) -> ListItem {
         let end = NSMaxRange(lineRange)
-        var i = lineRange.location
+        var i = start ?? lineRange.location
         var indent = 0
         while i < end, ns.character(at: i) == space || ns.character(at: i) == tab { i += 1; indent += 1 }
         let markerStart = i
@@ -334,23 +362,29 @@ enum DocumentAST {
             if i < end { i += 1 }                       // the `.` or `)`
         }
         let marker = NSRange(location: markerStart, length: i - markerStart)
-        if i < end, ns.character(at: i) == space || ns.character(at: i) == tab { i += 1 }
+        func isSpace(_ at: Int) -> Bool { at < end && (ns.character(at: at) == space || ns.character(at: at) == tab) }
+        // Fork: GFM's rule: one to four spaces or tabs, the box, then a space or tab.
+        var box = i
+        while box - i < 4, isSpace(box) { box += 1 }
+        if isSpace(i) { i += 1 }
         var checkbox: NSRange?
         var checked = false
-        if i + 2 < end, ns.character(at: i) == 0x5B, ns.character(at: i + 2) == 0x5D {   // [ x ]
-            let mid = ns.character(at: i + 1)
-            if mid == space || mid == 0x78 || mid == 0x58 {     // space / x / X
-                checkbox = NSRange(location: i, length: 3)
+        var taskMarker: Character?
+        if box > NSMaxRange(marker), box + 3 < end, ns.character(at: box) == 0x5B, ns.character(at: box + 2) == 0x5D,
+           isSpace(box + 3) {   // [ x ]
+            let mid = ns.character(at: box + 1)
+            if TaskMarker.isMarker(mid) {
+                checkbox = NSRange(location: box, length: 3)
                 checked = (mid == 0x78 || mid == 0x58)
-                i += 3
-                if i < end, ns.character(at: i) == space || ns.character(at: i) == tab { i += 1 }
+                taskMarker = Character(UnicodeScalar(mid)!)
+                i = box + 4
             }
         }
         var contentEnd = end
         while contentEnd > i, isLineBreak(ns.character(at: contentEnd - 1)) { contentEnd -= 1 }
         let content = NSRange(location: i, length: max(0, contentEnd - i))
         return ListItem(range: lineRange, marker: marker, ordered: ordered, number: number,
-                        checkbox: checkbox, checked: checked, indent: indent,
+                        checkbox: checkbox, checked: checked, taskMarker: taskMarker, indent: indent,
                         contentRange: content, inlines: scoped ? InlineParser.parse(ns, range: content, registry: registry) : [])
     }
 

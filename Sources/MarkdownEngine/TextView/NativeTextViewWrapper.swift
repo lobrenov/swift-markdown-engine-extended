@@ -10,6 +10,7 @@
 //
 // Public selection / replacement value types live in
 // `NativeTextViewSelectionTypes.swift`.
+#if os(macOS)
 import SwiftUI
 import AppKit
 
@@ -141,6 +142,26 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     /// Return `true` to show the arrow cursor instead of the I-beam.
     public var isCursorExcluded: ((CGPoint) -> Bool)?
 
+    /// Fork: fires when a `/` typed at a line start or after whitespace opens a
+    /// slash command, as its query changes, and with `nil` when it closes.
+    public var onSlashCommandChange: ((SlashCommandState?) -> Void)?
+    /// Fork: a right-click on a task box. When set, it replaces the built-in marker menu.
+    public var onTaskMarkerMenu: ((TaskMarkerMenuRequest) -> Void)?
+    /// Fork: a right-click on a callout's title line. Without it, the line gets the standard menu.
+    public var onCalloutMenu: ((CalloutMenuRequest) -> Void)?
+    /// Fork: a right-click on a live table's row or column grip, with the menu's items. The embedder draws the menu.
+    public var onRightClickMenu: ((RightClickMenuRequest) -> Void)?
+    /// Fork: with `imageEmbed.selectionRing` set, a right-click on a drawn image (`.menu`), or ⌘C, ⌘X or ⌘⌫
+    /// while one is selected. The embedder copies the image, shows its menu, and so on; a cut calls `remove`.
+    public var onImageEmbed: ((ImageEmbedRequest) -> Void)?
+    /// Fork: a click on a drawn `#tag` (with `configuration.tags` set), with the tag as written, without `#`.
+    public var onTagClick: ((String) -> Void)?
+    /// Fork: ↑/↓ and ↵/⇥ (`.confirm`) while a slash command is open. Return `true`
+    /// to consume the key. Esc always closes it.
+    public var onSlashCommandKey: ((InlinePreviewKey) -> Bool)?
+    /// Fork: inserts the chosen format or closes the slash command.
+    public var slashCommandProxy: SlashCommandProxy?
+
     public init(
         text: Binding<String>,
         isWikiLinkActive: Binding<Bool> = .constant(false),
@@ -166,7 +187,15 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         retainedScrollDocumentIds: Set<String>? = nil,
         onPersistScrollOffset: ((String, CGFloat) -> Void)? = nil,
         restoreScrollOffset: ((String) -> CGFloat?)? = nil,
-        isCursorExcluded: ((CGPoint) -> Bool)? = nil
+        isCursorExcluded: ((CGPoint) -> Bool)? = nil,
+        onSlashCommandChange: ((SlashCommandState?) -> Void)? = nil,
+        onSlashCommandKey: ((InlinePreviewKey) -> Bool)? = nil,
+        slashCommandProxy: SlashCommandProxy? = nil,
+        onTaskMarkerMenu: ((TaskMarkerMenuRequest) -> Void)? = nil,
+        onCalloutMenu: ((CalloutMenuRequest) -> Void)? = nil,
+        onImageEmbed: ((ImageEmbedRequest) -> Void)? = nil,
+        onTagClick: ((String) -> Void)? = nil,
+        onRightClickMenu: ((RightClickMenuRequest) -> Void)? = nil
     ) {
         self._text = text
         self._isWikiLinkActive = isWikiLinkActive
@@ -193,6 +222,14 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         self.onPersistScrollOffset = onPersistScrollOffset
         self.restoreScrollOffset = restoreScrollOffset
         self.isCursorExcluded = isCursorExcluded
+        self.onSlashCommandChange = onSlashCommandChange
+        self.onSlashCommandKey = onSlashCommandKey
+        self.slashCommandProxy = slashCommandProxy
+        self.onTaskMarkerMenu = onTaskMarkerMenu
+        self.onCalloutMenu = onCalloutMenu
+        self.onImageEmbed = onImageEmbed
+        self.onTagClick = onTagClick
+        self.onRightClickMenu = onRightClickMenu
     }
 
     public func sizeThatFits(
@@ -275,6 +312,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         // Width and origin are driven by the container document view (see below).
         textView.autoresizingMask = []
         textView.backgroundColor = .clear
+        configuration.theme.apply(to: textView)
         // Body compositing for the scroll-away header (clipsToBounds + redraw policy)
         // is applied by ScrollingHeaderController when a header is first supplied, so
         // header-less embedders keep AppKit's default rendering.
@@ -334,6 +372,9 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         context.coordinator.onInlineSelectionChange = onInlineSelectionChange
         context.coordinator.onInlinePreviewKey = onInlinePreviewKey
         context.coordinator.onCodeBlockSelectionChange = onCodeBlockSelectionChange
+        context.coordinator.onSlashCommandChange = onSlashCommandChange
+        context.coordinator.onSlashCommandKey = onSlashCommandKey
+        slashCommandProxy?.coordinator = context.coordinator
 
         textView.recalcOverscroll(for: scrollView)
         textView.setPlaceholder(placeholder)
@@ -398,9 +439,21 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         guard let textView = nsView.nativeTextView else {
             return
         }
+        context.coordinator.refresh(text: $text, isWikiLinkActive: $isWikiLinkActive, onLinkClick: onLinkClick)
+        // Fork: before the early returns below, so the slash menu sees current closures.
+        context.coordinator.onSlashCommandChange = onSlashCommandChange
+        context.coordinator.onSlashCommandKey = onSlashCommandKey
+        slashCommandProxy?.coordinator = context.coordinator
+        textView.onTaskMarkerMenu = onTaskMarkerMenu
+        textView.onCalloutMenu = onCalloutMenu
+        textView.onImageEmbed = onImageEmbed
+        textView.onTagClick = onTagClick
+        textView.onRightClickMenu = onRightClickMenu
         reconcileHeader(textView: textView, context: context)
 
         let isNodeSwitch = context.coordinator.documentId != documentId
+        // Fork: callouts folded on screen belong to the document they were folded in.
+        if isNodeSwitch { context.coordinator.configuration.calloutFoldOverrides = [:] }
 
         // Refreshed here, not with the other callbacks at the bottom — teardown has
         // to reach the CURRENT closures even when the pass below returns early.
@@ -527,7 +580,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         // Reading column centers by POSITION (container subview), so the text inset is constant.
         let desiredTextInset = NSSize(
             width: configuration.textInsets.horizontal,
-            height: configuration.textInsets.vertical
+            height: configuration.textInsets.vertical + textView.leadingCalloutPadding
         )
         if abs(textView.textContainerInset.width - desiredTextInset.width) > 0.5
             || abs(textView.textContainerInset.height - desiredTextInset.height) > 0.5 {
@@ -555,6 +608,35 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             if fullRange.length > 0 {
                 context.coordinator.restyleParagraphs([fullRange], in: textView)
             }
+        }
+        // Fork: apply a theme change in place (no rebuild, so undo and scroll survive).
+        if configuration.theme != context.coordinator.configuration.theme {
+            // Checkbox tints and the code-block colour usually derive from the theme too.
+            context.coordinator.configuration.theme = configuration.theme
+            textView.configuration.theme = configuration.theme
+            context.coordinator.configuration.taskCheckbox = configuration.taskCheckbox
+            textView.configuration.taskCheckbox = configuration.taskCheckbox
+            // Fork: bubbles and callouts take their colours from the theme too.
+            context.coordinator.configuration.inlineCode = configuration.inlineCode
+            textView.configuration.inlineCode = configuration.inlineCode
+            context.coordinator.configuration.extensions = configuration.extensions
+            textView.configuration.extensions = configuration.extensions
+            context.coordinator.configuration.callouts = configuration.callouts
+            textView.configuration.callouts = configuration.callouts
+            context.coordinator.configuration.tags = configuration.tags
+            textView.configuration.tags = configuration.tags
+            context.coordinator.configuration.services = configuration.services
+            textView.configuration.services = configuration.services
+            context.coordinator.cachedParsedDocument = nil
+            configuration.theme.apply(to: textView)
+            let fullRange = NSRange(location: 0, length: (textView.string as NSString).length)
+            if fullRange.length > 0 {
+                context.coordinator.restyleParagraphs([fullRange], in: textView)
+            }
+            if let tlm = textView.textLayoutManager {
+                tlm.invalidateLayout(for: tlm.documentRange)
+            }
+            textView.needsDisplay = true
         }
         textView.isEditable = isEditable
         textView.isSelectable = true
@@ -616,6 +698,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             context.coordinator.didInitialFormatting = false
             context.coordinator.didEnsureLayoutForCurrentDocument = false
             context.coordinator.resetImageEmbedState()
+            context.coordinator.dismissSlashCommand()
             // Drop old document's wide-table overlays synchronously.
             textView.removeAllWideTableOverlays()
             // Park at top during the rebuild; the new document's own saved offset
@@ -787,3 +870,4 @@ private extension NativeTextViewWrapper {
         )
     }
 }
+#endif

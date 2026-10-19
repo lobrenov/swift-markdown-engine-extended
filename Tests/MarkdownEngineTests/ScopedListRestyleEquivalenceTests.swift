@@ -19,7 +19,12 @@
 //  a caret move produces.
 //
 
+#if os(macOS)
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import Testing
 @testable import MarkdownEngine
 
@@ -28,7 +33,7 @@ import Testing
 struct ScopedListRestyleEquivalenceTests {
 
     private let fontSize: CGFloat = 14
-    private var fontName: String { NSFont.systemFont(ofSize: 14).fontName }
+    private var fontName: String { PlatformFont.systemFont(ofSize: 14).fontName }
 
     /// Shapes chosen for what precedes the list (nothing / content block / blank
     /// separator), how it nests, and where a scope can truncate the item run.
@@ -65,7 +70,7 @@ struct ScopedListRestyleEquivalenceTests {
                 caretLocation: caret, scopedRanges: scoped
             ),
             paragraphs: paragraphs,
-            baseAttributes: [.font: NSFont(name: fontName, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)],
+            baseAttributes: [.font: PlatformFont(name: fontName, size: fontSize) ?? PlatformFont.systemFont(ofSize: fontSize)],
             to: storage
         )
         return storage
@@ -120,3 +125,4 @@ struct ScopedListRestyleEquivalenceTests {
         }
     }
 }
+#endif

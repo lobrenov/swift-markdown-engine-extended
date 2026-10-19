@@ -12,24 +12,25 @@
 //  these functions so their rects can't drift apart.
 //
 
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 
 enum TaskCheckboxGeometry {
 
-    /// Gap between the box's right edge and the task content's left edge.
-    static let gap: CGFloat = 2.0
-
     /// Side length of the square for the given (body) font.
-    static func size(for font: NSFont) -> CGFloat {
+    /// Fork: sized from the line height via `TaskCheckboxStyle.sizeScale`.
+    static func size(for font: PlatformFont, style: TaskCheckboxStyle) -> CGFloat {
         let ascent = max(0, font.ascender)
         let descent = max(0, -font.descender)
         let fontHeight = max(1, ceil(ascent + descent))
-        let markerWidth = ("[ ]" as NSString).size(withAttributes: [.font: font]).width
-        return max(1.0, min(floor(fontHeight * 1.2), floor(markerWidth * 1.2)))
+        return max(1.0, floor(fontHeight * style.sizeScale))
     }
 
-    /// Left edge of the square: right-aligned to the content start x with `gap`.
-    static func boxX(contentX: CGFloat, size: CGFloat) -> CGFloat {
-        contentX - size - gap
+    /// Left edge of the square: right-aligned to the content start x with the style's gap.
+    static func boxX(contentX: CGFloat, size: CGFloat, style: TaskCheckboxStyle) -> CGFloat {
+        contentX - size - style.contentGap
     }
 }
