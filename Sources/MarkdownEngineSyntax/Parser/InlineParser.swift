@@ -22,7 +22,7 @@
 //                          spans wholly nested inside a Markdown link's label.
 //                          This keeps `[x](y)` inert inside code while allowing
 //                          valid labels such as [`x`](y).
-//    3b. scanTags        — Fork: `#tags`, when the registry reads them.
+//    3b. scanTags        — Fork: `#tags`, when the registry reads them (`InlineParser+Tags.swift`).
 //    4. resolveEmphasis  — `*`/`_` delimiter runs over text outside every
 //                          claimed span; may wrap claimed spans.
 //    5. buildTree        — containment tree. Emphasis nests already-collected
@@ -95,8 +95,8 @@ package struct ExtensionInlineNode: Equatable {
 package enum InlineParser {
 
     private static let backtick: unichar = 0x60
-    private static let asterisk: unichar = 0x2A
-    private static let underscore: unichar = 0x5F
+    static let asterisk: unichar = 0x2A
+    static let underscore: unichar = 0x5F
     private static let newline: unichar = 0x0A
     private static let bang: unichar = 0x21
     private static let lbracket: unichar = 0x5B
@@ -106,7 +106,7 @@ package enum InlineParser {
     private static let pipe: unichar = 0x7C
     private static let backslash: unichar = 0x5C
     private static let dollar: unichar = 0x24
-    private static let hash: unichar = 0x23
+    static let hash: unichar = 0x23
 
     // MARK: - Entry point
 
@@ -176,7 +176,7 @@ package enum InlineParser {
 
     // MARK: - Span model
 
-    private enum Span {
+    enum Span {
         case code(range: NSRange, content: NSRange)
         case emphasis(kind: EmphasisKind, range: NSRange, open: NSRange, close: NSRange)
         case link(range: NSRange, textRange: NSRange, url: NSRange, markers: [NSRange])
@@ -216,7 +216,7 @@ package enum InlineParser {
     ///
     /// Sortedness is established here rather than assumed of callers, so no
     /// call site carries an ordering obligation.
-    private struct ClaimedIndex {
+    struct ClaimedIndex {
         private let ranges: [NSRange]
         private var cursor = 0
 
@@ -658,67 +658,6 @@ package enum InlineParser {
         guard !u.isEmpty else { return false }
         for x in u where !((x >= 0x41 && x <= 0x5A) || (x >= 0x61 && x <= 0x7A)) { return false }
         return true
-    }
-
-    // MARK: - 3b. Tags (Fork)
-
-    /// `#` at the text's start (when `startsAtBoundary`) or after whitespace, then letters, digits, `_`, `-` and `/`,
-    /// with at least one character that isn't a digit or `/`. Trailing `/`s stay
-    /// out of the span. Escaped and claimed `#`s are skipped. A `#` after a run of `*` or `_` takes the boundary of the
-    /// run's start; such tags are also returned by start, to keep only where the run opens emphasis, and leave as many
-    /// trailing `_`s as the run had for its closer.
-    private static func scanTags(_ ns: NSString, len: Int, claimed: inout ClaimedIndex, startsAtBoundary: Bool)
-        -> (spans: [Span], afterDelimiters: Set<Int>) {
-        var spans: [Span] = []
-        var afterDelimiters: Set<Int> = []
-        var i = 0
-        while i < len {
-            guard ns.character(at: i) == hash, !claimed.contains(i),
-                  let delimiters = tagBoundary(before: i, ns, startsAtBoundary) else {
-                i += 1
-                continue
-            }
-            var end = i + 1
-            var hasWord = false
-            while end < len {
-                let composed = ns.rangeOfComposedCharacterSequence(at: end)
-                guard let c = ns.substring(with: composed).first,
-                      c.isLetter || c.isNumber || c == "_" || c == "-" || c == "/" else { break }
-                if !c.isNumber && c != "/" { hasWord = true }
-                end = NSMaxRange(composed)
-            }
-            let scanned = end
-            var underscores = delimiters.underscores
-            while underscores > 0, end > i + 1, ns.character(at: end - 1) == underscore {
-                end -= 1
-                underscores -= 1
-            }
-            while end > i + 1, ns.character(at: end - 1) == 0x2F { end -= 1 }
-            let range = NSRange(location: i, length: end - i)
-            let name = ns.substring(with: NSRange(location: i + 1, length: end - i - 1))
-            if hasWord, name.contains(where: { !$0.isNumber && $0 != "/" }), !claimed.overlaps(range) {
-                spans.append(.tag(range: range, marker: NSRange(location: i, length: 1)))
-                if delimiters.count > 0 { afterDelimiters.insert(i) }
-            }
-            i = scanned
-        }
-        return (spans, afterDelimiters)
-    }
-
-    /// The run of `*` and `_` before `i` when whitespace (by `Character.isWhitespace`) or the
-    /// text's start (when `startsAtBoundary`) comes before the run; nil when the `#` isn't at a boundary.
-    private static func tagBoundary(before i: Int, _ ns: NSString, _ startsAtBoundary: Bool)
-        -> (count: Int, underscores: Int)? {
-        var k = i - 1
-        var underscores = 0
-        while k >= 0, ns.character(at: k) == asterisk || ns.character(at: k) == underscore {
-            if ns.character(at: k) == underscore { underscores += 1 }
-            k -= 1
-        }
-        let atBoundary = k < 0
-            ? startsAtBoundary
-            : Unicode.Scalar(ns.character(at: k)).map { Character($0).isWhitespace } ?? false
-        return atBoundary ? (i - 1 - k, underscores) : nil
     }
 
     // MARK: - 4. Emphasis (delimiter runs)

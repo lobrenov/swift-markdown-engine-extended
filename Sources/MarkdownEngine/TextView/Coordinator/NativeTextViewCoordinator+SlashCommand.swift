@@ -205,7 +205,7 @@ extension NativeTextViewCoordinator {
         let range = NSRange(location: anchor, length: selection.location - anchor)
         let query = text.substring(with: NSRange(location: anchor + markerLength, length: range.length - markerLength))
         if slashTrigger == .tag {
-            guard query.count <= 100, query.allSatisfy(Self.isTagCharacter) else { return dismissSlashCommand() }
+            guard query.count <= 100, query.allSatisfy(TagSyntax.isTagCharacter) else { return dismissSlashCommand() }
             // Typed but not yet shown: `#` alone, or digits only.
             guard query.contains(where: { !$0.isNumber && $0 != "/" }) else {
                 if slashCommand != nil {
@@ -231,10 +231,6 @@ extension NativeTextViewCoordinator {
                                          isAtLineStart: lead.allSatisfy { $0 == " " || $0 == "\t" },
                                          followsBlankLine: followsBlankLine)
         reportSlashCommand()
-    }
-
-    private static func isTagCharacter(_ c: Character) -> Bool {
-        c.isLetter || c.isNumber || c == "_" || c == "-" || c == "/"
     }
 
     func dismissSlashCommand() {
