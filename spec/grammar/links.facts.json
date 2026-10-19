@@ -1,0 +1,59 @@
+{
+  "summary": "Links: [[Ysolde Marrow]], [[Places/Saltmere#Districts|the districts]], [[#Local heading]], [[Note#^block-id]], [[Unknown]].",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 0,
+      "target": "Ysolde Marrow"
+    },
+    {
+      "line": 0,
+      "target": "Places/Saltmere",
+      "heading": "Districts",
+      "alias": "the districts"
+    },
+    {
+      "line": 0,
+      "target": "",
+      "heading": "Local heading"
+    },
+    {
+      "line": 0,
+      "target": "Note",
+      "block": "block-id"
+    },
+    {
+      "line": 0,
+      "target": "Unknown"
+    },
+    {
+      "line": 4,
+      "target": "Yes3"
+    },
+    {
+      "line": 4,
+      "target": "Yes4"
+    },
+    {
+      "line": 4,
+      "target": "Yes5"
+    },
+    {
+      "line": 6,
+      "target": "Yes6"
+    },
+    {
+      "line": 13,
+      "target": "Inline Html"
+    },
+    {
+      "line": 13,
+      "target": "Yes2"
+    }
+  ],
+  "embeds": [],
+  "tags": [],
+  "callouts": [],
+  "tables": []
+}

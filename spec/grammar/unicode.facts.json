@@ -1,0 +1,30 @@
+{
+  "summary": "Été #été",
+  "headings": [
+    {
+      "line": 0,
+      "level": 1,
+      "text": "Ünïcödé [[Café]] 日本 [[日本語]]"
+    }
+  ],
+  "tasks": [],
+  "links": [
+    {
+      "line": 0,
+      "target": "Café"
+    },
+    {
+      "line": 0,
+      "target": "日本語"
+    }
+  ],
+  "embeds": [],
+  "tags": [
+    {
+      "line": 2,
+      "tag": "été"
+    }
+  ],
+  "callouts": [],
+  "tables": []
+}

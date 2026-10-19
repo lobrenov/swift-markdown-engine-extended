@@ -1,0 +1,50 @@
+{
+  "summary": "Embeds: ![[harbour.png|300]] ![[harbour.png|300x200]] ![[Note#Heading]] ![[Other Note]]",
+  "headings": [],
+  "tasks": [],
+  "links": [],
+  "embeds": [
+    {
+      "line": 0,
+      "target": "harbour.png",
+      "segments": [
+        "300"
+      ]
+    },
+    {
+      "line": 0,
+      "target": "harbour.png",
+      "segments": [
+        "300x200"
+      ]
+    },
+    {
+      "line": 0,
+      "target": "Note",
+      "heading": "Heading"
+    },
+    {
+      "line": 0,
+      "target": "Other Note"
+    },
+    {
+      "line": 2,
+      "target": "Spaced.png"
+    },
+    {
+      "line": 2,
+      "target": "Double"
+    },
+    {
+      "line": 2,
+      "target": "pic.png",
+      "segments": [
+        "caption",
+        "120"
+      ]
+    }
+  ],
+  "tags": [],
+  "callouts": [],
+  "tables": []
+}

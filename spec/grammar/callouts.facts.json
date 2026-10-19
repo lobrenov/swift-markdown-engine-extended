@@ -1,0 +1,59 @@
+{
+  "summary": null,
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 1,
+      "target": "Lanternreach"
+    }
+  ],
+  "embeds": [],
+  "tags": [],
+  "callouts": [
+    {
+      "type": "note",
+      "title": "Arriving by sea",
+      "startLine": 0,
+      "endLine": 3
+    },
+    {
+      "type": "warning",
+      "fold": "folded",
+      "title": "Folded",
+      "startLine": 5,
+      "endLine": 6
+    },
+    {
+      "type": "tip",
+      "fold": "open",
+      "startLine": 8,
+      "endLine": 9
+    },
+    {
+      "type": "faq",
+      "title": "Alias",
+      "startLine": 11,
+      "endLine": 13
+    },
+    {
+      "type": "quote",
+      "title": "Nested",
+      "startLine": 12,
+      "endLine": 13
+    },
+    {
+      "type": "custom",
+      "title": "Unknown type",
+      "startLine": 15,
+      "endLine": 15
+    },
+    {
+      "type": "info",
+      "title": "No space",
+      "startLine": 20,
+      "endLine": 20
+    }
+  ],
+  "tables": []
+}

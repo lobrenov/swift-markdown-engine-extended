@@ -1,0 +1,63 @@
+{
+  "summary": "#errands then #home/garden, #a-b_c. issue#42 and #42 and #2026 and #2026/10 #2026-goals #café x #a/ y #code [[Note #Heading]] #escaped example.com/#top see #label ![[a #b]] #after #lead and x #inner and a*#no* 日本　#タグ",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 3,
+      "target": "Note",
+      "heading": "Heading"
+    }
+  ],
+  "embeds": [
+    {
+      "line": 4,
+      "target": "a",
+      "heading": "b"
+    }
+  ],
+  "tags": [
+    {
+      "line": 0,
+      "tag": "errands"
+    },
+    {
+      "line": 0,
+      "tag": "home/garden"
+    },
+    {
+      "line": 0,
+      "tag": "a-b_c"
+    },
+    {
+      "line": 2,
+      "tag": "2026-goals"
+    },
+    {
+      "line": 2,
+      "tag": "café"
+    },
+    {
+      "line": 2,
+      "tag": "a"
+    },
+    {
+      "line": 4,
+      "tag": "after"
+    },
+    {
+      "line": 5,
+      "tag": "lead"
+    },
+    {
+      "line": 5,
+      "tag": "inner"
+    },
+    {
+      "line": 6,
+      "tag": "タグ"
+    }
+  ],
+  "callouts": [],
+  "tables": []
+}

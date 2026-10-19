@@ -1,0 +1,56 @@
+{
+  "summary": "Text - [ ] mid line",
+  "headings": [],
+  "tasks": [
+    {
+      "line": 0,
+      "marker": " ",
+      "text": "to do"
+    },
+    {
+      "line": 1,
+      "marker": "x",
+      "text": "done"
+    },
+    {
+      "line": 2,
+      "marker": "/",
+      "text": "in progress"
+    },
+    {
+      "line": 3,
+      "marker": "-",
+      "text": "cancelled"
+    },
+    {
+      "line": 4,
+      "marker": "?",
+      "text": "question"
+    },
+    {
+      "line": 5,
+      "marker": "X",
+      "text": "upper-case done"
+    },
+    {
+      "line": 6,
+      "marker": ">",
+      "text": "ordered deferred"
+    },
+    {
+      "line": 10,
+      "marker": " ",
+      "text": "tab after"
+    },
+    {
+      "line": 11,
+      "marker": "l",
+      "text": "nested location"
+    }
+  ],
+  "links": [],
+  "embeds": [],
+  "tags": [],
+  "callouts": [],
+  "tables": []
+}

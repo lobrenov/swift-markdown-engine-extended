@@ -1,0 +1,52 @@
+{
+  "summary": "Bring the project instruction files in line with how I actually work now.",
+  "headings": [
+    {
+      "line": 3,
+      "level": 2,
+      "text": "Subtasks"
+    }
+  ],
+  "tasks": [
+    {
+      "line": 5,
+      "marker": "x",
+      "text": "Audit the global file"
+    },
+    {
+      "line": 6,
+      "marker": "x",
+      "text": "Trim the repo file"
+    },
+    {
+      "line": 7,
+      "marker": " ",
+      "text": "Add test conventions #docs"
+    },
+    {
+      "line": 8,
+      "marker": " ",
+      "text": "Remove stale vault paths"
+    },
+    {
+      "line": 9,
+      "marker": " ",
+      "text": "Commit and push"
+    }
+  ],
+  "links": [
+    {
+      "line": 11,
+      "target": "Project MVP"
+    }
+  ],
+  "embeds": [],
+  "tags": [
+    {
+      "line": 7,
+      "tag": "docs"
+    }
+  ],
+  "callouts": [],
+  "tables": []
+}

@@ -1,0 +1,19 @@
+{
+  "summary": "Inline [[No]] #no and double `[[No2]]` [[Yes1]]",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 0,
+      "target": "Yes1"
+    },
+    {
+      "line": 12,
+      "target": "Entity"
+    }
+  ],
+  "embeds": [],
+  "tags": [],
+  "callouts": [],
+  "tables": []
+}

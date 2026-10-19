@@ -1,0 +1,36 @@
+{
+  "summary": "Plain [[Body]] #tag",
+  "headings": [
+    {
+      "line": 3,
+      "level": 1,
+      "text": "CR Head"
+    }
+  ],
+  "tasks": [
+    {
+      "line": 1,
+      "marker": " ",
+      "text": "crlf [[Item]]"
+    }
+  ],
+  "links": [
+    {
+      "line": 0,
+      "target": "Body"
+    },
+    {
+      "line": 1,
+      "target": "Item"
+    }
+  ],
+  "embeds": [],
+  "tags": [
+    {
+      "line": 0,
+      "tag": "tag"
+    }
+  ],
+  "callouts": [],
+  "tables": []
+}
