@@ -25,8 +25,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     /// A view above the text that scrolls with it (a title and properties, say).
     public var header: AnyView?
     public var onSlashCommandChange: ((SlashCommandState?) -> Void)?
-    /// ↑/↓/↵/esc from a hardware keyboard while a slash, link, embed or tag query is open. Return `true` to consume
-    /// the key; esc closes the query in the engine.
+    /// ↑/↓/↵/esc from a hardware keyboard while a slash, link, embed or tag query is open (on iOS only a query takes
+    /// them). Return `true` to consume the key; esc closes the query in the engine.
     public var onInlinePreviewKey: ((InlinePreviewKey) -> Bool)?
     public var slashCommandProxy: SlashCommandProxy?
     /// A press and hold on a task box: the embedder shows the marker menu.

@@ -214,6 +214,17 @@ struct IOSEditorInputTests {
         #expect(editor.textView.string == "- a\n- b")
     }
 
+    @Test func theArrowKeysStayTheCaretsInAnImagesSource() async throws {
+        let editor = try IOSEditorHarness("Intro\n![[a.png]]\nAfter")
+        editor.textView.selectedRange = NSRange(location: NSMaxRange((editor.textView.string as NSString).range(of: "![[a")),
+                                                length: 0)
+        await editor.settle()
+        #expect((editor.textView.delegate as? NativeTextViewCoordinator)?.completionOwner == .inlinePreview)
+        let inputs = editor.textView.keyCommands?.compactMap(\.input) ?? []
+        #expect(!inputs.contains(UIKeyCommand.inputUpArrow))
+        #expect(!inputs.contains(UIKeyCommand.inputDownArrow))
+    }
+
     @Test func doubleBracketClosesAWikilink() async throws {
         let editor = try IOSEditorHarness("See ")
         await editor.type("[", after: "See ")

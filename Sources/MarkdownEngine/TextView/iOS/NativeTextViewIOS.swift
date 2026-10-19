@@ -127,7 +127,9 @@ final class NativeTextView: UITextView {
 
     override var keyCommands: [UIKeyCommand]? {
         var commands = [UIKeyCommand(input: "\t", modifierFlags: .shift, action: #selector(outdent))]
-        if coordinator?.completionOwner != nil {
+        // Only a query: the inline preview's state stays set while the caret is in a link or image's source, and
+        // iOS has no fallback for ↑/↓ that nothing consumes.
+        if coordinator?.completionOwner == .query {
             for input in [UIKeyCommand.inputUpArrow, UIKeyCommand.inputDownArrow, UIKeyCommand.inputEscape, "\r"] {
                 let command = UIKeyCommand(input: input, modifierFlags: [], action: #selector(completionKey(_:)))
                 command.wantsPriorityOverSystemBehavior = true
@@ -141,7 +143,7 @@ final class NativeTextView: UITextView {
         _ = coordinator?.handleBacktab(self)
     }
 
-    /// ↑/↓ move through an open picker, ↵ confirms, esc closes, as on macOS (`+Completion`).
+    /// ↑/↓ move through an open query's menu, ↵ confirms, esc closes, as on macOS (`+Completion`).
     @objc private func completionKey(_ command: UIKeyCommand) {
         guard let coordinator else { return }
         let key: InlinePreviewKey = switch command.input {

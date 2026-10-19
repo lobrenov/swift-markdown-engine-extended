@@ -53,6 +53,8 @@ public struct InlineSelectionState: Sendable {
 /// A keyboard command forwarded to an open inline preview (the `[[…]]` autocomplete)
 /// via ``NativeTextViewWrapper/onInlinePreviewKey``. The embedder returns `true` to
 /// consume the key (it drove its list), or `false` to let the editor handle it normally.
+/// Fork: also forwarded while a slash, link, embed or tag query or a directive picker is open, by
+/// precedence (FORK.md, Completion keys); a query's ⇥ arrives as `.confirm`.
 public enum InlinePreviewKey: Sendable {
     case moveUp, moveDown, confirm, confirmAndOpen, cancel
 }
