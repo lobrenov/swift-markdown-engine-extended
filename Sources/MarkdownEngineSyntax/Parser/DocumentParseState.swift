@@ -133,9 +133,11 @@ package final class DocumentParseState {
         // 3. Tokens: prefix/suffix reuse on the same diff, full fallback.
         var newTokens: [MarkdownToken]?
         if wasValid, let diff, newBlocks != nil {
+            // Fork: the blocks the splice changed, which can lie past the ones the edit touches.
+            let changed = BlockParser.changedRange(old: prevBlocks, new: resolvedBlocks, delta: diff.delta)
             newTokens = MarkdownTokenizer.incrementalTokens(
                 oldChars: prevChars, prevTokens: prevTokens,
-                newChars: newChars, blocks: resolvedBlocks, ns: ns, diff: diff, registry: registry
+                newChars: newChars, blocks: resolvedBlocks, ns: ns, diff: diff, changed: changed, registry: registry
             )?.tokens
         }
         let resolvedTokens = newTokens ?? MarkdownTokenizer.fullTokens(blocks: resolvedBlocks, ns: ns, registry: registry)
@@ -159,7 +161,7 @@ package final class DocumentParseState {
         // DocumentAST.parse, smart-input helpers) take the memcmp hit instead
         // of splicing against a one-keystroke-stale cache every time.
         BlockParser.seedCache(chars: newChars, blocks: resolvedBlocks, fingerprint: registry.fingerprint)
-        MarkdownTokenizer.seedCache(chars: newChars, tokens: resolvedTokens, fingerprint: registry.fingerprint)
+        MarkdownTokenizer.seedCache(chars: newChars, tokens: resolvedTokens, blocks: resolvedBlocks, fingerprint: registry.fingerprint)
         return resolvedTokens
     }
 }

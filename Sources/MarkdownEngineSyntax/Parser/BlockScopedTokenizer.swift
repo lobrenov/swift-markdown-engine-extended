@@ -25,6 +25,8 @@ extension MarkdownTokenizer {
     private static let tokensLock = NSLock()
     private static var cachedTokenChars: [unichar]?
     private static var cachedTokens: [MarkdownToken]?
+    /// Fork: the blocks `cachedTokens` were made from, so a later edit knows which blocks changed.
+    private static var cachedTokenBlocks: [Block]?
     /// Registry fingerprint the memo was computed under — a different set of
     /// registered extensions yields different tokens for identical text.
     private static var cachedTokenFingerprint: String = ""
@@ -45,12 +47,14 @@ extension MarkdownTokenizer {
         tokensLock.lock()
         let prevChars = cachedTokenFingerprint == registry.fingerprint ? cachedTokenChars : nil
         let prevTokens = cachedTokenFingerprint == registry.fingerprint ? cachedTokens : nil
+        let prevBlocks = cachedTokenFingerprint == registry.fingerprint ? cachedTokenBlocks : nil
         tokensLock.unlock()
 
         let result: [MarkdownToken]
-        if let prevChars, let prevTokens {
+        if let prevChars, let prevTokens, let prevBlocks {
             if let diff = BlockParser.scanDiff(old: prevChars, new: newChars) {
-                result = incrementalTokens(oldChars: prevChars, prevTokens: prevTokens, newChars: newChars, blocks: blocks, ns: ns, diff: diff, registry: registry)?.tokens
+                let changed = BlockParser.changedRange(old: prevBlocks, new: blocks, delta: diff.delta)
+                result = incrementalTokens(oldChars: prevChars, prevTokens: prevTokens, newChars: newChars, blocks: blocks, ns: ns, diff: diff, changed: changed, registry: registry)?.tokens
                     ?? fullTokens(blocks: blocks, ns: ns, registry: registry)
             } else {
                 result = prevTokens   // identical text
@@ -60,7 +64,7 @@ extension MarkdownTokenizer {
         }
 
         tokensLock.lock()
-        cachedTokenChars = newChars; cachedTokens = result; cachedTokenFingerprint = registry.fingerprint
+        cachedTokenChars = newChars; cachedTokens = result; cachedTokenBlocks = blocks; cachedTokenFingerprint = registry.fingerprint
         tokensLock.unlock()
         return result
     }
@@ -68,9 +72,9 @@ extension MarkdownTokenizer {
     /// Adopt an externally computed parse (DocumentParseState publishes its
     /// per-keystroke result) so static-path callers hit instead of re-splicing
     /// against a one-keystroke-stale cache.
-    static func seedCache(chars: [unichar], tokens: [MarkdownToken], fingerprint: String = "") {
+    static func seedCache(chars: [unichar], tokens: [MarkdownToken], blocks: [Block], fingerprint: String = "") {
         tokensLock.lock()
-        cachedTokenChars = chars; cachedTokens = tokens; cachedTokenFingerprint = fingerprint
+        cachedTokenChars = chars; cachedTokens = tokens; cachedTokenBlocks = blocks; cachedTokenFingerprint = fingerprint
         tokensLock.unlock()
     }
 
@@ -86,7 +90,8 @@ extension MarkdownTokenizer {
 
     /// Reuse prefix/suffix tokens (suffix shifted) and re-tokenize only touched blocks,
     /// against a precomputed change region; nil to fall back to full.
-    static func incrementalTokens(oldChars o: [unichar], prevTokens: [MarkdownToken], newChars n: [unichar], blocks: [Block], ns: NSString, diff: BufferDiff, registry: ExtensionRegistry = .empty) -> (tokens: [MarkdownToken], retok: Int)? {
+    /// Fork: `changed` is the run of new blocks the block splice changed; the window covers it too.
+    static func incrementalTokens(oldChars o: [unichar], prevTokens: [MarkdownToken], newChars n: [unichar], blocks: [Block], ns: NSString, diff: BufferDiff, changed: ClosedRange<Int>? = nil, registry: ExtensionRegistry = .empty) -> (tokens: [MarkdownToken], retok: Int)? {
         let oldLen = o.count, newLen = n.count
         guard oldLen > 0, newLen > 0, !blocks.isEmpty else { return nil }
 
@@ -121,6 +126,10 @@ extension MarkdownTokenizer {
         }
         lo = first
         hi = last
+        if let changed {
+            lo = min(lo, changed.lowerBound)
+            hi = min(blocks.count - 1, max(hi, changed.upperBound))
+        }
 
         // Widen the window until no previous token straddles either cut (a block's extent can change in place).
         var expanded = true

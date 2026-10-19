@@ -46,11 +46,15 @@ struct ParseIncrementalEquivalenceTests {
         "A [[Wiki Link]] and ==highlight== and ~~strike~~.",
         "Inline $x^2$ latex and an ![[embed.png]] image.",
         "",
+        // Fork: CommonMark blocks.
+        "    indented code", "\t- tab item", "    - four-space item", "~~~", "Setext text", "---", "===",
+        "<div>", "</div>", "<!-- comment", "-->", "x | y", "--|--", "See <https://a.com> and a -> b.",
     ]
 
     private static let editSnippets = [
         "x", "ab", " ", "\n", "`", "``", "```", "$", "$$", "**", "- ", "# ",
         "| c |", "[[N]]", "\n\n", "word and more",
+        "    ", "\t", "<", ">", "~~~", "-->", "---", "<div>", "|",
     ]
 
     private func makeDoc(_ rng: inout Rng, lines: Int) -> String {

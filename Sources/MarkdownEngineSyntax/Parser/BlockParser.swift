@@ -151,15 +151,20 @@ package enum BlockParser {
             if steps > cap { return true }
         }
         var i = start
+        var lineStart = start
         while i < end {
+            if buf[i] == 0x0A || buf[i] == 0x0D { lineStart = i + 1 }
             if buf[i] == 0x24 {                                          // $
                 if i + 1 < end, buf[i + 1] == 0x24 { return true }       // $$
             } else if buf[i] == 0x60, i + 2 < end, buf[i + 1] == 0x60, buf[i + 2] == 0x60 {
                 return true                                              // ```
             } else if buf[i] == 0x7E, i + 2 < end, buf[i + 1] == 0x7E, buf[i + 2] == 0x7E {
                 return true                                              // Fork: ~~~
-            } else if buf[i] == 0x3C || (buf[i] == 0x3E && i > 0 && (buf[i - 1] == 0x2D || buf[i - 1] == 0x3F || buf[i - 1] == 0x5D)) {
-                return true                                              // Fork: an HTML block's `<…` opener or `-->`/`?>`/`]]>` closer
+            } else if buf[i] == 0x3C, isHTMLBlockDelimiter(buf, at: i, lineStart: lineStart, end: end) {
+                return true                                              // Fork: an HTML block's opener or raw-text closer
+            } else if buf[i] == 0x3E, i >= 1, buf[i - 1] == 0x3F
+                        || (i >= 2 && ((buf[i - 1] == 0x2D && buf[i - 2] == 0x2D) || (buf[i - 1] == 0x5D && buf[i - 2] == 0x5D))) {
+                return true                                              // Fork: `?>`, `-->`, `]]>`
             }
             // Extension fences pair with a distant partner exactly like ``` —
             // an edit touching one must force the full reparse too.
@@ -173,6 +178,47 @@ package enum BlockParser {
             i += 1
         }
         return false
+    }
+
+    /// Fork: a `<` that can open an HTML block (first on its line after up to 3 spaces) or close a raw-text one.
+    private static func isHTMLBlockDelimiter(_ buf: [unichar], at i: Int, lineStart: Int, end: Int) -> Bool {
+        if i - lineStart <= 3, buf[lineStart..<i].allSatisfy({ $0 == 0x20 }) { return true }
+        guard i + 1 < end, buf[i + 1] == 0x2F else { return false }
+        for tag in ["script", "pre", "style", "textarea"] {
+            let units = Array(tag.utf16)
+            guard i + 2 + units.count <= end else { continue }
+            if units.enumerated().allSatisfy({ buf[i + 2 + $0.offset] | 0x20 == $0.element }) { return true }
+        }
+        return false
+    }
+
+    /// Fork: whether lines indented 4 columns after `blocks` continue a list (so aren't indented code):
+    /// the last non-blank block is a list, or a paragraph straight after one (a lazy line). `prefix` stands
+    /// for the blocks before `blocks` when it runs out.
+    static func listContext(_ blocks: ArraySlice<Block>, prefix: (inList: Bool, lastIsList: Bool) = (false, false)) -> Bool {
+        var i = blocks.endIndex - 1
+        while i >= blocks.startIndex, blocks[i].kind == .blank { i -= 1 }
+        guard i >= blocks.startIndex else { return prefix.inList }
+        switch blocks[i].kind {
+        case .list: return true
+        case .paragraph: return i > blocks.startIndex ? blocks[i - 1].kind == .list : prefix.lastIsList
+        default: return false
+        }
+    }
+
+    /// Fork: the run of `new` blocks that differ from `old` once the unchanged prefix and the suffix (moved by
+    /// `delta`) are set aside; nil when none differ.
+    static func changedRange(old: [Block], new: [Block], delta: Int) -> ClosedRange<Int>? {
+        var head = 0
+        while head < old.count, head < new.count, old[head] == new[head] { head += 1 }
+        var tail = 0
+        while tail < old.count - head, tail < new.count - head {
+            let o = old[old.count - 1 - tail], n = new[new.count - 1 - tail]
+            guard o.kind == n.kind, o.range.length == n.range.length, o.range.location + delta == n.range.location else { break }
+            tail += 1
+        }
+        let last = new.count - 1 - tail
+        return head <= last ? head...last : nil
     }
 
     /// Splice-parse against a precomputed change region (descriptor- or scan-derived):
@@ -211,7 +257,7 @@ package enum BlockParser {
         }
         let lastIdx = lo
         let winFirst = max(0, min(firstIdx, lastIdx) - 1)
-        let winLast = min(oldBlocks.count - 1, max(firstIdx, lastIdx) + 1)
+        var winLast = min(oldBlocks.count - 1, max(firstIdx, lastIdx) + 1)
 
         // 3. Opaque multi-line blocks (fences / block LaTeX) in the window are
         // fine for INTERIOR edits: the window contains each block wholly, the
@@ -224,16 +270,27 @@ package enum BlockParser {
 
         // 4. Window → new-text range (window start is before the edit → unchanged).
         let winStart = oldBlocks[winFirst].range.location
-        let winEndNew = NSMaxRange(oldBlocks[winLast].range) + delta
-        guard winStart >= 0, winEndNew >= winStart, winEndNew <= newLen else { return nil }
-
+        let prefixContext = (inList: listContext(oldBlocks[0..<winFirst]),
+                             lastIsList: winFirst > 0 && oldBlocks[winFirst - 1].kind == .list)
         // 5. Reparse just the window substring, shift to absolute new coords.
-        let windowText = newNS.substring(with: NSRange(location: winStart, length: winEndNew - winStart))
-        let reparsed = computeBlocks(windowText, registry: registry).map { $0.shifted(by: winStart) }
+        // Fork: until it ends as the old parse did there. A setext underline, a lazy line or a list's indented
+        // line can move a boundary past the ±1 margin; each miss widens the window by a block.
+        var winEndNew = 0
+        var reparsed: [Block] = []
+        for attempt in 0... {
+            winEndNew = NSMaxRange(oldBlocks[winLast].range) + delta
+            guard winStart >= 0, winEndNew >= winStart, winEndNew <= newLen else { return nil }
+            let windowText = newNS.substring(with: NSRange(location: winStart, length: winEndNew - winStart))
+            reparsed = computeBlocks(windowText, registry: registry, prefix: prefixContext).map { $0.shifted(by: winStart) }
+            let margin = oldBlocks[winLast].shifted(by: delta)
+            if winLast == oldBlocks.count - 1 || reparsed.last == margin { break }
+            guard attempt < 16 else { return nil }
+            winLast += 1
+        }
         // A trailing fence/latex/extension block reaching the window end might continue past it.
         if let last = reparsed.last, NSMaxRange(last.range) >= winEndNew {
             switch last.kind {
-            case .fencedCode, .blockLatex, .ext: return nil
+            case .fencedCode, .blockLatex, .ext, .html, .indentedCode: return nil
             case .paragraph:
                 // The edit may have dissolved the separator that used to end
                 // this paragraph (backspace-joining two paragraphs): if the
@@ -244,6 +301,26 @@ package enum BlockParser {
                     return nil
                 }
             default: break
+            }
+        }
+
+        // Fork: an HTML block ends far from its opener and absorbs whatever it covers (a fence opener, a
+        // list), so an edit in or next to one parses in full.
+        if oldBlocks[winFirst...winLast].contains(where: { $0.kind == .html }) || reparsed.contains(where: { $0.kind == .html }) {
+            return nil
+        }
+
+        // Fork: the suffix's first non-blank block reads indented lines by the list context the window ends
+        // in, and indented code joins across blank lines: either change needs the full parse.
+        let suffix = oldBlocks[(winLast + 1)...]
+        if let next = suffix.first(where: { $0.kind != .blank }) {
+            let lastReparsed = reparsed.last(where: { $0.kind != .blank })?.kind
+            if next.kind == .indentedCode, lastReparsed == .indentedCode { return nil }
+            let oldContext = listContext(oldBlocks[0...winLast])
+            let newContext = listContext(reparsed[...], prefix: prefixContext)
+            if oldContext != newContext {
+                let firstLine = newNS.lineRange(for: NSRange(location: next.range.location + delta, length: 0))
+                if next.kind == .indentedCode || isIndentedCode(newNS.substring(with: firstLine)) { return nil }
             }
         }
 
@@ -265,7 +342,9 @@ package enum BlockParser {
         return (result, reparsed.count)
     }
 
-    static func computeBlocks(_ text: String, registry: ExtensionRegistry = .empty) -> [Block] {
+    /// Fork: `prefix` is the list context of the blocks before `text` (see `listContext`).
+    static func computeBlocks(_ text: String, registry: ExtensionRegistry = .empty,
+                              prefix: (inList: Bool, lastIsList: Bool) = (false, false)) -> [Block] {
         let nsText = text as NSString
         let length = nsText.length
         guard length > 0 else { return [] }
@@ -329,9 +408,9 @@ package enum BlockParser {
                 blocks.append(Block(kind: .blank, range: union(lines[i...end])))
                 i = end + 1
 
-            } else if isIndentedCode(line), blocks.last(where: { $0.kind != .blank })?.kind != .list {
+            } else if isIndentedCode(line), !listContext(blocks[...], prefix: prefix) {
                 // Fork: indented code (a paragraph would have taken the line as a continuation),
-                // through its last indented line; blank lines inside stay in it. Not after a list,
+                // through its last indented line; blank lines inside stay in it. Not in a list's context,
                 // whose indented lines are its continuation.
                 var end = i
                 var scan = i + 1
@@ -407,8 +486,10 @@ package enum BlockParser {
                 while end + 1 < lines.count {
                     let next = lineText(end + 1)
                     if isSetextUnderline(next) { end += 1; setext = true; break }
-                    if isBlank(next) || isThematicBreak(next)
-                        || isHeading(next) || isBlockquote(next) || isListItem(next) { break }
+                    if isBlank(next) { break }
+                    // An indented line continues the paragraph, whatever it looks like.
+                    if isIndentedCode(next) { end += 1; continue }
+                    if isThematicBreak(next) || isHeading(next) || isBlockquote(next) || isListItem(next) { break }
                     if let type = htmlBlockStart(next), type <= 6 { break }
                     // A table (row + separator), a CLOSED code fence, a
                     // block-LaTeX run, or an extension fence interrupts it —

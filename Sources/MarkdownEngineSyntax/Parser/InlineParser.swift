@@ -13,9 +13,9 @@
 //  Pipeline (each pass claims spans only in regions not already claimed, so
 //  there are never partial overlaps and buildTree is a clean containment tree):
 //    1. scanCodeSpans   — highest precedence, opaque interior.
-//    1b. scanAutolinks  — Fork: `<scheme:…>` and `<email>`, opaque; a `.link` whose child is its text.
 //    2. scanEscapes      — `\x` becomes a claimed span, so the escaped char is
 //                          automatically inert for every pass below.
+//    2b. scanAutolinks   — Fork: `<scheme:…>` and `<email>`, opaque; a `.link` whose child is its text.
 //    3. scanLinkFamily   — ![[…]], [[…]], ![…](…), […](…), $…$ (+ registered
 //                          extension spans) in precedence order. URLs allow
 //                          balanced parens. A candidate overlapping a claimed
@@ -139,11 +139,12 @@ package enum InlineParser {
         guard len > 0 else { return [] }
 
         var claimed = scanCodeSpans(ns, len: len)
-        var autolinkIndex = ClaimedIndex(claimed)
-        claimed += scanAutolinks(ns, len: len, claimed: &autolinkIndex)
 
         var escapeIndex = ClaimedIndex(claimed)
         claimed += scanEscapes(ns, len: len, claimed: &escapeIndex)
+
+        var autolinkIndex = ClaimedIndex(claimed)
+        claimed += scanAutolinks(ns, len: len, claimed: &autolinkIndex)
 
         var linkIndex = ClaimedIndex(claimed)
         claimed += scanLinkFamily(ns, len: len, claimed: &linkIndex, registry: registry)
@@ -320,7 +321,7 @@ package enum InlineParser {
         return NSRange(location: raw.location + 1, length: raw.length - 2)
     }
 
-    // MARK: - 1b. Autolinks (Fork)
+    // MARK: - 2b. Autolinks (Fork)
 
     /// `<scheme:…>` (a letter, 1–31 more of letters, digits, `+ . -`, a `:`, then no space, `<` or `>`) and
     /// `<local@domain>`, outside code spans.
@@ -328,7 +329,9 @@ package enum InlineParser {
         var spans: [Span] = []
         var i = 0
         while i < len {
-            guard ns.character(at: i) == 0x3C /* < */, !claimed.contains(i) else { i += 1; continue }
+            // Not a `<` that's escaped, or a link's `](<…>)` destination.
+            guard ns.character(at: i) == 0x3C /* < */, !claimed.contains(i),
+                  !(i >= 2 && ns.character(at: i - 1) == 0x28 && ns.character(at: i - 2) == 0x5D) else { i += 1; continue }
             var j = i + 1
             while j < len, ns.character(at: j) != 0x3E, ns.character(at: j) != 0x3C, ns.character(at: j) > 0x20 { j += 1 }
             guard j < len, ns.character(at: j) == 0x3E, j > i + 1 else { i += 1; continue }

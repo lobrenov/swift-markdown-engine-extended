@@ -59,3 +59,24 @@ struct TagSyntaxTests {
         #expect(tags.map { ns.substring(with: $0) } == ["#a-b/c_1", "#日本"])
     }
 }
+
+@Suite("Fork — autolinks")
+struct AutolinkTests {
+    private func autolinks(_ text: String) -> [NSRange] {
+        InlineParser.parse(text).compactMap { node -> NSRange? in
+            if case .link(let range, _, _, let markers, _) = node, markers.count == 2 { range } else { nil }
+        }
+    }
+
+    @Test func anAngleBracketDestinationStaysTheLinks() {
+        #expect(autolinks("[docs](<https://example.com>)").isEmpty)
+        #expect(InlineParser.parse("[docs](<https://example.com>)").contains {
+            if case .link(_, _, _, let markers, _) = $0 { markers.count == 4 } else { false }
+        })
+    }
+
+    @Test func anEscapedBracketIsNoAutolink() {
+        #expect(autolinks("\\<https://a.com>").isEmpty)
+        #expect(autolinks("see <https://a.com> and <me@x.org>").count == 2)
+    }
+}
