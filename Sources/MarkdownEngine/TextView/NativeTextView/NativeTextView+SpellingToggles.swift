@@ -30,5 +30,10 @@ extension NativeTextView {
         super.toggleAutomaticSpellingCorrection(sender)
         (delegate as? NativeTextViewCoordinator)?.didToggleSpellCheckingPolicy(textView: self)
     }
+
+    override func toggleAutomaticQuoteSubstitution(_ sender: Any?) {
+        super.toggleAutomaticQuoteSubstitution(sender)
+        (delegate as? NativeTextViewCoordinator)?.didToggleSpellCheckingPolicy(textView: self)
+    }
 }
 #endif

@@ -91,9 +91,10 @@ extension NativeTextViewCoordinator: NSTextViewDelegate {
         if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
             return handleBacktab(textView)
         }
-        // While an inline [[…]] / ![[…]] preview is open, route ↑/↓/Enter/Esc to the embedder's
-        // autocomplete list (it returns true to consume the key; false → normal editor handling).
-        if (isWikiLinkActive || isImageEmbedActive), let handler = onInlinePreviewKey {
+        // While an inline [[…]] / ![[…]] preview OR a directive picker is open,
+        // route ↑/↓/Enter/Esc to the embedder's autocomplete list (it returns
+        // true to consume the key; false → normal editor handling).
+        if (isWikiLinkActive || isImageEmbedActive || isDirectiveCompletionActive), let handler = onInlinePreviewKey {
             let key: InlinePreviewKey?
             switch commandSelector {
             case #selector(NSResponder.moveUp(_:)): key = .moveUp

@@ -384,7 +384,15 @@ enum MarkdownASTStyler {
     /// Fork: `quote` places an item on a quote line inside the quote.
     static func styleListItem(_ item: ListItem, displayNumber: Int?, quote: QuoteLayout? = nil,
                                       ctx: Ctx, into attrs: inout [StyledRange]) {
-        guard ctx.config.lists.helpersEnabled else { return }
+        // `helpersEnabled` switches EDITING conveniences (auto-continue,
+        // auto-indent, `- ` → `•`) — its own doc promises lists still render.
+        // Returning here for every item also dropped the `.taskCheckbox`
+        // attribute, and drawing, the hit test and the toggle all read that
+        // one attribute, so switching the helpers off removed task lists from
+        // the app altogether (#1031). A task item keeps its box; the bullet
+        // and number overlays stay with the helpers.
+        let helpers = ctx.config.lists.helpersEnabled
+        guard helpers || item.checkbox != nil else { return }
 
         // Line content (item line minus its trailing newline).
         var line = item.range
@@ -446,6 +454,38 @@ enum MarkdownASTStyler {
         }()
         let depthIndent = CGFloat(MarkdownLists.indentLevel(from: ws)) * ctx.config.lists.indentPerLevel
         let ps = NSMutableParagraphStyle()
+        guard helpers else {
+            // Helpers off means NO list indent — but the box is drawn to the
+            // LEFT of the content (`boxX = contentX - size - gap`), so a task
+            // line gets exactly that much room and not a point more. Without
+            // it the box lands at x ≈ -9, off the edge (measured).
+            //
+            // Everything else here mirrors the BASE paragraph style
+            // (`TextStylingService.makeBaseFontAndStyle`) rather than being
+            // left at its defaults. A paragraph style replaces the base one
+            // wholesale, so an unpinned line height let the line fall back to
+            // the font's natural height: the content height flipped 26 ↔ 24
+            // as the line crossed in and out of being a task item, and the
+            // text below jumped by those 2pt on the way.
+            let room = max(0, TaskCheckboxGeometry.size(for: ctx.baseFont, style: ctx.config.taskCheckbox)
+                              + ctx.config.taskCheckbox.contentGap - markerWidth)
+            ps.minimumLineHeight = ctx.baseLineHeight + ctx.config.paragraph.lineHeightExtraSpacing
+            ps.lineSpacing = 0
+            ps.paragraphSpacing = ctx.baseParagraphSpacing
+            ps.paragraphSpacingBefore = 0
+            ps.lineBreakMode = .byWordWrapping
+            ps.tabStops = (1...24).map {
+                NSTextTab(textAlignment: .left, location: CGFloat($0) * ctx.config.lists.indentPerLevel)
+            }
+            ps.defaultTabInterval = 0
+            ps.firstLineHeadIndent = room
+            ps.headIndent = room + markerWidth
+            attrs.append((line, [.paragraphStyle: ps]))
+            if let box = item.checkbox, !taskRevealed {
+                styleTaskMarker(item, box: box, slotExtra: 0, ctx: ctx, into: &attrs)
+            }
+            return
+        }
         let lineHeight = ctx.baseLineHeight + ctx.config.lists.extraLineHeight
         let quoteIndent = quote?.indent ?? 0
         ps.minimumLineHeight = lineHeight
@@ -475,34 +515,7 @@ enum MarkdownASTStyler {
         // 2. Marker decoration (suppressed while the caret edits the syntax).
         if let box = item.checkbox {
             if taskRevealed { return }
-            let spacer = NSRange(location: NSMaxRange(item.marker), length: box.location - NSMaxRange(item.marker))
-            // `- ` keeps full advance (the box's slot, like the bullet `•`);
-            // `[ ]` + trailing space collapse to the hidden-marker font so the
-            // content starts at the bullet-content x.
-            attrs.append((item.marker, [.foregroundColor: PlatformColor.clear]))
-            // Fork: widen the hidden spacer so the box (drawn right-aligned to the
-            // content edge) covers the `- ` slot and keeps `contentGap` from the text.
-            let slotExtra = taskSlotExtra(markerWidth: markerWidth, ctx: ctx)
-            if spacer.length > 0 {
-                var spacerAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: PlatformColor.clear]
-                if slotExtra > 0 { spacerAttrs[.kern] = slotExtra / CGFloat(spacer.length) }
-                attrs.append((spacer, spacerAttrs))
-            }
-            attrs.append((box, [.taskCheckbox: String(item.taskMarker ?? " "), .foregroundColor: PlatformColor.clear,
-                                .font: ctx.inlineMarkerFont]))
-            let postGap = NSRange(location: NSMaxRange(box),
-                                  length: item.contentRange.location - NSMaxRange(box))
-            if postGap.length > 0 {
-                attrs.append((postGap, [.foregroundColor: PlatformColor.clear, .font: ctx.inlineMarkerFont]))
-            }
-            if let marker = item.taskMarker, ctx.config.taskCheckbox.struckMarkers.contains(marker),
-               NSMaxRange(item.range) > NSMaxRange(box) {
-                attrs.append((NSRange(location: NSMaxRange(box), length: NSMaxRange(item.range) - NSMaxRange(box)), [
-                    .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                    .strikethroughColor: ctx.theme.strikethroughColor,
-                    .foregroundColor: ctx.theme.mutedText,
-                ]))
-            }
+            styleTaskMarker(item, box: box, slotExtra: taskSlotExtra(markerWidth: markerWidth, ctx: ctx), ctx: ctx, into: &attrs)
         } else if !item.ordered {
             let syntax = NSRange(location: item.marker.location,
                                  length: item.contentRange.location - item.marker.location)
@@ -547,6 +560,39 @@ enum MarkdownASTStyler {
         let style = ctx.config.taskCheckbox
         let box = TaskCheckboxGeometry.size(for: ctx.baseFont, style: style)
         return max(0, box + style.contentGap - markerWidth)
+    }
+
+    /// A task item's own decoration, shared by both geometries: hide `- [ ] `,
+    /// hang the drawn box on the `[ ]` range, strike a struck marker's item through.
+    /// Fork: the box holds its marker character, `slotExtra` widens the hidden spacer
+    /// so the box covers the `- ` slot, and struck items' text is `mutedText`.
+    private static func styleTaskMarker(_ item: ListItem, box: NSRange, slotExtra: CGFloat, ctx: Ctx,
+                                        into attrs: inout [StyledRange]) {
+        let spacer = NSRange(location: NSMaxRange(item.marker), length: box.location - NSMaxRange(item.marker))
+        // `- ` keeps full advance (the box's slot, like the bullet `•`);
+        // `[ ]` + trailing space collapse to the hidden-marker font so the
+        // content starts at the bullet-content x.
+        attrs.append((item.marker, [.foregroundColor: PlatformColor.clear]))
+        if spacer.length > 0 {
+            var spacerAttrs: [NSAttributedString.Key: Any] = [.foregroundColor: PlatformColor.clear]
+            if slotExtra > 0 { spacerAttrs[.kern] = slotExtra / CGFloat(spacer.length) }
+            attrs.append((spacer, spacerAttrs))
+        }
+        attrs.append((box, [.taskCheckbox: String(item.taskMarker ?? " "), .foregroundColor: PlatformColor.clear,
+                            .font: ctx.inlineMarkerFont]))
+        let postGap = NSRange(location: NSMaxRange(box),
+                              length: item.contentRange.location - NSMaxRange(box))
+        if postGap.length > 0 {
+            attrs.append((postGap, [.foregroundColor: PlatformColor.clear, .font: ctx.inlineMarkerFont]))
+        }
+        if let marker = item.taskMarker, ctx.config.taskCheckbox.struckMarkers.contains(marker),
+           NSMaxRange(item.range) > NSMaxRange(box) {
+            attrs.append((NSRange(location: NSMaxRange(box), length: NSMaxRange(item.range) - NSMaxRange(box)), [
+                .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                .strikethroughColor: ctx.theme.strikethroughColor,
+                .foregroundColor: ctx.theme.mutedText,
+            ]))
+        }
     }
 
     private static func styleAutoLinks(ctx: Ctx, codeRanges: [NSRange], linkRanges: [NSRange], into attrs: inout [StyledRange]) {
