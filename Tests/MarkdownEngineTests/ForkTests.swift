@@ -350,7 +350,7 @@ struct SlashCommandTests {
         coordinator.documentId = "A"
         coordinator.textView = textView
         coordinator.onSlashCommandChange = { recorder.states.append($0) }
-        coordinator.onSlashCommandKey = { recorder.keys.append($0); return true }
+        coordinator.onInlinePreviewKey = { recorder.keys.append($0); return true }
         textView.delegate = coordinator
         textView.string = text
         coordinator.lastSyncedText = text
@@ -419,6 +419,52 @@ struct SlashCommandTests {
         // Closed: typing more doesn't reopen it until a new `/`.
         try await type(tv, "h")
         #expect(recorder.states.last! == nil)
+    }
+
+    @Test func tabConfirmsAQueryOnly() async throws {
+        let recorder = Recorder()
+        let (tv, proxy) = makeEditor("", recorder)
+        try await type(tv, "/")
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        #expect(recorder.keys == [.confirm])
+        proxy.coordinator?.dismissSlashCommand()
+        proxy.coordinator?.isDirectiveCompletionActive = true
+        tv.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        #expect(recorder.keys == [.confirm])
+    }
+
+    @Test func aQueryOwnsTheKeysBeforeTheInlinePreviewAndTheDirectivePicker() async throws {
+        let recorder = Recorder()
+        let (tv, proxy) = makeEditor("", recorder)
+        let coordinator = try #require(proxy.coordinator)
+        #expect(coordinator.completionOwner == nil)
+        try await type(tv, "/")
+        coordinator.isImageEmbedActive = true
+        coordinator.isDirectiveCompletionActive = true
+        #expect(coordinator.completionOwner == .query)
+        // esc closes the query in the engine; the pickers under it aren't told.
+        tv.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
+        #expect(recorder.keys.isEmpty)
+        #expect(coordinator.completionOwner == .inlinePreview)
+        coordinator.isImageEmbedActive = false
+        #expect(coordinator.completionOwner == .directive)
+    }
+
+    @Test func theDirectivePickersKeysGoToOnInlinePreviewKey() {
+        let recorder = Recorder()
+        let (tv, proxy) = makeEditor("", recorder)
+        proxy.coordinator?.isDirectiveCompletionActive = true
+        tv.doCommand(by: #selector(NSResponder.moveUp(_:)))
+        tv.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
+        #expect(recorder.keys == [.moveUp, .cancel])
+    }
+
+    @Test func commandReturnGoesToAnOpenQuery() async throws {
+        let recorder = Recorder()
+        let (tv, proxy) = makeEditor("", recorder)
+        try await type(tv, "/")
+        #expect(proxy.coordinator?.routeCompletionKey(.confirmAndOpen) == true)
+        #expect(recorder.keys == [.confirmAndOpen])
     }
 
     @Test func insertReplacesTheQueryAsOneUndoStep() async throws {

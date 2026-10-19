@@ -114,7 +114,7 @@ final class TableCellEditor {
         if let hostCoordinator = host.delegate as? NativeTextViewCoordinator {
             coordinator.onLinkClick = hostCoordinator.onLinkClick
             coordinator.onSlashCommandChange = hostCoordinator.onSlashCommandChange
-            coordinator.onSlashCommandKey = hostCoordinator.onSlashCommandKey
+            coordinator.onInlinePreviewKey = hostCoordinator.onInlinePreviewKey
             coordinator.slashTriggers = hostCoordinator.slashTriggers.subtracting([.embed])
             coordinator.undoManagerOverride = { [weak host] in
                 guard let host, let hostCoordinator = host.delegate as? NativeTextViewCoordinator else { return nil }

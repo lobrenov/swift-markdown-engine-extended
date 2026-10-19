@@ -96,6 +96,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     public var onInlineSelectionChange: ((InlineSelectionState?) -> Void)?
     /// Fires on ↑/↓/Enter/Esc while an inline `[[…]]` preview is open, so the
     /// embedder can drive its autocomplete list. Return `true` to consume the key.
+    /// Fork: also while a directive picker or a slash, link, embed or tag query is open (a query's
+    /// ⇥ is `.confirm`; esc closes a query in the engine).
     public var onInlinePreviewKey: ((InlinePreviewKey) -> Bool)?
     /// Fires when the caret's directive-completion context changes — entering
     /// a directive name or one of its arguments — and with `nil` to dismiss.
@@ -164,9 +166,6 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     public var onImageEmbed: ((ImageEmbedRequest) -> Void)?
     /// Fork: a click on a drawn `#tag` (with `configuration.tags` set), with the tag as written, without `#`.
     public var onTagClick: ((String) -> Void)?
-    /// Fork: ↑/↓ and ↵/⇥ (`.confirm`) while a slash command is open. Return `true`
-    /// to consume the key. Esc always closes it.
-    public var onSlashCommandKey: ((InlinePreviewKey) -> Bool)?
     /// Fork: inserts the chosen format or closes the slash command.
     public var slashCommandProxy: SlashCommandProxy?
 
@@ -199,7 +198,6 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         restoreScrollOffset: ((String) -> CGFloat?)? = nil,
         isCursorExcluded: ((CGPoint) -> Bool)? = nil,
         onSlashCommandChange: ((SlashCommandState?) -> Void)? = nil,
-        onSlashCommandKey: ((InlinePreviewKey) -> Bool)? = nil,
         slashCommandProxy: SlashCommandProxy? = nil,
         onTaskMarkerMenu: ((TaskMarkerMenuRequest) -> Void)? = nil,
         onCalloutMenu: ((CalloutMenuRequest) -> Void)? = nil,
@@ -235,7 +233,6 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         self.restoreScrollOffset = restoreScrollOffset
         self.isCursorExcluded = isCursorExcluded
         self.onSlashCommandChange = onSlashCommandChange
-        self.onSlashCommandKey = onSlashCommandKey
         self.slashCommandProxy = slashCommandProxy
         self.onTaskMarkerMenu = onTaskMarkerMenu
         self.onCalloutMenu = onCalloutMenu
@@ -386,7 +383,6 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         context.coordinator.onDirectiveCompletion = onDirectiveCompletion
         context.coordinator.onCodeBlockSelectionChange = onCodeBlockSelectionChange
         context.coordinator.onSlashCommandChange = onSlashCommandChange
-        context.coordinator.onSlashCommandKey = onSlashCommandKey
         slashCommandProxy?.coordinator = context.coordinator
 
         textView.recalcOverscroll(for: scrollView)
@@ -455,7 +451,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         context.coordinator.refresh(text: $text, isWikiLinkActive: $isWikiLinkActive, onLinkClick: onLinkClick)
         // Fork: before the early returns below, so the slash menu sees current closures.
         context.coordinator.onSlashCommandChange = onSlashCommandChange
-        context.coordinator.onSlashCommandKey = onSlashCommandKey
+        context.coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = context.coordinator
         textView.onTaskMarkerMenu = onTaskMarkerMenu
         textView.onCalloutMenu = onCalloutMenu

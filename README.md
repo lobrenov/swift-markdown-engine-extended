@@ -24,7 +24,7 @@ Upstream's [README](https://github.com/nodes-app/swift-markdown-engine/blob/main
 | `#tags` as bubbles, with clicks | `tags` (`TagStyle`), `onTagClick` |
 | `[[Target\|alias]]` links | resolves and reports by `Target` |
 | Image embeds that stay drawn at the caret, with selection and an image menu | `imageEmbed` (`ImageEmbedStyle`), `onImageEmbed`, `onPasteImage` |
-| `/`, `[[`, `![[` and `#` queries for menus the embedder draws | `onSlashCommandChange`, `onSlashCommandKey`, `SlashCommandProxy` |
+| `/`, `[[`, `![[` and `#` queries for menus the embedder draws | `onSlashCommandChange`, `onInlinePreviewKey`, `SlashCommandProxy` |
 | Tab and Shift-Tab on lists, lists inside quotes, bullets by depth, auto-closed pairs | `lists` (`ListStyle`) |
 | Inline bubbles for inline code and extensions | `inlineCode.bubble`, `InlineBubble` |
 | iOS editor with a keyboard bar, taps and press-and-hold menus | `NativeTextViewWrapper` (UIKit), `keyboardBar` |

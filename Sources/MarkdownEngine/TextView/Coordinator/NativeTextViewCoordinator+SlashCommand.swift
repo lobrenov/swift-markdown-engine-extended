@@ -5,8 +5,8 @@
 //  Fork: a `/` typed at a line start or after whitespace opens a slash
 //  command, a typed `[[` or `![[` a link or embed query, and a `#` there a tag
 //  query once a tag character follows. The engine tracks
-//  the query and routes the menu keys; the embedder draws the menu and inserts
-//  through `SlashCommandProxy`.
+//  the query and routes the menu keys (`+Completion`); the embedder draws the
+//  menu and inserts through `SlashCommandProxy`.
 //
 
 #if canImport(AppKit)
@@ -242,22 +242,6 @@ extension NativeTextViewCoordinator {
         slashCommand = nil
         reportSlashCommand()
     }
-
-    #if os(macOS)
-    /// From `doCommandBy`: ↑/↓ move, ↵/⇥ insert, esc closes. `true` when the key was consumed.
-    func handleSlashCommandKey(_ commandSelector: Selector) -> Bool {
-        guard slashCommand != nil, let handler = onSlashCommandKey else { return false }
-        switch commandSelector {
-        case #selector(NSResponder.cancelOperation(_:)):
-            dismissSlashCommand()
-            return true
-        case #selector(NSResponder.moveUp(_:)): return handler(.moveUp)
-        case #selector(NSResponder.moveDown(_:)): return handler(.moveDown)
-        case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertTab(_:)): return handler(.confirm)
-        default: return false
-        }
-    }
-    #endif
 
     func insertSlashCommand(_ insertion: String, selecting selection: NSRange) {
         guard let tv = textView, let command = slashCommand else { return }

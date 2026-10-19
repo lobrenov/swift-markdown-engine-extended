@@ -16,9 +16,7 @@ extension NativeTextView {
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
            event.keyCode == 36 || event.keyCode == 76,            // Return / keypad Enter
            let coord = delegate as? NativeTextViewCoordinator,
-           coord.isWikiLinkActive || coord.isImageEmbedActive,
-           let handler = coord.onInlinePreviewKey,
-           handler(.confirmAndOpen) {
+           coord.routeCompletionKey(.confirmAndOpen) {   // Fork: any open picker (`+Completion`)
             return true
         }
         return super.performKeyEquivalent(with: event)

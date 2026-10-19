@@ -104,7 +104,6 @@ public final class NativeTextViewCoordinator: NSObject {
     var onInlinePreviewKey: ((InlinePreviewKey) -> Bool)?
     /// Fork: slash commands (see `NativeTextViewCoordinator+SlashCommand`).
     var onSlashCommandChange: ((SlashCommandState?) -> Void)?
-    var onSlashCommandKey: ((InlinePreviewKey) -> Bool)?
     var slashAnchor: Int?
     var slashTrigger: SlashCommandState.Trigger = .slash
     /// True from a typed trigger until the end of its `shouldChangeText`.

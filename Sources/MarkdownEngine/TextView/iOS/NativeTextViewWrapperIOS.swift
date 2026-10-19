@@ -25,7 +25,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     /// A view above the text that scrolls with it (a title and properties, say).
     public var header: AnyView?
     public var onSlashCommandChange: ((SlashCommandState?) -> Void)?
-    public var onSlashCommandKey: ((InlinePreviewKey) -> Bool)?
+    /// ↑/↓/↵/esc from a hardware keyboard while a slash, link, embed or tag query is open. Return `true` to consume
+    /// the key; esc closes the query in the engine.
+    public var onInlinePreviewKey: ((InlinePreviewKey) -> Bool)?
     public var slashCommandProxy: SlashCommandProxy?
     /// A press and hold on a task box: the embedder shows the marker menu.
     public var onTaskMarkerMenu: ((TaskMarkerMenuRequest) -> Void)?
@@ -55,7 +57,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         onLinkClick: ((String) -> Void)? = nil,
         header: AnyView? = nil,
         onSlashCommandChange: ((SlashCommandState?) -> Void)? = nil,
-        onSlashCommandKey: ((InlinePreviewKey) -> Bool)? = nil,
+        onInlinePreviewKey: ((InlinePreviewKey) -> Bool)? = nil,
         slashCommandProxy: SlashCommandProxy? = nil,
         onTaskMarkerMenu: ((TaskMarkerMenuRequest) -> Void)? = nil,
         onCalloutMenu: ((CalloutMenuRequest) -> Void)? = nil,
@@ -75,7 +77,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.onLinkClick = onLinkClick
         self.header = header
         self.onSlashCommandChange = onSlashCommandChange
-        self.onSlashCommandKey = onSlashCommandKey
+        self.onInlinePreviewKey = onInlinePreviewKey
         self.slashCommandProxy = slashCommandProxy
         self.onTaskMarkerMenu = onTaskMarkerMenu
         self.onCalloutMenu = onCalloutMenu
@@ -140,7 +142,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.textView = textView
         coordinator.wikiLinkMetadata = initialState.metadata
         coordinator.onSlashCommandChange = onSlashCommandChange
-        coordinator.onSlashCommandKey = onSlashCommandKey
+        coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = coordinator
         textView.onTaskMarkerMenu = onTaskMarkerMenu
         textView.onCalloutMenu = onCalloutMenu
@@ -166,7 +168,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         let coordinator = context.coordinator
         coordinator.refresh(text: $text, isWikiLinkActive: $isWikiLinkActive, onLinkClick: onLinkClick)
         coordinator.onSlashCommandChange = onSlashCommandChange
-        coordinator.onSlashCommandKey = onSlashCommandKey
+        coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = coordinator
         textView.onTaskMarkerMenu = onTaskMarkerMenu
         textView.onCalloutMenu = onCalloutMenu

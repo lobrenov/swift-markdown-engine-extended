@@ -127,9 +127,9 @@ final class NativeTextView: UITextView {
 
     override var keyCommands: [UIKeyCommand]? {
         var commands = [UIKeyCommand(input: "\t", modifierFlags: .shift, action: #selector(outdent))]
-        if coordinator?.slashCommand != nil {
+        if coordinator?.completionOwner != nil {
             for input in [UIKeyCommand.inputUpArrow, UIKeyCommand.inputDownArrow, UIKeyCommand.inputEscape, "\r"] {
-                let command = UIKeyCommand(input: input, modifierFlags: [], action: #selector(slashKey(_:)))
+                let command = UIKeyCommand(input: input, modifierFlags: [], action: #selector(completionKey(_:)))
                 command.wantsPriorityOverSystemBehavior = true
                 commands.append(command)
             }
@@ -141,19 +141,16 @@ final class NativeTextView: UITextView {
         _ = coordinator?.handleBacktab(self)
     }
 
-    /// ↑/↓ move through an open slash menu, ↵ inserts, esc closes, as on macOS.
-    @objc private func slashKey(_ command: UIKeyCommand) {
+    /// ↑/↓ move through an open picker, ↵ confirms, esc closes, as on macOS (`+Completion`).
+    @objc private func completionKey(_ command: UIKeyCommand) {
         guard let coordinator else { return }
-        if command.input == UIKeyCommand.inputEscape {
-            coordinator.dismissSlashCommand()
-            return
-        }
         let key: InlinePreviewKey = switch command.input {
         case UIKeyCommand.inputUpArrow: .moveUp
         case UIKeyCommand.inputDownArrow: .moveDown
+        case UIKeyCommand.inputEscape: .cancel
         default: .confirm
         }
-        if coordinator.onSlashCommandKey?(key) != true, key == .confirm {
+        if !coordinator.routeCompletionKey(key), key == .confirm {
             insertText("\n")
         }
     }

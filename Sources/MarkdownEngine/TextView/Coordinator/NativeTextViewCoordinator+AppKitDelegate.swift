@@ -83,27 +83,13 @@ extension NativeTextViewCoordinator: NSTextViewDelegate {
     public func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         // Raw mode: default key handling (no ⇧⇥ outdent, no preview routing).
         if configuration.rawSourceMode { return false }
-        // Fork: ↑/↓/↵/⇥/esc drive an open slash menu.
-        if handleSlashCommandKey(commandSelector) { return true }
+        // Fork: ↑/↓/↵/esc (and ⇥ for a query) go to the open picker (`+Completion`).
+        if routeCompletionCommand(commandSelector) { return true }
         // Fork: a table cell's keys.
         if let native = textView as? NativeTextView, let cell = native.tableCell, let grid = cell.grid,
            grid.handleCommand(commandSelector, from: cell) { return true }
         if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
             return handleBacktab(textView)
-        }
-        // While an inline [[…]] / ![[…]] preview OR a directive picker is open,
-        // route ↑/↓/Enter/Esc to the embedder's autocomplete list (it returns
-        // true to consume the key; false → normal editor handling).
-        if (isWikiLinkActive || isImageEmbedActive || isDirectiveCompletionActive), let handler = onInlinePreviewKey {
-            let key: InlinePreviewKey?
-            switch commandSelector {
-            case #selector(NSResponder.moveUp(_:)): key = .moveUp
-            case #selector(NSResponder.moveDown(_:)): key = .moveDown
-            case #selector(NSResponder.insertNewline(_:)): key = .confirm   // ⌘↵ → handled in performKeyEquivalent
-            case #selector(NSResponder.cancelOperation(_:)): key = .cancel
-            default: key = nil
-            }
-            if let key, handler(key) { return true }
         }
         // Fork: ↓ or ↑ from the line beside a table enters it.
         if configuration.liveTables, let native = textView as? NativeTextView, native.tableCell == nil,
