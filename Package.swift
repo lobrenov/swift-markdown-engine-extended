@@ -45,6 +45,11 @@ let package = Package(
                 .product(name: "SwiftMath", package: "SwiftMath"),
             ]
         ),
+        // Fork: the grammar's tests, without the editor.
+        .testTarget(
+            name: "MarkdownEngineSyntaxTests",
+            dependencies: ["MarkdownEngineSyntax"]
+        ),
         .testTarget(
             name: "MarkdownEngineTests",
             dependencies: ["MarkdownEngine", "MarkdownEngineSyntax"]

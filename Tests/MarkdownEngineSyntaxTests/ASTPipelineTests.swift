@@ -9,7 +9,6 @@
 
 import Foundation
 import Testing
-@testable import MarkdownEngine
 @testable import MarkdownEngineSyntax
 
 @Suite("Phase 2.5 — AST pipeline end-to-end")
