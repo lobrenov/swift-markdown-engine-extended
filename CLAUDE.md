@@ -17,7 +17,7 @@ A fork of [swift-markdown-engine](https://github.com/nodes-app/swift-markdown-en
 - Upstream contributions: topic branches cut from `main`.
 
 ## Conventions
-- `MarkdownEngineSyntax` is the grammar: Foundation only (`FoundationOnlyTests` checks). What the editor uses from it is `package`; its public types keep their `MarkdownEngine` names through `Sources/MarkdownEngine/SyntaxTypes.swift`. Parser tests that need no editor types go in `Tests/MarkdownEngineSyntaxTests`.
+- `MarkdownEngineSyntax` is the grammar: Foundation only (`FoundationOnlyTests` checks). What the editor uses from it is `package`; its public types keep their `MarkdownEngine` names through `Sources/MarkdownEngine/SyntaxTypes.swift`, which also re-exports the module. Parser tests that need no editor types go in `Tests/MarkdownEngineSyntaxTests`.
 - Nothing app-specific: no app names, paths or data in source, tests or docs. Doc comments say what the embedder does.
 - Keep upstream's names, layout and files, so upstream merges apply cleanly. New fork files go beside upstream's.
 - Mark each change from upstream `Fork:` in the source (`// Fork:`, `/// Fork:`, `@Suite("Fork — …")`). An upstream file changed only in passing gets `//  Fork: changed from upstream; FORK.md lists the changes.` under its file name. Add or update its numbered entry in `FORK.md`, with its **Conflicts** rule.

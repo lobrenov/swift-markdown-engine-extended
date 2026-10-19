@@ -3,10 +3,10 @@
 //  MarkdownEngine
 //
 //  Fork: the public syntax types that live in `MarkdownEngineSyntax`, under their `MarkdownEngine` names, so
-//  embedders keep one import.
+//  embedders keep one import. The re-export brings their members too (`MemberImportVisibility`).
 //
 
-import MarkdownEngineSyntax
+@_exported import MarkdownEngineSyntax
 
 public typealias BlockSyntax = MarkdownEngineSyntax.BlockSyntax
 public typealias DirectiveArguments = MarkdownEngineSyntax.DirectiveArguments
