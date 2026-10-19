@@ -18,6 +18,7 @@
 #if os(macOS)
 import AppKit
 import Foundation
+import MarkdownEngineSyntax
 
 extension NativeTextViewCoordinator {
 

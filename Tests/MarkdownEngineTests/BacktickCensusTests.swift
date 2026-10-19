@@ -1,6 +1,7 @@
 //
 //  BacktickCensusTests.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Created by Luca Chen on 07.07.26.
 //
@@ -8,6 +9,7 @@
 import Foundation
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @Suite("Backtick census")
 struct BacktickCensusTests {

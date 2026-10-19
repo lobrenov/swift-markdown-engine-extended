@@ -24,6 +24,7 @@ import AppKit
 #else
 import UIKit
 #endif
+import MarkdownEngineSyntax
 
 extension NativeTextViewWrapper.Coordinator {
     /// Returns the smallest bold or boldItalic token that fully contains the selection, or nil when the selection isn't enclosed by emphasis with a bold trait.

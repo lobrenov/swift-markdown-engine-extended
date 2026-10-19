@@ -15,6 +15,7 @@
 
 #if os(macOS)
 import AppKit
+import MarkdownEngineSyntax
 
 enum MarkdownPasteboardWriter {
     /// Private flavor carrying the exact raw markdown of the selection. When one

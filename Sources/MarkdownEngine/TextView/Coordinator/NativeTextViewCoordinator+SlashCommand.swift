@@ -14,6 +14,7 @@ import AppKit
 #else
 import UIKit
 #endif
+import MarkdownEngineSyntax
 
 /// Fork: the `/query`, `[[query`, `![[query` or `#query` being typed, delivered through
 /// ``NativeTextViewWrapper/onSlashCommandChange``.

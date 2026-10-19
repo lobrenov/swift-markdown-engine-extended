@@ -1,6 +1,7 @@
 //
 //  DirectiveCompletionScanner.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Phase 4 — what is the caret trying to complete?
 //
@@ -18,6 +19,7 @@
 //
 
 import Foundation
+import MarkdownEngineSyntax
 
 // MARK: - What is being completed
 

@@ -12,20 +12,20 @@
 import Foundation
 
 /// One line of a blockquote: its `>` markers and what follows them.
-struct QuoteLine: Equatable {
+package struct QuoteLine: Equatable {
     /// The line, newline included.
-    let line: NSRange
+    package let line: NSRange
     /// The line without its newline.
-    let text: NSRange
+    package let text: NSRange
     /// The `>` run with its spaces.
-    let markers: NSRange
+    package let markers: NSRange
     /// After the markers, without the newline.
-    let content: NSRange
+    package let content: NSRange
     /// The number of `>`.
-    let level: Int
+    package let level: Int
 
     /// The lines of the blockquote at `range`.
-    static func lines(in range: NSRange, of ns: NSString) -> [QuoteLine] {
+    package static func lines(in range: NSRange, of ns: NSString) -> [QuoteLine] {
         var lines: [QuoteLine] = []
         var lineStart = range.location
         while lineStart < NSMaxRange(range) {
@@ -38,7 +38,7 @@ struct QuoteLine: Equatable {
 
     /// Reads the markers of `line`, as `styleBlockquote` does: up to three spaces or tabs, then `>`s, each
     /// with an optional space or tab.
-    static func parse(_ line: NSRange, of ns: NSString) -> QuoteLine {
+    package static func parse(_ line: NSRange, of ns: NSString) -> QuoteLine {
         let lineEnd = NSMaxRange(line)
         var i = line.location
         var indent = 0
@@ -66,18 +66,18 @@ struct QuoteLine: Equatable {
 }
 
 /// A callout's title line: `[!type]`, a fold sign, the title.
-struct CalloutHeader: Equatable {
+package struct CalloutHeader: Equatable {
     /// Between `[!` and `]`.
-    let type: NSRange
+    package let type: NSRange
     /// The `+` or `-` after `]`; empty, just after `]`, when there is none.
-    let fold: NSRange
+    package let fold: NSRange
     /// From `[` up to the title.
-    let syntax: NSRange
+    package let syntax: NSRange
     /// Without trailing spaces; empty when the callout has no title.
-    let title: NSRange
+    package let title: NSRange
 
     /// Reads a title line's `content` (after its `>` markers).
-    static func parse(_ ns: NSString, content: NSRange) -> CalloutHeader? {
+    package static func parse(_ ns: NSString, content: NSRange) -> CalloutHeader? {
         let end = NSMaxRange(content)
         var i = content.location
         guard end - i >= 4, ns.character(at: i) == 0x5B /* [ */, ns.character(at: i + 1) == 0x21 /* ! */ else { return nil }
@@ -108,18 +108,18 @@ struct CalloutHeader: Equatable {
 }
 
 /// A callout in a blockquote, by the indices of its lines.
-struct Callout: Equatable {
-    let level: Int
-    let header: CalloutHeader
+package struct Callout: Equatable {
+    package let level: Int
+    package let header: CalloutHeader
     /// The title line.
-    let first: Int
+    package let first: Int
     /// The last line at its level or deeper.
-    var last: Int
+    package var last: Int
 
-    var hasBody: Bool { last > first }
+    package var hasBody: Bool { last > first }
 
     /// The callouts among a blockquote's `lines`, outer ones before the ones they hold.
-    static func find(in lines: [QuoteLine], of ns: NSString) -> [Callout] {
+    package static func find(in lines: [QuoteLine], of ns: NSString) -> [Callout] {
         var callouts: [Callout] = []
         var open: [Int] = []
         var previousLevel = 0

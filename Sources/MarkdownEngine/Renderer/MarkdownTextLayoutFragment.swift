@@ -14,6 +14,7 @@ import AppKit
 import UIKit
 #endif
 import CoreText
+import MarkdownEngineSyntax
 
 // MARK: - Custom attribute keys for rendering overlays
 

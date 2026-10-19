@@ -13,6 +13,7 @@ import AppKit
 import UIKit
 #endif
 import SwiftUI
+import MarkdownEngineSyntax
 
 /// `NSTextViewDelegate` that bridges ``NativeTextViewWrapper`` and the
 /// underlying `PlatformTextView`.

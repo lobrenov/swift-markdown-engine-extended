@@ -23,6 +23,7 @@ import AppKit
 import UIKit
 #endif
 import Foundation
+import MarkdownEngineSyntax
 
 enum MarkdownASTStyler {
 

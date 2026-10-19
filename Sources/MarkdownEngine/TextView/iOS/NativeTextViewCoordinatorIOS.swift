@@ -8,6 +8,7 @@
 
 #if os(iOS)
 import UIKit
+import MarkdownEngineSyntax
 
 extension NativeTextViewCoordinator: UITextViewDelegate {
     public func textViewDidChange(_ textView: UITextView) {

@@ -14,6 +14,7 @@ import UIKit
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @Suite("Fork — alternative checkboxes")
 struct AlternativeCheckboxTests {

@@ -28,7 +28,9 @@ let package = Package(
         .package(url: "https://github.com/mgriebling/SwiftMath", from: "1.7.0"),
     ],
     targets: [
-        .target(name: "MarkdownEngine"),
+        // Fork: the grammar, Foundation only (fork docs/upstream/syntax-target.md).
+        .target(name: "MarkdownEngineSyntax"),
+        .target(name: "MarkdownEngine", dependencies: ["MarkdownEngineSyntax"]),
         .target(
             name: "MarkdownEngineCodeBlocks",
             dependencies: [
@@ -45,7 +47,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MarkdownEngineTests",
-            dependencies: ["MarkdownEngine"]
+            dependencies: ["MarkdownEngine", "MarkdownEngineSyntax"]
         ),
         .testTarget(
             name: "MarkdownEngineLatexTests",

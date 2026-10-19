@@ -1,6 +1,7 @@
 //
 //  InlineParserTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Phase 2 — test-first specification of the inline parser. Ranges are
 //  relative to the parsed string.
@@ -9,6 +10,7 @@
 import Foundation
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @Suite("Phase 2 — inline parser")
 struct InlineParserTests {

@@ -9,6 +9,7 @@
 
 #if os(macOS)
 import AppKit
+import MarkdownEngineSyntax
 
 /// A cell and the selection in it, to restore on undo and redo.
 struct CellFocus: Equatable {

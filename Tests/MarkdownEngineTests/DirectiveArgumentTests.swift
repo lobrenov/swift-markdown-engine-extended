@@ -16,6 +16,7 @@ import UIKit
 import Foundation
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @Suite("Directives — arguments")
 struct DirectiveArgumentTests {

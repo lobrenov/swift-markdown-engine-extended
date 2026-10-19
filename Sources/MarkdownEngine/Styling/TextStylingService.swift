@@ -14,6 +14,7 @@ import AppKit
 import UIKit
 #endif
 import Foundation
+import MarkdownEngineSyntax
 
 struct TextStylingService {
     enum RestyleContent {

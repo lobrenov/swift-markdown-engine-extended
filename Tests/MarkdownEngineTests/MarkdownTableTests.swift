@@ -7,6 +7,7 @@
 
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @Suite("MarkdownTable")
 struct MarkdownTableTests {

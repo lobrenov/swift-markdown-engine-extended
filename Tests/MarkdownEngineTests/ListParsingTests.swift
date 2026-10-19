@@ -1,6 +1,7 @@
 //
 //  ListParsingTests.swift
 //  MarkdownEngineTests
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Phase A — list modeling in the AST: BlockParser detection/grouping +
 //  DocumentAST per-item parsing (marker, ordered/number, task checkbox, indent,
@@ -10,6 +11,7 @@
 import Foundation
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @Suite("Phase A — list parsing")
 struct ListParsingTests {

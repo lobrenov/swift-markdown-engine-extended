@@ -12,6 +12,7 @@ import AppKit
 #else
 import UIKit
 #endif
+import MarkdownEngineSyntax
 
 struct MarkdownLists {
     static func performEdit(_ textView: PlatformTextView, replace range: NSRange, with string: String) {

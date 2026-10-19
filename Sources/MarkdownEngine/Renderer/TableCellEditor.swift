@@ -10,6 +10,7 @@
 #if os(macOS)
 import AppKit
 import SwiftUI
+import MarkdownEngineSyntax
 
 final class TableCellEditor {
     let textView: NativeTextView

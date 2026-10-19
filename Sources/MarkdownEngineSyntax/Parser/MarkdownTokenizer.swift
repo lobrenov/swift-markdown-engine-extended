@@ -1,6 +1,7 @@
 //
 //  MarkdownTokenizer.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Created by Luca Chen on 18.02.26.
 //
@@ -13,11 +14,11 @@
 import Foundation
 
 // MARK: - Tokenizer
-enum MarkdownTokenizer {
+package enum MarkdownTokenizer {
 
     // MARK: - Code Block Helpers
 
-    static func extractLanguage(from token: MarkdownToken, in text: String) -> String? {
+    package static func extractLanguage(from token: MarkdownToken, in text: String) -> String? {
         guard token.kind == .codeBlock,
               let openingMarker = token.markerRanges.first,
               openingMarker.length > 4 else { return nil }

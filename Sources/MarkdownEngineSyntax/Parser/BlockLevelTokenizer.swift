@@ -1,6 +1,7 @@
 //
 //  BlockLevelTokenizer.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Builds the block-level MarkdownTokens (heading, blockquote, fenced code,
 //  table, block LaTeX) directly from already-classified block substrings —

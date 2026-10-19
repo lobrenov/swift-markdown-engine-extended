@@ -14,6 +14,7 @@ import Foundation
 import SwiftUI
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @MainActor
 @Suite("Table width-change restyling", .serialized)

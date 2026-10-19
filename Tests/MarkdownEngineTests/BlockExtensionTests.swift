@@ -18,6 +18,7 @@ import UIKit
 import Foundation
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @Suite("Block extensions — fenced blocks")
 struct BlockExtensionTests {

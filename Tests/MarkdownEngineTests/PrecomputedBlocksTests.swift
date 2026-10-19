@@ -19,6 +19,7 @@ import UIKit
 import Foundation
 import Testing
 @testable import MarkdownEngine
+@testable import MarkdownEngineSyntax
 
 @Suite("Precomputed blocks bypass the block parser")
 struct PrecomputedBlocksTests {

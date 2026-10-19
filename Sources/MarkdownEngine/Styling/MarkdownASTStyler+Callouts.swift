@@ -14,6 +14,7 @@ import AppKit
 #else
 import UIKit
 #endif
+import MarkdownEngineSyntax
 
 /// How a blockquote with callouts lays out on screen: which callouts are folded and which lines that hides.
 struct CalloutQuoteLayout {

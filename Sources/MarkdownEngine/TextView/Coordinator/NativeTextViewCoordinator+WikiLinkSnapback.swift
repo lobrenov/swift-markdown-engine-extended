@@ -21,6 +21,7 @@ import AppKit
 #else
 import UIKit
 #endif
+import MarkdownEngineSyntax
 
 extension NativeTextViewCoordinator {
     /// When the caret LEAVES a `[[Name]]` / `![[Name]]` token, re-sync the displayed

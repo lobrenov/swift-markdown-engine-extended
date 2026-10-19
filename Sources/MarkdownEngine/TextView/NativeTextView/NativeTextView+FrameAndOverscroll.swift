@@ -11,6 +11,7 @@
 
 #if os(macOS)
 import AppKit
+import MarkdownEngineSyntax
 
 extension NativeTextView {
     /// Real content height including overscroll, excluding the click-below-text inflation.

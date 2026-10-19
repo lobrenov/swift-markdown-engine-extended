@@ -13,6 +13,7 @@
 
 #if os(macOS)
 import AppKit
+import MarkdownEngineSyntax
 
 extension NativeTextViewCoordinator {
     func updateCodeBlockSelection(textView: NSTextView, parsed: ParsedDocument? = nil) {

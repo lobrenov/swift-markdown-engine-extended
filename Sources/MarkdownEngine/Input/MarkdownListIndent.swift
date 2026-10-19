@@ -19,6 +19,7 @@ import AppKit
 #else
 import UIKit
 #endif
+import MarkdownEngineSyntax
 
 extension MarkdownLists {
 

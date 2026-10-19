@@ -9,6 +9,7 @@
 
 #if os(macOS)
 import AppKit
+import MarkdownEngineSyntax
 
 // MARK: - Faint scroller
 

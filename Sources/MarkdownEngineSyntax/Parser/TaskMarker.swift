@@ -19,7 +19,7 @@ public enum TaskMarker {
     static let utf16Set: Set<unichar> = Set(all.map { $0.utf16.first! })
 
     /// Regex fragment matching one box, e.g. `[ ]`, `[x]` or `[/]`.
-    static let boxPattern = #"\[[ xX/\-<>?!*"lbiSIpcfkwud]\]"#
+    package static let boxPattern = #"\[[ xX/\-<>?!*"lbiSIpcfkwud]\]"#
 
     static func isMarker(_ c: unichar) -> Bool { utf16Set.contains(c) }
 }

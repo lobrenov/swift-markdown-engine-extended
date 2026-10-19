@@ -9,9 +9,9 @@
 
 import Foundation
 
-struct MarkdownTable: Equatable {
+package struct MarkdownTable: Equatable {
 
-    enum Alignment: Equatable {
+    package enum Alignment: Equatable {
         /// `---`: no marker. Draws like `.left`.
         case none
         case left
@@ -19,24 +19,31 @@ struct MarkdownTable: Equatable {
         case right
     }
 
-    var header: [String]
-    var alignments: [Alignment]
-    var rows: [[String]]
+    package var header: [String]
+    package var alignments: [Alignment]
+    package var rows: [[String]]
     /// The leading whitespace of the table's first line, kept on every line written.
     var indent = ""
 
-    var columnCount: Int { alignments.count }
+    package var columnCount: Int { alignments.count }
     /// The header plus the body rows.
-    var rowCount: Int { 1 + rows.count }
+    package var rowCount: Int { 1 + rows.count }
 
-    func cell(row: Int, column: Int) -> String {
+    package init(header: [String], alignments: [Alignment], rows: [[String]], indent: String = "") {
+        self.header = header
+        self.alignments = alignments
+        self.rows = rows
+        self.indent = indent
+    }
+
+    package func cell(row: Int, column: Int) -> String {
         row == 0 ? header[column] : rows[row - 1][column]
     }
 
     // MARK: - Parsing
 
     /// Ragged rows are padded (or cut) to the wider of the header and the delimiter row.
-    static func parse(_ source: String) -> MarkdownTable? {
+    package static func parse(_ source: String) -> MarkdownTable? {
         let lines = source.components(separatedBy: CharacterSet.newlines)
             .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         guard lines.count >= 2 else { return nil }
@@ -125,7 +132,7 @@ struct MarkdownTable: Equatable {
 
     /// The cell a character offset in a table's source lands in: its row (the delimiter line reads as the header's),
     /// column, and the offset in the cell's trimmed text. Columns past the last read as the last.
-    static func cellLocation(in source: String, offset: Int) -> (row: Int, column: Int, offset: Int)? {
+    package static func cellLocation(in source: String, offset: Int) -> (row: Int, column: Int, offset: Int)? {
         let text = source as NSString
         guard text.length > 0 else { return nil }
         var start = 0
@@ -167,7 +174,7 @@ struct MarkdownTable: Equatable {
     // MARK: - Writing
 
     /// The table's lines, columns padded to line up, without a trailing newline.
-    var markdown: String {
+    package var markdown: String {
         let escaped = ([header] + rows).map { $0.map(Self.escape) }
         let widths = (0..<columnCount).map { column in
             max(3, escaped.map { $0[column].count }.max() ?? 0)
@@ -212,12 +219,12 @@ struct MarkdownTable: Equatable {
 
     // MARK: - Editing
 
-    mutating func setCell(row: Int, column: Int, to text: String) {
+    package mutating func setCell(row: Int, column: Int, to text: String) {
         if row == 0 { header[column] = text } else { rows[row - 1][column] = text }
     }
 
     /// A blank row at `index` (0...rowCount). At 0 it becomes the header.
-    mutating func insertRow(at index: Int) {
+    package mutating func insertRow(at index: Int) {
         let blank = [String](repeating: "", count: columnCount)
         if index == 0 {
             rows.insert(header, at: 0)
@@ -229,34 +236,34 @@ struct MarkdownTable: Equatable {
 
     /// Deleting the header makes the next row the header. The only row stays:
     /// the caller removes the whole table.
-    mutating func deleteRow(at index: Int) {
+    package mutating func deleteRow(at index: Int) {
         guard rowCount > 1 else { return }
         if index == 0 { header = rows.removeFirst() } else { rows.remove(at: index - 1) }
     }
 
     /// Moves a body row so it ends at `destination`. The header can't move and
     /// nothing moves above it.
-    mutating func moveRow(from index: Int, to destination: Int) {
+    package mutating func moveRow(from index: Int, to destination: Int) {
         guard index > 0 else { return }
         let target = min(max(destination, 1), rowCount - 1)
         rows.insert(rows.remove(at: index - 1), at: target - 1)
     }
 
-    mutating func insertColumn(at index: Int) {
+    package mutating func insertColumn(at index: Int) {
         header.insert("", at: index)
         alignments.insert(.none, at: index)
         for i in rows.indices { rows[i].insert("", at: index) }
     }
 
     /// The only column stays: the caller removes the whole table.
-    mutating func deleteColumn(at index: Int) {
+    package mutating func deleteColumn(at index: Int) {
         guard columnCount > 1 else { return }
         header.remove(at: index)
         alignments.remove(at: index)
         for i in rows.indices { rows[i].remove(at: index) }
     }
 
-    mutating func moveColumn(from index: Int, to destination: Int) {
+    package mutating func moveColumn(from index: Int, to destination: Int) {
         let target = min(max(destination, 0), columnCount - 1)
         func move<T>(_ array: inout [T]) { array.insert(array.remove(at: index), at: target) }
         move(&header)
@@ -264,7 +271,7 @@ struct MarkdownTable: Equatable {
         for i in rows.indices { move(&rows[i]) }
     }
 
-    mutating func setAlignment(_ alignment: Alignment, column: Int) {
+    package mutating func setAlignment(_ alignment: Alignment, column: Int) {
         alignments[column] = alignment
     }
 }

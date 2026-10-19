@@ -1,6 +1,7 @@
 //
 //  BlockParser.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Phase 1 of the regex→AST refactor: the block-structure pass. Splits the
 //  document into a flat, gap-free (tiling) sequence of blocks following the
@@ -23,7 +24,7 @@
 import Foundation
 
 /// The block-level classification of a run of lines.
-enum BlockKind: Equatable {
+package enum BlockKind: Equatable {
     case paragraph       // inline-bearing
     case heading         // single ATX line (`# …`), inline-bearing content
     case blockquote      // consecutive `>` lines, inline-bearing per line
@@ -37,9 +38,9 @@ enum BlockKind: Equatable {
 }
 
 /// One block; `range` is the absolute UTF-16 span of its lines, tiling with no gaps.
-struct Block: Equatable {
-    let kind: BlockKind
-    let range: NSRange
+package struct Block: Equatable {
+    package let kind: BlockKind
+    package let range: NSRange
 }
 
 /// A resolved contiguous change between two buffer states, in UTF-16 units.

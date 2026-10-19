@@ -19,6 +19,7 @@ import AppKit
 import UIKit
 #endif
 import Foundation
+import MarkdownEngineSyntax
 
 // MARK: - Top-level Configuration
 
