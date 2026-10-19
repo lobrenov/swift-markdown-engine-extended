@@ -116,7 +116,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         textView.alwaysBounceVertical = configuration.heightBehavior == .scrolls
         textView.keyboardDismissMode = .interactive
         textView.smartDashesType = .no
-        textView.smartQuotesType = .yes
+        textView.smartQuotesType = configuration.spellChecking.automaticQuoteSubstitution ? .yes : .no
 
         let layoutDelegate = MarkdownLayoutManagerDelegate()
         coordinator.layoutDelegate = layoutDelegate

@@ -454,7 +454,8 @@ enum MarkdownASTStyler {
         }()
         let depthIndent = CGFloat(MarkdownLists.indentLevel(from: ws)) * ctx.config.lists.indentPerLevel
         let ps = NSMutableParagraphStyle()
-        guard helpers else {
+        // Fork: a quoted item keeps the quote's geometry (#13).
+        guard helpers || quote != nil else {
             // Helpers off means NO list indent — but the box is drawn to the
             // LEFT of the content (`boxX = contentX - size - gap`), so a task
             // line gets exactly that much room and not a point more. Without
@@ -467,8 +468,7 @@ enum MarkdownASTStyler {
             // the font's natural height: the content height flipped 26 ↔ 24
             // as the line crossed in and out of being a task item, and the
             // text below jumped by those 2pt on the way.
-            let room = max(0, TaskCheckboxGeometry.size(for: ctx.baseFont, style: ctx.config.taskCheckbox)
-                              + ctx.config.taskCheckbox.contentGap - markerWidth)
+            let room = taskSlotExtra(markerWidth: markerWidth, ctx: ctx)
             ps.minimumLineHeight = ctx.baseLineHeight + ctx.config.paragraph.lineHeightExtraSpacing
             ps.lineSpacing = 0
             ps.paragraphSpacing = ctx.baseParagraphSpacing

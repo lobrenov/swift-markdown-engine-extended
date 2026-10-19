@@ -115,6 +115,20 @@ struct QuotedListTests {
         #expect(style?.firstLineHeadIndent == quoteIndent + MarkdownEditorConfiguration.default.lists.indentPerLevel)
     }
 
+    @Test func aQuotedTaskKeepsTheQuoteLayoutWithTheHelpersOff() {
+        var configuration = MarkdownEditorConfiguration.default
+        configuration.lists.helpersEnabled = false
+        let text = "Intro\n\n> - [ ] open\n"
+        let styled = MarkdownASTStyler.styleAttributes(text: text, fontName: PlatformFont.systemFont(ofSize: 14).fontName,
+                                                       fontSize: 14, configuration: configuration)
+        #expect(styled.contains { $0.attributes[.taskCheckbox] as? String == " " })
+        let line = (text as NSString).range(of: "> - [ ] open")
+        let style = styled.last { NSIntersectionRange($0.range, line).length > 0 && $0.attributes[.paragraphStyle] != nil }?
+            .attributes[.paragraphStyle] as? NSParagraphStyle
+        let quoteIndent = MarkdownTextLayoutFragment.blockquoteIndentPerLevel * 1.5
+        #expect(style?.firstLineHeadIndent == quoteIndent + configuration.lists.indentPerLevel)
+    }
+
     @Test func caretHelpersSeeQuotedSyntax() {
         #expect(MarkdownStyler.taskSyntaxRange(at: 2, in: "> - [ ] a\n") == NSRange(location: 2, length: 5))
         #expect(MarkdownStyler.bulletSyntaxRange(at: 2, in: "> - a\n") == NSRange(location: 2, length: 2))

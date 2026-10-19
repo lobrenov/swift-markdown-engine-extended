@@ -709,7 +709,7 @@ extension NativeTextViewCoordinator {
         #if os(macOS)
         updateDirectiveCompletion(
             tv, text: nsText, codeTokens: codeTokens, isTyping: isTyping,
-            suppressed: inlineSelectionState != nil
+            suppressed: inlineSelectionState != nil || slashCommand != nil   // Fork: a query's menu wins
         )
         #endif
 
