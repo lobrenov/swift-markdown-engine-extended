@@ -9,7 +9,7 @@ Upstream's [README](https://github.com/nodes-app/swift-markdown-engine/blob/main
 - **Obsidian-flavoured editing.** Callouts, wiki-link aliases, alternative task checkboxes, `#tags`, image embeds and live tables, edited in place as Obsidian users expect.
 - **iPhone.** The editor runs on iOS 26 as well as macOS 14, sharing parsing, styling, layout and input.
 - **Hooks for the embedder.** Slash, link, embed and tag queries; task, callout, image and table menus; and a formatting proxy. The editor reports and the embedding app draws the menus.
-- **One owner of the syntax.** The fork's parser is meant to be the single reading of this markdown dialect for the apps that embed it. A Foundation-only syntax target and a shared spec of fixtures are planned.
+- **One owner of the syntax.** The fork's parser is meant to be the single reading of this markdown dialect for the apps that embed it. The grammar is a Foundation-only target, `MarkdownEngineSyntax`, inside the package (not yet a product); a shared spec of fixtures is planned.
 - **Tracking upstream.** The package, products and module keep upstream's names and layout, so each upstream release merges into the fork.
 
 [FORK.md](FORK.md) lists every difference from upstream, numbered, with the rule for resolving each one when an upstream merge touches it.
