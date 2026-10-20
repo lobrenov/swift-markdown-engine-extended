@@ -42,6 +42,6 @@ A single upstream fix between releases: `git cherry-pick -x <sha>` on `live`.
 
 ### Contributing upstream
 1. `git switch -c fix/<name> main`.
-2. Change upstream's code with its tests, per `CONTRIBUTING.md`.
+2. Change upstream's code with its tests, per upstream's `CONTRIBUTING.md` (the one on `main`).
 3. Push the branch and open a PR against `nodes-app/swift-markdown-engine:main`.
 4. Once a release ships it, the merge into `live` brings it in; remove the `FORK.md` entry it replaces.

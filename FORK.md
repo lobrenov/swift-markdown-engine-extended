@@ -11,7 +11,7 @@ When an upstream merge touches a change, its **Conflicts** line says which versi
 - **Upstream's**: take upstream's version; the fork's tests show whether the change needs re-applying.
 
 ## Repository files
-`README.md` is the fork's own (upstream's covers the engine and is linked from it). `NOTICE`, `FORK.md`, `CLAUDE.md` and `fork docs/` (the fork's own documents; drafts of upstream proposals in `fork docs/upstream/`) are the fork's and don't exist upstream. **Conflicts:** Fork's.
+`README.md` and `CONTRIBUTING.md` are the fork's own (upstream's README covers the engine and is linked from it; upstream's contributing guide applies to branches cut from `main`). `NOTICE`, `FORK.md`, `CLAUDE.md` and `fork docs/` (the fork's own documents; drafts of upstream proposals in `fork docs/upstream/`) are the fork's and don't exist upstream. **Conflicts:** Fork's.
 
 ## Changes from upstream
 Each change is marked `Fork:` in the source, and every file the fork changed carries a `Fork:` line, at the change or in its header: the modification notice Apache-2.0 asks for. Tests: `Tests/MarkdownEngineTests/ForkTests.swift`, plus the files a change names.

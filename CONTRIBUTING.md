@@ -1,92 +1,21 @@
-# Contributing to MarkdownEngine
+# Contributing to Swift Markdown Engine Extended
 
-Thanks for your interest. **MarkdownEngine is maintained by one person —
-expect 1–2 weeks for review.** A pull request is the normal way in, for
-fixes, documentation and new extensions alike. If a change is large or
-architectural, open it as a draft PR with the design sketched in the
-description — that gets you an answer faster than describing it in prose.
-
-> **New here?** Start with [ARCHITECTURE.md](ARCHITECTURE.md) — a
-> codemap that walks each directory in the order text flows through
-> the engine.
-
-## Development setup
-
-```bash
-git clone https://github.com/nodes-app/swift-markdown-engine.git
-cd swift-markdown-engine
-swift build
-swift test
-```
-
-Open `Package.swift` in Xcode for a graphical environment. The runnable
-demo is in `Demo/MarkdownEngineDemo.xcodeproj` — open and **Run** to see
-your changes against a real app target.
-
-### Local DocC preview
-
-Temporarily add the [swift-docc-plugin](https://github.com/swiftlang/swift-docc-plugin)
-to `Package.swift`, then `swift package --disable-sandbox preview-documentation
---target MarkdownEngine`. It's intentionally not a permanent dependency — the
-core product stays free of optional tooling.
+This is an active development fork of [swift-markdown-engine](https://github.com/nodes-app/swift-markdown-engine), maintained by one person, [@lobrenov](https://github.com/lobrenov), who makes every change to it. Pull requests aren't accepted. The API changes between `-live` tags, so pin an exact tag.
 
 ## Reporting bugs
 
-Include:
+Issues are welcome for behaviour the fork adds or changes (the [FORK.md](FORK.md) list). Include:
 
-- A minimal reproducer (the smallest Markdown input + code that triggers
-  it)
-- macOS, Xcode, and Swift versions
-- Expected vs. actual behavior
+- The smallest markdown input and code that shows it
+- The `-live` tag, the platform (macOS or iOS) and the OS and Xcode versions
+- Expected and actual behaviour
 
-Screen recordings welcome.
+A bug that also happens in upstream's engine belongs upstream: report it at [nodes-app/swift-markdown-engine](https://github.com/nodes-app/swift-markdown-engine/issues), under upstream's [contributing guide](https://github.com/nodes-app/swift-markdown-engine/blob/main/CONTRIBUTING.md).
 
-## Pull requests
+## Upstream
 
-- One logical change per PR, branched from `main`
-- Tests for new tokenizer / styler / service / extension behavior in
-  `Tests/MarkdownEngineTests/`
-- DocC comments for any public-API change; update `Demo/` if relevant
-- One-line entry in `CHANGELOG.md` under `[Unreleased]`
-- `swift build` and `swift test` must be green; CI runs the same checks
-
-## Design constraints
-
-Non-negotiable for the core `MarkdownEngine` target:
-
-- **Don't add external dependencies to the core `MarkdownEngine`
-  target.** App-specific behaviors plug in through the four service
-  protocols (`WikiLinkResolver`, `EmbeddedImageProvider`,
-  `SyntaxHighlighter`, `LatexRenderer`) instead. The two existing
-  bridge products (`MarkdownEngineCodeBlocks` → HighlighterSwift,
-  `MarkdownEngineLatex` → SwiftMath) are the deliberate exception so
-  consumers can opt in. A new bridge or a new core dependency is a bigger
-  call — make the case in the PR description.
-- **New constructs are extensions, not core grammar.** A construct like
-  `==highlight==` (inline) or a `::: … :::` fenced block belongs in
-  `Sources/MarkdownEngine/Extensions/` as a `MarkdownExtension` — see
-  `HighlightExtension` / `ContainerExtension` as templates — never a new case
-  threaded through the parser, styler, and renderer. This keeps the core pure
-  markdown and each construct isolated. Image/overlay-rendered constructs
-  (tables, math) are the exception — they still need core work.
-- **Public surface stays small.** Favor `internal`; new public symbols
-  need a DocC comment.
-
-## Commit messages
-
-Imperative subject, blank line, then a paragraph explaining *why*:
-
-```
-Tokenize escaped backticks inside fenced code blocks
-
-The previous tokenizer treated `\`` inside ``` … ``` as a token
-delimiter, which broke any code block containing escaped backtick
-examples. The new behavior matches CommonMark.
-```
-
-The "what" is in the diff.
+Fixes that belong upstream go from this fork to `nodes-app/swift-markdown-engine` as pull requests, on topic branches cut from `main`, under upstream's guide. Each upstream release is merged into `live`.
 
 ## License
 
-By contributing, you agree that your contributions are licensed under
-the [Apache 2.0 License](LICENSE).
+Apache License 2.0, as upstream. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
