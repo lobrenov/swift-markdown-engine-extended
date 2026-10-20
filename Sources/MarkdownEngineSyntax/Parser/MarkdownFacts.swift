@@ -21,11 +21,15 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var marker: Character
         /// The rest of the item's first line, trimmed, as written.
         public var text: String
+        /// Where `[c]` is in the body (UTF-16).
+        public var box: NSRange
     }
 
     public struct Link: Hashable, Sendable {
         public var line: Int
         public var parts: WikiLinkParts
+        /// Where `[[…]]` is in the body (UTF-16).
+        public var range: NSRange
     }
 
     public struct Embed: Hashable, Sendable {
@@ -35,6 +39,8 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var block: String?
         /// The `|`-separated parts after the target, as written.
         public var segments: [String]
+        /// Where `![[…]]` is in the body (UTF-16).
+        public var range: NSRange
     }
 
     public struct Tag: Hashable, Sendable {
@@ -204,9 +210,9 @@ private struct FactScanner {
 
     private mutating func addTasks(_ items: [ListItem]) {
         for item in items {
-            guard let marker = item.taskMarker else { continue }
+            guard let marker = item.taskMarker, let box = item.checkbox else { continue }
             let text = string(item.contentRange).trimmingCharacters(in: .whitespacesAndNewlines)
-            facts.tasks.append(.init(line: line(item.range.location), marker: marker, text: text))
+            facts.tasks.append(.init(line: line(item.range.location), marker: marker, text: text, box: box))
         }
     }
 
@@ -235,13 +241,65 @@ private struct FactScanner {
         // Each cell is read as a paragraph of its own, unescaped as the editor draws it (`\|` is a link's alias bar).
         for row in 0..<table.rowCount {
             let rowLine = startLine + (row == 0 ? 0 : row + 1)
+            let sources = cellSources(lineStarts[rowLine - firstLineIndex])
             for column in 0..<table.columnCount {
-                let cell = MarkdownFacts.scan(table.cell(row: row, column: column), firstLineIndex: rowLine)
-                facts.links += cell.links
-                facts.embeds += cell.embeds
+                let text = table.cell(row: row, column: column)
+                let cell = MarkdownFacts.scan(text, firstLineIndex: rowLine)
+                guard column < sources.count else { continue }
+                let toSource = sourceOffsets(of: text, in: sources[column])
+                func mapped(_ range: NSRange) -> NSRange {
+                    let start = toSource[range.location]
+                    return NSRange(location: start, length: toSource[NSMaxRange(range) - 1] + 1 - start)
+                }
+                facts.links += cell.links.map { var link = $0; link.range = mapped(link.range); return link }
+                facts.embeds += cell.embeds.map { var embed = $0; embed.range = mapped(embed.range); return embed }
                 facts.tags += cell.tags
             }
         }
+    }
+
+    /// Each cell's source in the table row starting at `start`, trimmed, split on the `|`s `MarkdownTable` splits on.
+    private func cellSources(_ start: Int) -> [NSRange] {
+        func isSpace(_ i: Int) -> Bool { ns.character(at: i) == 0x20 || ns.character(at: i) == 0x09 }
+        var end = start
+        while end < ns.length, !isLineBreak(ns.character(at: end)) { end += 1 }
+        var from = start
+        while from < end, isSpace(from) { from += 1 }
+        while end > from, isSpace(end - 1) { end -= 1 }
+        func backslashes(before i: Int) -> Int {
+            var j = i
+            while j > from, ns.character(at: j - 1) == 0x5C { j -= 1 }
+            return i - j
+        }
+        if from < end, ns.character(at: from) == 0x7C { from += 1 }
+        if end > from, ns.character(at: end - 1) == 0x7C, backslashes(before: end - 1) % 2 == 0 { end -= 1 }
+        var cells: [NSRange] = []
+        var cellStart = from
+        for i in from...end where i == end || (ns.character(at: i) == 0x7C && backslashes(before: i) % 2 == 0) {
+            var (a, b) = (cellStart, i)
+            while a < b, isSpace(a) { a += 1 }
+            while b > a, isSpace(b - 1) { b -= 1 }
+            cells.append(NSRange(location: a, length: b - a))
+            cellStart = i + 1
+        }
+        return cells
+    }
+
+    /// For each UTF-16 offset in a cell's text, the offset in `source` it was read from: `MarkdownTable` drops
+    /// backslashes and reads `<br>` as a line break.
+    private func sourceOffsets(of text: String, in source: NSRange) -> [Int] {
+        let cell = text as NSString
+        var offsets: [Int] = []
+        var i = source.location
+        let end = NSMaxRange(source)
+        for j in 0..<cell.length {
+            let c = cell.character(at: j)
+            while i < end, ns.character(at: i) != c, !(c == 0x0A && ns.character(at: i) == 0x3C) { i += 1 }
+            offsets.append(min(i, end))
+            if c == 0x0A { while i < end, ns.character(at: i) != 0x3E { i += 1 } }
+            i += 1
+        }
+        return offsets
     }
 
     // MARK: - Inlines
@@ -249,16 +307,16 @@ private struct FactScanner {
     private mutating func collect(_ nodes: [InlineNode]) {
         for node in nodes {
             switch node {
-            case .wikiLink(_, _, _, let markers):
+            case .wikiLink(let range, _, _, let markers):
                 if let parts = WikiLinkParts(inner: innerText(markers)) {
-                    facts.links.append(.init(line: line(markers[0].location), parts: parts))
+                    facts.links.append(.init(line: line(markers[0].location), parts: parts, range: range))
                 }
-            case .imageEmbed(_, _, let markers):
+            case .imageEmbed(let range, _, let markers):
                 let pieces = innerText(markers).split(separator: "|", omittingEmptySubsequences: false)
                 if let parts = WikiLinkParts(inner: String(pieces[0])) {
                     facts.embeds.append(.init(line: line(markers[0].location), target: parts.target,
                                               heading: parts.heading, block: parts.block,
-                                              segments: pieces.dropFirst().map(String.init)))
+                                              segments: pieces.dropFirst().map(String.init), range: range))
                 }
             case .tag(let range, let marker):
                 let name = NSRange(location: NSMaxRange(marker), length: NSMaxRange(range) - NSMaxRange(marker))

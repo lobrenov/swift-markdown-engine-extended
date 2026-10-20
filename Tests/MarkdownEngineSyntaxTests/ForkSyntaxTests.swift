@@ -80,3 +80,24 @@ struct AutolinkTests {
         #expect(autolinks("see <https://a.com> and <me@x.org>").count == 2)
     }
 }
+
+@Suite("Fork — fact ranges")
+struct FactRangeTests {
+    private func source(_ body: String, _ range: NSRange) -> String { (body as NSString).substring(with: range) }
+
+    @Test func linksEmbedsAndBoxesKnowWhereTheyAre() {
+        let body = "é [[A|b]] ![[c.png|300]]\n\n> - [/] 🙂 [[D#^x]]\n"
+        let facts = MarkdownFacts.scan(body)
+        #expect(facts.links.map { source(body, $0.range) } == ["[[A|b]]", "[[D#^x]]"])
+        #expect(facts.embeds.map { source(body, $0.range) } == ["![[c.png|300]]"])
+        #expect(facts.tasks.map { source(body, $0.box) } == ["[/]"])
+    }
+
+    @Test func aTableCellsLinksAreRangesInTheBody() {
+        let body = "| A | B |\n| --- | --- |\n| x<br>[[T\\|al]] | ![[i.png\\|9]] [[U]] |\n"
+        let facts = MarkdownFacts.scan(body)
+        #expect(facts.links.map { source(body, $0.range) } == ["[[T\\|al]]", "[[U]]"])
+        #expect(facts.links.map(\.parts.alias) == ["al", nil])
+        #expect(facts.embeds.map { source(body, $0.range) } == ["![[i.png\\|9]]"])
+    }
+}
