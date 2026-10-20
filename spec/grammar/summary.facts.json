@@ -10,6 +10,20 @@
   "tasks": [],
   "links": [],
   "embeds": [],
+  "markdownLinks": [
+    {
+      "line": 2,
+      "path": "Maps/Coast.md",
+      "raw": "Maps/Coast.md",
+      "angle": false
+    },
+    {
+      "line": 3,
+      "path": "img/harbour.png",
+      "raw": "img/harbour.png",
+      "angle": false
+    }
+  ],
   "tags": [],
   "callouts": [],
   "tables": []

@@ -37,6 +37,7 @@ A markdown body (no frontmatter) and the facts it yields. A case passes when a r
   "tasks": [{ "line": 2, "marker": "x", "text": "Buy milk" }],
   "links": [{ "line": 3, "target": "Note", "heading": "Part", "block": "id", "alias": "shown" }],
   "embeds": [{ "line": 4, "target": "front.jpg", "segments": ["300"] }],
+  "markdownLinks": [{ "line": 4, "path": "My Note.md", "raw": "My%20Note.md", "angle": false }],
   "tags": [{ "line": 5, "tag": "home/garden" }],
   "callouts": [{ "type": "warning", "fold": "folded", "title": "Careful", "startLine": 6, "endLine": 8 }],
   "tables": [{ "startLine": 10, "endLine": 13, "columns": 2 }]
@@ -45,6 +46,7 @@ A markdown body (no frontmatter) and the facts it yields. A case passes when a r
 
 - `tasks`: a list item whose marker is followed by `[c]` and a space or tab, `c` from `task-markers.json`; `text` is the rest of its first line, trimmed. A line continuing an item (lazy, or indented after a blank line) belongs to the item, not to the summary.
 - `links` and `embeds`: in text order. An embed's `segments` are its `|`-separated parts after the target, as written, empty ones included; left out when there's no `|`.
+- `markdownLinks`: inline `[text](destination)` links and `![alt](destination)` images, in text order, whose destination is a relative path. `raw` is the destination up to its first `#` or `?`, as written; `path` is `raw` percent-decoded (`raw` when that fails); `angle` tells the destination is written in `<…>` (which may hold spaces). Left out: a destination with a scheme (`https:`, `mailto:`, `C:`) or starting `//`, one without a path (`#heading`, `?q`), reference links, shortcut references and autolinks. Code, HTML blocks and the rest the other facts skip hold none; a table cell, in a quote too, does, and `raw` is as written in the row (`a\|b.md`).
 - `tags`: in text order, as written, without `#`.
 - `callouts`: `type` as written, lowercased; `fold` is `open`, `folded`, or left out; `title` left out when empty. A lazy line after a callout's last quote line continues it.
 - `tables`: GFM pipe tables, inside a quote or callout too; `columns` counts the delimiter row's cells. A cell is read as a paragraph of its own, with `\|` as `|`, so `[[Target\|alias]]` in a cell is a link with an alias.

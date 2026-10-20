@@ -139,6 +139,9 @@ struct SpecConformanceTests {
                 optional([("line", $0.line), ("target", $0.target), ("heading", $0.heading), ("block", $0.block),
                           ("segments", $0.segments.isEmpty ? nil : $0.segments)])
             },
+            "markdownLinks": facts.markdownLinks.map {
+                ["line": $0.line, "path": $0.path, "raw": $0.raw, "angle": $0.angle]
+            },
             "tags": facts.tags.map { ["line": $0.line, "tag": $0.name] },
             "callouts": facts.callouts.map {
                 optional([("type", $0.type), ("fold", $0.fold.map { $0 == .open ? "open" : "folded" }),

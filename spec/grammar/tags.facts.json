@@ -20,6 +20,26 @@
       "heading": "b"
     }
   ],
+  "markdownLinks": [
+    {
+      "line": 3,
+      "path": "x",
+      "raw": "x",
+      "angle": false
+    },
+    {
+      "line": 7,
+      "path": "b",
+      "raw": "b",
+      "angle": false
+    },
+    {
+      "line": 7,
+      "path": "p",
+      "raw": "p",
+      "angle": false
+    }
+  ],
   "tags": [
     {
       "line": 0,

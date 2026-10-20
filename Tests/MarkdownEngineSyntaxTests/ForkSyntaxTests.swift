@@ -121,3 +121,25 @@ struct FactRangeTests {
         #expect(facts.tables.map(\.startLine) == [1])
     }
 }
+
+@Suite("Fork — Markdown link ranges")
+struct MarkdownLinkRangeTests {
+    private func source(_ body: String, _ range: NSRange) -> String { (body as NSString).substring(with: range) }
+
+    @Test func aPathKnowsWhereItIs() {
+        let body = "é [a](x%20y.md#h) ![b](<z w.png>) [c](u.md \"t\")\n\n> 🙂 [d](q.md?x=1)\n"
+        let facts = MarkdownFacts.scan(body)
+        #expect(facts.markdownLinks.map { source(body, $0.range) } == ["x%20y.md", "z w.png", "u.md", "q.md"])
+        #expect(facts.markdownLinks.map(\.path) == ["x y.md", "z w.png", "u.md", "q.md"])
+        #expect(facts.markdownLinks.map(\.angle) == [false, true, false, false])
+        #expect(facts.markdownLinks.map(\.line) == [0, 0, 0, 2])
+    }
+
+    @Test func aTableCellsPathIsARangeInTheBody() {
+        let body = "| A | B |\n| --- | --- |\n| x<br>[T](a\\|b.md) | ![i](c%20d.png) |\n"
+        let facts = MarkdownFacts.scan(body)
+        #expect(facts.markdownLinks.map { source(body, $0.range) } == ["a\\|b.md", "c%20d.png"])
+        #expect(facts.markdownLinks.map(\.raw) == ["a\\|b.md", "c%20d.png"])
+        #expect(facts.markdownLinks.map(\.path) == ["a|b.md", "c d.png"])
+    }
+}

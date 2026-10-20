@@ -2,7 +2,7 @@
 //  MarkdownFacts.swift
 //  MarkdownEngineSyntax
 //
-//  Fork: what a markdown body holds — summary, headings, tasks, links, embeds, tags, callouts and tables — read
+//  Fork: what a markdown body holds — summary, headings, tasks, links, embeds, Markdown links, tags, callouts and tables — read
 //  with the editor's own block and inline parsers. `spec/grammar` states the facts each case yields.
 //
 
@@ -43,6 +43,20 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var range: NSRange
     }
 
+    /// An inline `[text](destination)` or `![alt](destination)` whose destination is a relative path: not a
+    /// URL with a scheme, a `//` one or a `#fragment` or `?query` alone. Reference links and autolinks aren't read.
+    public struct MarkdownLink: Hashable, Sendable {
+        public var line: Int
+        /// The destination before any `#` or `?`, percent-decoded.
+        public var path: String
+        /// The same as written, still percent-encoded.
+        public var raw: String
+        /// Where `raw` is in the body (UTF-16).
+        public var range: NSRange
+        /// The destination is written between `<` and `>`.
+        public var angle: Bool
+    }
+
     public struct Tag: Hashable, Sendable {
         public var line: Int
         /// Without `#`.
@@ -72,6 +86,7 @@ public struct MarkdownFacts: Hashable, Sendable {
     public var tasks: [TaskItem] = []
     public var links: [Link] = []
     public var embeds: [Embed] = []
+    public var markdownLinks: [MarkdownLink] = []
     public var tags: [Tag] = []
     public var callouts: [Callout] = []
     public var tables: [Table] = []
@@ -266,6 +281,12 @@ private struct FactScanner {
                 }
                 facts.links += cell.links.map { var link = $0; link.range = mapped(link.range); return link }
                 facts.embeds += cell.embeds.map { var embed = $0; embed.range = mapped(embed.range); return embed }
+                facts.markdownLinks += cell.markdownLinks.map {
+                    var link = $0
+                    link.range = mapped(link.range)
+                    link.raw = string(link.range)
+                    return link
+                }
                 facts.tags += cell.tags
             }
         }
@@ -352,14 +373,54 @@ private struct FactScanner {
             case .tag(let range, let marker):
                 let name = NSRange(location: NSMaxRange(marker), length: NSMaxRange(range) - NSMaxRange(marker))
                 facts.tags.append(.init(line: line(range.location), name: string(name)))
-            case .emphasis(_, _, _, let children), .link(_, _, _, _, let children):
+            case .link(_, _, let url, let markers, let children):
+                addMarkdownLink(url: url, markers: markers)
+                collect(children)
+            case .image(_, _, let url, let markers):
+                addMarkdownLink(url: url, markers: markers)
+            case .emphasis(_, _, _, let children):
                 collect(children)
             case .ext(let node):
                 collect(node.children)
-            case .text, .code, .image, .inlineLatex, .escape:
+            case .text, .code, .inlineLatex, .escape:
                 break
             }
         }
+    }
+
+    // MARK: - Markdown links
+
+    private static let absolute = try! NSRegularExpression(pattern: #"^(?:[A-Za-z][A-Za-z0-9+.\-]*:|//)"#)
+
+    /// Adds the destination in `url` when it's a relative path. An autolink's markers are `<` and `>` only.
+    private mutating func addMarkdownLink(url: NSRange, markers: [NSRange]) {
+        guard markers.count == 4 else { return }
+        func isBlank(_ c: unichar) -> Bool { c == 0x20 || c == 0x09 || c == 0x0A }
+        var cursor = url.location
+        let end = NSMaxRange(url)
+        while cursor < end, isBlank(ns.character(at: cursor)) { cursor += 1 }
+        guard cursor < end else { return }
+        let angle = ns.character(at: cursor) == 0x3C
+        if angle { cursor += 1 }
+        let first = cursor
+        // The destination ends at `>` (in `<…>`) or at a space; the path, at its first `#` or `?`.
+        var pathEnd: Int?
+        var closed = !angle
+        while cursor < end {
+            let c = ns.character(at: cursor)
+            if angle ? c == 0x3E : isBlank(c) {
+                closed = true
+                break
+            }
+            if pathEnd == nil, c == 0x23 || c == 0x3F { pathEnd = cursor }
+            cursor += 1
+        }
+        let range = NSRange(location: first, length: (pathEnd ?? cursor) - first)
+        guard closed, range.length > 0 else { return }
+        let raw = string(range)
+        guard Self.absolute.firstMatch(in: raw, range: NSRange(location: 0, length: range.length)) == nil else { return }
+        facts.markdownLinks.append(.init(line: line(markers[0].location), path: raw.removingPercentEncoding ?? raw,
+                                         raw: raw, range: range, angle: angle))
     }
 
     private static func start(of node: InlineNode) -> Int {
