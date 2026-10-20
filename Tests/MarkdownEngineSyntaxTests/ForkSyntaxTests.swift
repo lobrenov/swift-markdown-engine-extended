@@ -258,7 +258,7 @@ struct ReferenceLinkFactTests {
         #expect(facts.markdownLinks.count == 3)
         #expect(facts.markdownLinks.allSatisfy { source(body, $0.range) == "Note%20x.md" && $0.raw == "Note%20x.md" && $0.path == "Note x.md" })
         #expect(Set(facts.markdownLinks.map(\.range)).count == 1)
-        #expect(facts.summary == "é [A][ref] ![i][ref] [REF] [nope]")
+        #expect(facts.summary == "é A i REF [nope]")
     }
 
     @Test func definitionsCanBeAnywhereButInCode() {

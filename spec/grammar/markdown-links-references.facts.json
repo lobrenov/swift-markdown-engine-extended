@@ -1,5 +1,5 @@
 {
-  "summary": "Uses: [Foo][ref], [Bar][], [ref], [Mixed Case][REF] and ![Pic][img].",
+  "summary": "Uses: Foo, Bar, ref, Mixed Case and Pic.",
   "headings": [],
   "tasks": [],
   "links": [],

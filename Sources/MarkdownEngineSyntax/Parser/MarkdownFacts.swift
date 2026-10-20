@@ -137,6 +137,8 @@ private struct FactScanner {
     /// Where each definition is in the body, and from where a paragraph that starts with some goes on.
     private var definitionRanges: [NSRange] = []
     private var paragraphRest: [Int: Int] = [:]
+    /// The syntax of the reference links and images found: `[` or `![`, and `][label]` or `]`.
+    private var referenceSyntax: [NSRange] = []
     /// A table cell's scan reads the document's definitions and holds none.
     private var inheritsDefinitions = false
 
@@ -180,6 +182,7 @@ private struct FactScanner {
                     inlines = region.length > 0 ? InlineParser.parse(ns, range: region, registry: Self.registry) : []
                 }
                 if region.length == 0 { break }
+                collect(inlines, region: region)   // first: the summary drops the syntax of the references it finds
                 switch (previous, afterBlank) {
                 case (.blockquote(let quote, _, _), false):
                     // A lazy line continues the quote and the callouts that reached its end.
@@ -194,7 +197,6 @@ private struct FactScanner {
                 default:
                     if facts.summary == nil { facts.summary = plainText(inlines) }
                 }
-                collect(inlines, region: region)
             case .heading(let level, let range, let markers, let inlines):
                 facts.headings.append(.init(line: line(range.location), level: level, text: headingText(range, markers: markers)))
                 collect(inlines, region: range)
@@ -746,6 +748,8 @@ private struct FactScanner {
             if !isImage, (inlineLinks + resolved).contains(where: { NSIntersectionRange($0, whole).length > 0 && $0.location > start }) { continue }
             if end != close { consumed.insert(close + 1) }
             if !isImage { resolved.append(whole) }
+            referenceSyntax.append(NSRange(location: isImage ? start - 1 : start, length: isImage ? 2 : 1))
+            referenceSyntax.append(NSRange(location: close, length: end + 1 - close))
             if let target = definition {
                 let position = isImage ? start - 1 : start
                 uses.append(Use(position: position, order: uses.count,
@@ -776,7 +780,14 @@ private struct FactScanner {
             for node in nodes {
                 switch node {
                 case .text(let range):
-                    out += Self.withoutHTML(string(range))
+                    // Without the syntax of a reference link or image, as for an inline one.
+                    var from = range.location
+                    for cut in referenceSyntax.sorted(by: { $0.location < $1.location }) where NSIntersectionRange(cut, range).length > 0 {
+                        let inside = NSIntersectionRange(cut, range)
+                        out += Self.withoutHTML(string(NSRange(location: from, length: inside.location - from)))
+                        from = NSMaxRange(inside)
+                    }
+                    out += Self.withoutHTML(string(NSRange(location: from, length: NSMaxRange(range) - from)))
                 case .wikiLink(let range, _, _, _), .imageEmbed(let range, _, _),
                      .tag(let range, _), .inlineLatex(let range, _, _):
                     out += string(range)
