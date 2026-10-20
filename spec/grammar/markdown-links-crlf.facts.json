@@ -1,0 +1,30 @@
+{
+  "summary": "A wrapped link and t.",
+  "headings": [],
+  "tasks": [],
+  "links": [],
+  "embeds": [],
+  "markdownLinks": [
+    {
+      "line": 0,
+      "path": "crlf.md",
+      "raw": "crlf.md",
+      "angle": false
+    },
+    {
+      "line": 1,
+      "path": "c.md",
+      "raw": "c.md",
+      "angle": false
+    },
+    {
+      "line": 4,
+      "path": "q.md",
+      "raw": "q.md",
+      "angle": false
+    }
+  ],
+  "tags": [],
+  "callouts": [],
+  "tables": []
+}

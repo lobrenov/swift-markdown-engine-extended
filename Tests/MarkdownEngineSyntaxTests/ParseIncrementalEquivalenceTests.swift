@@ -49,10 +49,13 @@ struct ParseIncrementalEquivalenceTests {
         // Fork: CommonMark blocks.
         "    indented code", "\t- tab item", "    - four-space item", "~~~", "Setext text", "---", "===",
         "<div>", "</div>", "<!-- comment", "-->", "x | y", "--|--", "See <https://a.com> and a -> b.",
+        // Fork: links that wrap, nest brackets, hold escapes or a title on the next line.
+        "A [wrapped link", "continues](x.md) and", "> quoted [link", "> text](q.md \"t\")", "[a [b] c](d.md)",
+        "[![i](p.png)](q.md)", "[t](u.md", "\"title\") and [e](", "esc\\(1\\).md)", "[](e.md) [s](a b.md)",
     ]
 
     private static let editSnippets = [
-        "x", "ab", " ", "\n", "`", "``", "```", "$", "$$", "**", "- ", "# ",
+        "x", "ab", " ", "\n", "`", "``", "```", "$", "$$", "**", "- ", "# ", "[", "](", ")", "]", "\\",
         "| c |", "[[N]]", "\n\n", "word and more",
         "    ", "\t", "<", ">", "~~~", "-->", "---", "<div>", "|",
     ]

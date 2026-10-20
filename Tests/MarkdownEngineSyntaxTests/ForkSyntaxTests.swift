@@ -143,3 +143,67 @@ struct MarkdownLinkRangeTests {
         #expect(facts.markdownLinks.map(\.path) == ["a|b.md", "c d.png"])
     }
 }
+
+@Suite("Fork — Markdown link forms")
+struct MarkdownLinkFormTests {
+    private func links(_ text: String) -> [(text: String, url: String)] {
+        let ns = text as NSString
+        func walk(_ nodes: [InlineNode]) -> [(text: String, url: String)] {
+            nodes.flatMap { node -> [(text: String, url: String)] in
+                switch node {
+                case .link(_, let textRange, let url, let markers, let children) where markers.count == 4:
+                    [(ns.substring(with: textRange), ns.substring(with: url))] + walk(children)
+                case .image(_, let alt, let url, _):
+                    [(ns.substring(with: alt), ns.substring(with: url))]
+                default: []
+                }
+            }
+        }
+        return walk(InlineParser.parse(text)).map { ($0.text, $0.url) }
+    }
+
+    @Test func linkTextHoldsBracketsImagesAndNothingBetween() {
+        #expect(links("[a [b] c](x.md)").map(\.url) == ["x.md"])
+        #expect(links("[![a](b.png)](c.md)").map(\.url) == ["c.md", "b.png"])
+        #expect(links("[](e.md) ![](p.png)").map(\.url) == ["e.md", "p.png"])
+        #expect(links("[open [Real](real.md)").map(\.url) == ["real.md"])
+        #expect(links("[outer [inner](i.md) outer](o.md)").map(\.url) == ["i.md"])
+        #expect(links("[a] [b](c.md)").map(\.url) == ["c.md"])
+    }
+
+    @Test func aDestinationHoldsEscapesButNoBareSpace() {
+        #expect(links("[a](x\\(1\\).md)").map(\.url) == ["x\\(1\\).md"])
+        #expect(links("![a](dir/x\\.md)").map(\.url) == ["dir/x\\.md"])
+        #expect(links("[a](My Note.md)").isEmpty)
+        #expect(links("[a](<My Note.md>)").map(\.url) == ["<My Note.md>"])
+        #expect(links("[a](x.md \"t\")[b](y.md 'u')[c](z.md (v))").count == 3)
+        #expect(links("[a](x.md \"t\" extra)").isEmpty)
+        #expect(links("[a](x.md\"t\")").map(\.url) == ["x.md\"t\""])
+    }
+
+    @Test func aLinkWrapsLines() {
+        #expect(links("See [the old\nmap](Maps/Coast.md)").map(\.url) == ["Maps/Coast.md"])
+        #expect(links("See [the old\r\nmap](m.md)").map(\.url) == ["m.md"])
+        #expect(links("[a](b.md\n\"t\")").map(\.url) == ["b.md\n\"t\""])
+        #expect(links("[a](\nb.md)").count == 1)
+        #expect(links("> [a\n> b](q.md\n> \"t\")").count == 1)
+        #expect(links("[a](b\nc.md)").isEmpty)
+        #expect(links("[a](<b\nc.md>)").isEmpty)
+    }
+
+    @Test func editingTheSecondLineOfAWrappedLinkRetokenizes() {
+        let state = DocumentParseState()
+        var text = "A [wrapped\nlink](x.md) end\n\nNext"
+        _ = state.tokens(for: text, edit: nil)
+        for (range, insert) in [(NSRange(location: 17, length: 0), "y"), (NSRange(location: 18, length: 1), ""), (NSRange(location: 11, length: 0), " ")] {
+            text = (text as NSString).replacingCharacters(in: range, with: insert)
+            let edit = ParseEditDescriptor(editedRange: NSRange(location: range.location, length: (insert as NSString).length),
+                                           delta: (insert as NSString).length - range.length)
+            let incremental = state.tokens(for: text, edit: edit).map { "\($0.kind)|\($0.range)|\($0.contentRange)" }
+            let full = MarkdownTokenizer.fullTokens(blocks: BlockParser.computeBlocks(text), ns: text as NSString)
+                .map { "\($0.kind)|\($0.range)|\($0.contentRange)" }
+            #expect(incremental == full)
+            #expect(incremental.contains { $0.hasPrefix("link|") })
+        }
+    }
+}

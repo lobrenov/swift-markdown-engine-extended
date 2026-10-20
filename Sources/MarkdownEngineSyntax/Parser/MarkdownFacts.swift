@@ -47,9 +47,9 @@ public struct MarkdownFacts: Hashable, Sendable {
     /// URL with a scheme, a `//` one or a `#fragment` or `?query` alone. Reference links and autolinks aren't read.
     public struct MarkdownLink: Hashable, Sendable {
         public var line: Int
-        /// The destination before any `#` or `?`, percent-decoded.
+        /// The destination before any `#` or `?`, backslash escapes resolved and percent-decoded.
         public var path: String
-        /// The same as written, still percent-encoded.
+        /// The same as written: escapes and percent-encoding kept.
         public var raw: String
         /// Where `raw` is in the body (UTF-16).
         public var range: NSRange
@@ -279,15 +279,17 @@ private struct FactScanner {
                     let start = toSource[range.location]
                     return NSRange(location: start, length: toSource[NSMaxRange(range) - 1] + 1 - start)
                 }
-                facts.links += cell.links.map { var link = $0; link.range = mapped(link.range); return link }
-                facts.embeds += cell.embeds.map { var embed = $0; embed.range = mapped(embed.range); return embed }
+                // A `<br>` in the cell is one source line, so a fact's line is the mapped range's.
+                facts.links += cell.links.map { var link = $0; link.range = mapped(link.range); link.line = line(link.range.location); return link }
+                facts.embeds += cell.embeds.map { var embed = $0; embed.range = mapped(embed.range); embed.line = line(embed.range.location); return embed }
                 facts.markdownLinks += cell.markdownLinks.map {
                     var link = $0
                     link.range = mapped(link.range)
                     link.raw = string(link.range)
+                    link.line = line(link.range.location)
                     return link
                 }
-                facts.tags += cell.tags
+                facts.tags += cell.tags.map { var tag = $0; tag.line = rowLine; return tag }
             }
         }
     }
@@ -394,33 +396,29 @@ private struct FactScanner {
 
     /// Adds the destination in `url` when it's a relative path. An autolink's markers are `<` and `>` only.
     private mutating func addMarkdownLink(url: NSRange, markers: [NSRange]) {
-        guard markers.count == 4 else { return }
-        func isBlank(_ c: unichar) -> Bool { c == 0x20 || c == 0x09 || c == 0x0A }
-        var cursor = url.location
-        let end = NSMaxRange(url)
-        while cursor < end, isBlank(ns.character(at: cursor)) { cursor += 1 }
-        guard cursor < end else { return }
-        let angle = ns.character(at: cursor) == 0x3C
-        if angle { cursor += 1 }
-        let first = cursor
-        // The destination ends at `>` (in `<…>`) or at a space; the path, at its first `#` or `?`.
+        guard markers.count == 4,
+              let destination = InlineParser.linkDestination(ns, from: url.location, end: NSMaxRange(url)) else { return }
+        // The path ends at the first `#` or `?`, an escaped one too; its backslash escapes are resolved.
+        var path: [unichar] = []
         var pathEnd: Int?
-        var closed = !angle
+        var cursor = destination.range.location
+        let end = NSMaxRange(destination.range)
         while cursor < end {
-            let c = ns.character(at: cursor)
-            if angle ? c == 0x3E : isBlank(c) {
-                closed = true
-                break
+            let written = cursor
+            var c = ns.character(at: cursor)
+            if c == 0x5C, cursor + 1 < end, InlineParser.isAsciiPunctuationChar(ns.character(at: cursor + 1)) {
+                cursor += 1
+                c = ns.character(at: cursor)
             }
-            if pathEnd == nil, c == 0x23 || c == 0x3F { pathEnd = cursor }
+            if pathEnd == nil { if c == 0x23 || c == 0x3F { pathEnd = written } else { path.append(c) } }
             cursor += 1
         }
-        let range = NSRange(location: first, length: (pathEnd ?? cursor) - first)
-        guard closed, range.length > 0 else { return }
-        let raw = string(range)
-        guard Self.absolute.firstMatch(in: raw, range: NSRange(location: 0, length: range.length)) == nil else { return }
-        facts.markdownLinks.append(.init(line: line(markers[0].location), path: raw.removingPercentEncoding ?? raw,
-                                         raw: raw, range: range, angle: angle))
+        let range = NSRange(location: destination.range.location, length: (pathEnd ?? end) - destination.range.location)
+        guard range.length > 0 else { return }
+        let unescaped = String(utf16CodeUnits: path, count: path.count)
+        guard Self.absolute.firstMatch(in: unescaped, range: NSRange(location: 0, length: path.count)) == nil else { return }
+        facts.markdownLinks.append(.init(line: line(markers[0].location), path: unescaped.removingPercentEncoding ?? unescaped,
+                                         raw: string(range), range: range, angle: destination.angle))
     }
 
     private static func start(of node: InlineNode) -> Int {

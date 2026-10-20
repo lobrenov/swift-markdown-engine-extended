@@ -1,0 +1,137 @@
+{
+  "summary": "Nested: a [b] c and Note [[Wiki]].",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 0,
+      "target": "Wiki"
+    }
+  ],
+  "embeds": [],
+  "markdownLinks": [
+    {
+      "line": 0,
+      "path": "nested.md",
+      "raw": "nested.md",
+      "angle": false
+    },
+    {
+      "line": 0,
+      "path": "wiki-text.md",
+      "raw": "wiki-text.md",
+      "angle": false
+    },
+    {
+      "line": 2,
+      "path": "badge-target.md",
+      "raw": "badge-target.md",
+      "angle": false
+    },
+    {
+      "line": 2,
+      "path": "badge.png",
+      "raw": "badge.png",
+      "angle": false
+    },
+    {
+      "line": 4,
+      "path": "empty.md",
+      "raw": "empty.md",
+      "angle": false
+    },
+    {
+      "line": 6,
+      "path": "esc(1).md",
+      "raw": "esc\\(1\\).md",
+      "angle": false
+    },
+    {
+      "line": 6,
+      "path": "dir/x.md",
+      "raw": "dir/x\\.md",
+      "angle": false
+    },
+    {
+      "line": 6,
+      "path": "a",
+      "raw": "a",
+      "angle": false
+    },
+    {
+      "line": 6,
+      "path": "a",
+      "raw": "a",
+      "angle": false
+    },
+    {
+      "line": 8,
+      "path": "inner.md",
+      "raw": "inner.md",
+      "angle": false
+    },
+    {
+      "line": 10,
+      "path": "real.md",
+      "raw": "real.md",
+      "angle": false
+    },
+    {
+      "line": 12,
+      "path": "t1.md",
+      "raw": "t1.md",
+      "angle": false
+    },
+    {
+      "line": 12,
+      "path": "t2.md",
+      "raw": "t2.md",
+      "angle": false
+    },
+    {
+      "line": 12,
+      "path": "t3.md",
+      "raw": "t3.md",
+      "angle": false
+    },
+    {
+      "line": 14,
+      "path": "Maps/Coast.md",
+      "raw": "Maps/Coast.md",
+      "angle": false
+    },
+    {
+      "line": 15,
+      "path": "b.md",
+      "raw": "b.md",
+      "angle": false
+    },
+    {
+      "line": 16,
+      "path": "d.md",
+      "raw": "d.md",
+      "angle": false
+    },
+    {
+      "line": 17,
+      "path": "f.md",
+      "raw": "f.md",
+      "angle": false
+    },
+    {
+      "line": 20,
+      "path": "quote-wrap.md",
+      "raw": "quote-wrap.md",
+      "angle": false
+    },
+    {
+      "line": 21,
+      "path": "q.md",
+      "raw": "q.md",
+      "angle": false
+    }
+  ],
+  "tags": [],
+  "callouts": [],
+  "tables": []
+}

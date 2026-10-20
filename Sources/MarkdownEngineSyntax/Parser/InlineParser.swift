@@ -17,8 +17,10 @@
 //                          automatically inert for every pass below.
 //    2b. scanAutolinks   — Fork: `<scheme:…>` and `<email>`, opaque; a `.link` whose child is its text.
 //    3. scanLinkFamily   — ![[…]], [[…]], ![…](…), […](…), $…$ (+ registered
-//                          extension spans) in precedence order. URLs allow
-//                          balanced parens. A candidate overlapping a claimed
+//                          extension spans) in precedence order. Fork: link text
+//                          pairs brackets as CommonMark does and may wrap lines;
+//                          a destination has balanced parens and escapes, no bare
+//                          space, then an optional title. A candidate overlapping a claimed
 //                          span is rejected (kept literal), except for opaque
 //                          spans wholly nested inside a Markdown link's label.
 //                          This keeps `[x](y)` inert inside code while allowing
@@ -378,17 +380,22 @@ package enum InlineParser {
         // wholly nested inside a Markdown link's label (#118). Only that case
         // needs the full overlap list; everything else short-circuits on the
         // first one.
+        // Fork: a link's or image's destination may hold escapes (`a\(1\).md`), so spans nested in it stand too.
         func hasDisallowedClaimedOverlap(_ span: Span) -> Bool {
-            guard case .link(_, let textRange, _, _) = span else {
-                return claimed.overlaps(span.fullRange)
+            let inner: [NSRange]
+            switch span {
+            case .link(_, let textRange, let url, _): inner = [textRange, url]
+            case .image(_, let alt, let url, _): inner = [alt, url]
+            default: return claimed.overlaps(span.fullRange)
             }
-            return claimed.overlapping(span.fullRange).contains { !rangeContains(textRange, $0) }
+            return claimed.overlapping(span.fullRange).contains { range in !inner.contains { rangeContains($0, range) } }
         }
+        let brackets = bracketPairs(ns, len: len, claimed: claimed)
         var spans: [Span] = []
         var i = 0
         while i < len {
             if claimed.contains(i) { i += 1; continue }
-            if let span = matchClaimedSpan(ns, len, at: i, registry: registry),
+            if let span = matchClaimedSpan(ns, len, at: i, brackets: brackets, registry: registry),
                !hasDisallowedClaimedOverlap(span) {
                 spans.append(span)
                 i = NSMaxRange(span.fullRange)
@@ -399,8 +406,8 @@ package enum InlineParser {
         return spans
     }
 
-    private static func matchClaimedSpan(_ ns: NSString, _ len: Int, at i: Int, registry: ExtensionRegistry) -> Span? {
-        if let span = matchBuiltIn(ns, len, at: i) { return span }
+    private static func matchClaimedSpan(_ ns: NSString, _ len: Int, at i: Int, brackets: [Int], registry: ExtensionRegistry) -> Span? {
+        if let span = matchBuiltIn(ns, len, at: i, brackets: brackets) { return span }
         // Directives (`@font(size: 18){…}`) match after every built-in and
         // BEFORE the extension loop below, on the same terms as extension
         // spans: registered names only, and a rejection leaves the candidate
@@ -443,14 +450,14 @@ package enum InlineParser {
     /// The built-in constructs, tried exclusively in fixed precedence order —
     /// the first branch whose trigger matches decides (nil = stays literal
     /// for built-ins), exactly the pre-extension behavior.
-    private static func matchBuiltIn(_ ns: NSString, _ len: Int, at i: Int) -> Span? {
+    private static func matchBuiltIn(_ ns: NSString, _ len: Int, at i: Int, brackets: [Int]) -> Span? {
         let c = ns.character(at: i)
         let c1 = peek(ns, i + 1, len)
         let c2 = peek(ns, i + 2, len)
         if c == bang, c1 == lbracket, c2 == lbracket { return matchImageEmbed(ns, len, start: i) }
         if c == lbracket, c1 == lbracket { return matchWikiLink(ns, len, start: i) }
-        if c == bang, c1 == lbracket { return matchImage(ns, len, start: i) }
-        if c == lbracket { return matchLink(ns, len, start: i) }
+        if c == bang, c1 == lbracket { return matchImage(ns, len, start: i, brackets: brackets) }
+        if c == lbracket { return matchLink(ns, len, start: i, brackets: brackets) }
         if c == dollar, c1 != dollar { return matchInlineLatex(ns, len, start: i) }
         return nil
     }
@@ -541,13 +548,11 @@ package enum InlineParser {
     }
 
     /// `![ alt ]( url )`
-    private static func matchImage(_ ns: NSString, _ len: Int, start i: Int) -> Span? {
+    private static func matchImage(_ ns: NSString, _ len: Int, start i: Int, brackets: [Int]) -> Span? {
         let altStart = i + 2
-        guard let closeBracket = findChar(ns, len, from: altStart, char: rbracket),
-              peek(ns, closeBracket + 1, len) == lparen,
-              let closeParen = balancedParen(ns, len, from: closeBracket + 2) else { return nil }
+        guard let closeBracket = closingBracket(of: i + 1, brackets),
+              let closeParen = linkTail(ns, len, open: closeBracket + 1) else { return nil }
         let urlStart = closeBracket + 2
-        guard closeParen > urlStart else { return nil }
         return .image(
             range: NSRange(location: i, length: (closeParen + 1) - i),
             alt: NSRange(location: altStart, length: closeBracket - altStart),
@@ -562,14 +567,19 @@ package enum InlineParser {
     }
 
     /// `[ text ]( url )`
-    private static func matchLink(_ ns: NSString, _ len: Int, start i: Int) -> Span? {
+    private static func matchLink(_ ns: NSString, _ len: Int, start i: Int, brackets: [Int]) -> Span? {
         let textStart = i + 1
-        guard let closeBracket = findChar(ns, len, from: textStart, char: rbracket),
-              closeBracket > textStart,
-              peek(ns, closeBracket + 1, len) == lparen,
-              let closeParen = balancedParen(ns, len, from: closeBracket + 2) else { return nil }
+        guard let closeBracket = closingBracket(of: i, brackets),
+              let closeParen = linkTail(ns, len, open: closeBracket + 1) else { return nil }
+        // A link holds no link: the inner one stands and this `[` stays literal.
+        var k = textStart
+        while k < closeBracket {
+            if ns.character(at: k) == lbracket, k > textStart ? ns.character(at: k - 1) != bang : true,
+               peek(ns, k + 1, len) != lbracket, let inner = closingBracket(of: k, brackets), inner < closeBracket,
+               linkTail(ns, len, open: inner + 1) != nil { return nil }
+            k += 1
+        }
         let urlStart = closeBracket + 2
-        guard closeParen > urlStart else { return nil }
         return .link(
             range: NSRange(location: i, length: (closeParen + 1) - i),
             textRange: NSRange(location: textStart, length: closeBracket - textStart),
@@ -617,28 +627,103 @@ package enum InlineParser {
         return nil
     }
 
-    private static func findChar(_ ns: NSString, _ len: Int, from: Int, char: unichar) -> Int? {
-        var k = from
-        while k < len {
-            let ch = ns.character(at: k)
-            if ch == char { return k }
-            if ch == newline { return nil }
-            k += 1
-        }
-        return nil
+    private static func closingBracket(of open: Int, _ brackets: [Int]) -> Int? {
+        open < brackets.count && brackets[open] >= 0 ? brackets[open] : nil
     }
 
-    private static func balancedParen(_ ns: NSString, _ len: Int, from: Int) -> Int? {
-        var depth = 1
+    /// Fork: for each `[`, the `]` that closes it as CommonMark pairs brackets (innermost first, across line
+    /// endings), ignoring the claimed spans (code, escapes, autolinks); -1 where there's none. Empty with no `[`.
+    private static func bracketPairs(_ ns: NSString, len: Int, claimed: ClaimedIndex) -> [Int] {
+        var claimed = claimed
+        var pairs: [Int] = []
+        var open: [Int] = []
+        for i in 0..<len {
+            let c = ns.character(at: i)
+            guard c == lbracket || c == rbracket, !claimed.contains(i) else { continue }
+            if c == lbracket {
+                if pairs.isEmpty { pairs = [Int](repeating: -1, count: len) }
+                open.append(i)
+            } else if let start = open.popLast() {
+                pairs[start] = i
+            }
+        }
+        return pairs
+    }
+
+    /// Fork: whitespace in a link's parentheses; after a line ending, the `>` markers of a quote.
+    package static func skipLinkBlanks(_ ns: NSString, from: Int, end: Int) -> Int {
         var k = from
-        while k < len {
-            let ch = ns.character(at: k)
-            if ch == newline { return nil }
-            if ch == lparen { depth += 1 }
-            else if ch == rparen { depth -= 1; if depth == 0 { return k } }
+        while k < end {
+            let c = ns.character(at: k)
+            if c == 0x20 || c == 0x09 {
+                k += 1
+            } else if c == 0x0A || c == 0x0D {
+                k += 1
+                var m = k
+                while m < end, ns.character(at: m) == 0x20 || ns.character(at: m) == 0x09 { m += 1 }
+                while m < end, ns.character(at: m) == 0x3E {
+                    m += 1
+                    if m < end, ns.character(at: m) == 0x20 { m += 1 }
+                    k = m
+                }
+            } else {
+                break
+            }
+        }
+        return k
+    }
+
+    /// Fork: the destination after `from` (a link's `(` and its leading blanks): its content, whether it's in
+    /// `<…>`, and where it ends. A destination holds no line ending and, outside `<…>`, no space; its parens balance.
+    package static func linkDestination(_ ns: NSString, from: Int, end: Int) -> (range: NSRange, angle: Bool, next: Int)? {
+        func escapes(_ k: Int) -> Bool {
+            ns.character(at: k) == backslash && k + 1 < end && isAsciiPunctuationChar(ns.character(at: k + 1))
+        }
+        let start = skipLinkBlanks(ns, from: from, end: end)
+        guard start < end else { return nil }
+        var k = start
+        if ns.character(at: start) == 0x3C {
+            k += 1
+            while k < end {
+                let c = ns.character(at: k)
+                if escapes(k) { k += 2; continue }
+                if c == 0x3E { return (NSRange(location: start + 1, length: k - start - 1), true, k + 1) }
+                if c == 0x3C || c == 0x0A || c == 0x0D { return nil }
+                k += 1
+            }
+            return nil
+        }
+        var depth = 0
+        while k < end {
+            let c = ns.character(at: k)
+            if escapes(k) { k += 2; continue }
+            if c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D { break }
+            if c == 0x28 { depth += 1 }
+            else if c == 0x29 { if depth == 0 { break }; depth -= 1 }
             k += 1
         }
-        return nil
+        guard depth == 0, k > start else { return nil }
+        return (NSRange(location: start, length: k - start), false, k)
+    }
+
+    /// Fork: the `)` closing a link's `(` at `open`: a destination, then blanks and an optional title (`"…"`,
+    /// `'…'` or `(…)`, after at least one blank), which may be on the next line.
+    private static func linkTail(_ ns: NSString, _ len: Int, open: Int) -> Int? {
+        guard peek(ns, open, len) == lparen,
+              let destination = linkDestination(ns, from: open + 1, end: len), destination.range.length > 0 else { return nil }
+        var k = skipLinkBlanks(ns, from: destination.next, end: len)
+        if k > destination.next, k < len, [0x22, 0x27, 0x28].contains(ns.character(at: k)) {
+            let closer: unichar = ns.character(at: k) == 0x28 ? 0x29 : ns.character(at: k)
+            k += 1
+            while k < len, ns.character(at: k) != closer {
+                if ns.character(at: k) == backslash { k += 1 }
+                else if closer == 0x29, ns.character(at: k) == 0x28 { return nil }
+                k += 1
+            }
+            guard k < len else { return nil }
+            k = skipLinkBlanks(ns, from: k + 1, end: len)
+        }
+        return peek(ns, k, len) == rparen ? k : nil
     }
 
     /// Rejects currency-looking and trivially short non-mathy `$…$` so prose isn't misread as math.
@@ -939,7 +1024,7 @@ package enum InlineParser {
         return isAsciiPunctuationChar(ns.character(at: idx))
     }
 
-    private static func isAsciiPunctuationChar(_ c: unichar) -> Bool {
+    package static func isAsciiPunctuationChar(_ c: unichar) -> Bool {
         (c >= 0x21 && c <= 0x2F) || (c >= 0x3A && c <= 0x40)
             || (c >= 0x5B && c <= 0x60) || (c >= 0x7B && c <= 0x7E)
     }

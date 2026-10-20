@@ -8,6 +8,8 @@ Not relative: [Web](https://example.com/a.md), [Mail](mailto:a@b.c), [Net](//hos
 
 Not inline: [Reference][ref], [shortcut] and [shortcut][].
 
+Not links: [Spaces](My Note.md) and [More spaces](d e f.md).
+
 `[code](code.md)` and [broken](x.md
 
     [indented](indented.md)
@@ -25,6 +27,7 @@ Not inline: [Reference][ref], [shortcut] and [shortcut][].
 | Name | Link |
 | --- | --- |
 | a | [Cell](cell.md) ![Pic](my%20pic.png) [Pipe](a\|b.md) |
+| b | one<br>[Break](br.md) #breaktag |
 
 > | Name |
 > | --- |

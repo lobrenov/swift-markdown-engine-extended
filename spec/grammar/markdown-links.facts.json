@@ -66,48 +66,59 @@
       "angle": true
     },
     {
-      "line": 22,
+      "line": 24,
       "path": "quote.md",
       "raw": "quote.md",
       "angle": false
     },
     {
-      "line": 26,
+      "line": 28,
       "path": "cell.md",
       "raw": "cell.md",
       "angle": false
     },
     {
-      "line": 26,
+      "line": 28,
       "path": "my pic.png",
       "raw": "my%20pic.png",
       "angle": false
     },
     {
-      "line": 26,
+      "line": 28,
       "path": "a|b.md",
       "raw": "a\\|b.md",
       "angle": false
     },
     {
-      "line": 30,
+      "line": 29,
+      "path": "br.md",
+      "raw": "br.md",
+      "angle": false
+    },
+    {
+      "line": 33,
       "path": "q c.md",
       "raw": "q%20c.md",
       "angle": false
     }
   ],
-  "tags": [],
+  "tags": [
+    {
+      "line": 29,
+      "tag": "breaktag"
+    }
+  ],
   "callouts": [],
   "tables": [
     {
       "columns": 2,
-      "endLine": 26,
-      "startLine": 24
+      "endLine": 29,
+      "startLine": 26
     },
     {
       "columns": 1,
-      "endLine": 30,
-      "startLine": 28
+      "endLine": 33,
+      "startLine": 31
     }
   ]
 }

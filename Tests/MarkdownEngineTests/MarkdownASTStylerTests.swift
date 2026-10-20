@@ -251,6 +251,19 @@ struct MarkdownASTStylerTests {
         #expect(color(in: attrs, at: 5) != muted)    // the label keeps the link ink
     }
 
+    // Fork: links read as CommonMark does (FORK.md lists them).
+    @Test("a link wrapped over two lines, or with nested brackets, is styled as a link")
+    func wrappedAndNestedLinksAreLinks() {
+        func linked(_ text: String, at location: Int) -> Bool {
+            MarkdownASTStyler.styleAttributes(text: text, fontName: fontName, fontSize: base)
+                .contains { range, attributes in NSLocationInRange(location, range) && attributes[.link] != nil }
+        }
+        #expect(linked("See [the old\nmap](m.md)", at: 14))   // `map`, on the second line
+        #expect(linked("See [the old\r\nmap](m.md)", at: 15))
+        #expect(linked("[a [b] c](x.md)", at: 6))
+        #expect(!linked("[a](My Note.md) b", at: 1))
+    }
+
     /// Effective color at `pos`: the last styled range covering it that sets `.foregroundColor`.
     private func color(in attrs: [StyledRange], at pos: Int) -> PlatformColor? {
         var result: PlatformColor?
