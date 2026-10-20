@@ -489,7 +489,7 @@ package enum BlockParser {
                     if isBlank(next) { break }
                     // An indented line continues the paragraph, whatever it looks like.
                     if isIndentedCode(next) { end += 1; continue }
-                    if isThematicBreak(next) || isHeading(next) || isBlockquote(next) || isListItem(next) { break }
+                    if isThematicBreak(next) || isHeading(next) || isBlockquote(next) || (isListItem(next) && !isEmptyListItem(next)) { break }
                     if let type = htmlBlockStart(next), type <= 6 { break }
                     // A table (row + separator), a CLOSED code fence, a
                     // block-LaTeX run, or an extension fence interrupts it —
@@ -639,6 +639,7 @@ package enum BlockParser {
     }
 
     /// A list-item line: optional indent, a bullet (`-`/`*`/`+`) or ordered marker (`1.`/`1)`), then a space/tab.
+    /// Fork: or nothing, as CommonMark's empty item (`-`, `1.`).
     static func isListItem(_ line: String) -> Bool {
         var rest = Substring(line).drop { $0 == " " || $0 == "\t" }
         guard let first = rest.first else { return false }
@@ -652,9 +653,16 @@ package enum BlockParser {
         } else {
             return false
         }
-        // A space/tab must follow the marker — a bare `-`/`*`/`1.` stays literal (pre-AST bullet behavior).
-        guard let after = rest.first else { return false }
-        return after == " " || after == "\t"
+        guard let after = rest.first else { return true }
+        return after == " " || after == "\t" || after.isNewline
+    }
+
+    /// Fork: a list-item line with nothing after its marker. It can't interrupt a paragraph.
+    static func isEmptyListItem(_ line: String) -> Bool {
+        guard isListItem(line) else { return false }
+        var rest = Substring(line).drop { $0 == " " || $0 == "\t" }
+        rest = rest.drop { $0.isNumber }.dropFirst()
+        return rest.allSatisfy { $0 == " " || $0 == "\t" || $0.isNewline }
     }
 
     /// A GFM table row. Fork: any line holding an unescaped `|`; the outer pipes are optional.

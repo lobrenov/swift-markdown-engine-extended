@@ -207,3 +207,81 @@ struct MarkdownLinkFormTests {
         }
     }
 }
+
+@Suite("Fork — wiki links read literally")
+struct WikiLinkEscapeTests {
+    private func wikiLinks(_ text: String) -> [String] {
+        let ns = text as NSString
+        return InlineParser.parse(text).compactMap { node in
+            if case .wikiLink(let range, _, _, _) = node { ns.substring(with: range) } else { nil }
+        }
+    }
+
+    @Test func anEscapeInsideAWikiLinkIsACharacterOfIt() {
+        #expect(wikiLinks("[[Foo\\_bar]] [[Foo\\*bar]] [[a\\|b]] [[a\\]]") == ["[[Foo\\_bar]]", "[[Foo\\*bar]]", "[[a\\|b]]", "[[a\\]]"])
+        #expect(wikiLinks("\\[[A]]").isEmpty)
+        #expect(wikiLinks("\\\\[[B]]") == ["[[B]]"])
+        #expect(WikiLinkParts(inner: "c\\\\|d")?.target == "c\\" && WikiLinkParts(inner: "c\\\\|d")?.alias == "d")
+        #expect(MarkdownFacts.scan("[[Foo\\_bar]]").links.first?.parts.target == "Foo\\_bar")
+        let parts = MarkdownFacts.scan("[[a\\|b]] ![[i.png\\|300]]")
+        #expect(parts.links.first?.parts.target == "a" && parts.links.first?.parts.alias == "b")
+        #expect(parts.embeds.first?.target == "i.png" && parts.embeds.first?.segments == ["300"])
+    }
+
+    @Test func aWikiLinkWithAnEscapeIsAWikiLinkToken() {
+        let text = "x [[Foo\\_bar]] y"
+        let tokens = MarkdownTokenizer.fullTokens(blocks: BlockParser.computeBlocks(text), ns: text as NSString)
+        #expect(tokens.contains { $0.kind == .wikiLink && $0.range == NSRange(location: 2, length: 12) })
+        #expect(tokens.filter { $0.range.location >= 2 && NSMaxRange($0.range) <= 14 }.count == 1)
+    }
+}
+
+@Suite("Fork — empty list items")
+struct EmptyListItemTests {
+    @Test func aBareMarkerIsAListItemButNotSummaryText() {
+        #expect(MarkdownFacts.scan("## Goals\n1.\n").summary == nil)
+        #expect(MarkdownFacts.scan("Next\n*\ntext\n\n-\n").summary == "Next * text")
+        #expect(MarkdownFacts.scan("Para\n+\n").summary == "Para +")
+        let kinds = BlockParser.computeBlocks("## Goals\n1.\n- \n").map(\.kind)
+        #expect(kinds.count == 2)
+        if case .list = kinds[1] {} else { Issue.record("not a list: \(kinds)") }
+    }
+}
+
+@Suite("Fork — reference links")
+struct ReferenceLinkFactTests {
+    private func source(_ body: String, _ range: NSRange) -> String { (body as NSString).substring(with: range) }
+
+    @Test func eachUseSharesItsDefinitionsRange() {
+        let body = "é [A][ref] ![i][ref] [REF] [nope]\n\n[ref]: Note%20x.md#h \"t\"\n[unused]: u.md\n[ref]: second.md\n"
+        let facts = MarkdownFacts.scan(body)
+        #expect(facts.markdownLinks.count == 3)
+        #expect(facts.markdownLinks.allSatisfy { source(body, $0.range) == "Note%20x.md" && $0.raw == "Note%20x.md" && $0.path == "Note x.md" })
+        #expect(Set(facts.markdownLinks.map(\.range)).count == 1)
+        #expect(facts.summary == "é [A][ref] ![i][ref] [REF] [nope]")
+    }
+
+    @Test func definitionsCanBeAnywhereButInCode() {
+        let body = "[a] [q] [l] [c] [i]\n\n> [q]: q.md\n\n- [l]: l.md\n\n```\n[c]: c.md\n```\n\n    [i]: i.md\n"
+        #expect(MarkdownFacts.scan(body).markdownLinks.map(\.path) == ["q.md", "l.md"])
+    }
+
+    @Test func usesAreInTextOrderWithInlineLinksAndSkipCode() {
+        let body = "[a](x.md) [r] `[r]` \\[r] [t][r] ![i](p.png)\n\n[r]: d.md\n"
+        #expect(MarkdownFacts.scan(body).markdownLinks.map(\.path) == ["x.md", "d.md", "d.md", "p.png"])
+    }
+
+    @Test func aTableCellUsesTheDocumentsDefinitionsAndItsOwnLine() {
+        let body = "| A |\n| --- |\n| x<br>[T][r] ![i][r] |\n\n[r]: d.md\n"
+        let facts = MarkdownFacts.scan(body)
+        #expect(facts.markdownLinks.map(\.path) == ["d.md", "d.md"])
+        #expect(facts.markdownLinks.map(\.line) == [2, 2])
+        #expect(facts.markdownLinks.allSatisfy { source(body, $0.range) == "d.md" })
+    }
+
+    @Test func aLinkHoldsNoLinkAndAnAbsoluteDefinitionStillWins() {
+        // The inner link stands, and the outer one's `[r]` is a shortcut of its own.
+        let body = "[o [i][r] o][r] [w][web]\n\n[r]: d.md\n[web]: https://x.y/a.md\n[web]: rel.md\n"
+        #expect(MarkdownFacts.scan(body).markdownLinks.map(\.path) == ["d.md", "d.md"])
+    }
+}

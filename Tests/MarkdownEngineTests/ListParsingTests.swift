@@ -89,16 +89,20 @@ struct ListParsingTests {
         #expect(MarkdownStyler.taskSyntaxRange(at: 0, in: "+ [ ] task") != nil)
     }
 
-    /// A bare marker with no following space is NOT a list yet — typing `-`
-    /// (or `*` to start emphasis) must stay literal until a space follows, so
-    /// the bullet/indent only appears for `- `. (Matches the pre-AST behavior.)
-    @Test func bareMarkerWithoutSpaceIsNotAList() {
-        #expect(!BlockParser.isListItem("-"))
-        #expect(!BlockParser.isListItem("*"))
-        #expect(!BlockParser.isListItem("1."))
-        #expect(!hasList(BlockParser.parse("-")))
-        #expect(BlockParser.isListItem("- "))
-        #expect(BlockParser.isListItem("- x"))
-        #expect(BlockParser.isListItem("1. x"))
+    /// Fork: a bare marker is CommonMark's empty list item (`-`, `*`, `+`, `1.`, `1)`), which can't interrupt a
+    /// paragraph; a `-` under one is its setext underline.
+    @Test func bareMarkerIsAnEmptyListItem() {
+        for line in ["-", "*", "+", "1.", "1)", "  -", "- ", "-\n"] {
+            #expect(BlockParser.isListItem(line) && BlockParser.isEmptyListItem(line), "\(line.debugDescription)")
+        }
+        #expect(hasList(BlockParser.parse("-")))
+        #expect(BlockParser.isListItem("- x") && !BlockParser.isEmptyListItem("- x"))
+        #expect(BlockParser.isListItem("1. x") && !BlockParser.isEmptyListItem("1. x"))
+        #expect(!BlockParser.isListItem("1") && !BlockParser.isListItem("-x") && !BlockParser.isListItem("1.x"))
+        #expect(hasList(BlockParser.parse("## Goals\n1.\n")))
+        #expect(hasList(BlockParser.parse("Para\n\n*\n")))
+        #expect(!hasList(BlockParser.parse("Para\n1.\n")))
+        #expect(!hasList(BlockParser.parse("Para\n+\n- \n")))
+        #expect(hasList(BlockParser.parse("Para\n- x\n")))
     }
 }

@@ -52,6 +52,8 @@ struct ParseIncrementalEquivalenceTests {
         // Fork: links that wrap, nest brackets, hold escapes or a title on the next line.
         "A [wrapped link", "continues](x.md) and", "> quoted [link", "> text](q.md \"t\")", "[a [b] c](d.md)",
         "[![i](p.png)](q.md)", "[t](u.md", "\"title\") and [e](", "esc\\(1\\).md)", "[](e.md) [s](a b.md)",
+        // Fork: escapes inside wiki links, empty list items.
+        "[[Foo\\_bar]] and [[a\\|b]]", "\\[[A]] and ![[i\\|3]]", "-", "1.", "*", "+ ", "Para", "## Goals",
     ]
 
     private static let editSnippets = [

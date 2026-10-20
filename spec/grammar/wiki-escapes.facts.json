@@ -1,0 +1,63 @@
+{
+  "summary": "[[Foo\\_bar]] and [[Foo\\*bar]] and [[a\\|b]] and [[Path\\\\name]].",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 0,
+      "target": "Foo\\_bar"
+    },
+    {
+      "line": 0,
+      "target": "Foo\\*bar"
+    },
+    {
+      "alias": "b",
+      "line": 0,
+      "target": "a"
+    },
+    {
+      "line": 0,
+      "target": "Path\\\\name"
+    },
+    {
+      "line": 2,
+      "target": "B"
+    },
+    {
+      "line": 8,
+      "target": "Foo\\_bar"
+    },
+    {
+      "alias": "d",
+      "line": 8,
+      "target": "c"
+    }
+  ],
+  "embeds": [
+    {
+      "line": 4,
+      "segments": [
+        "300"
+      ],
+      "target": "img"
+    },
+    {
+      "line": 4,
+      "segments": [
+        "300"
+      ],
+      "target": "pic.png"
+    }
+  ],
+  "markdownLinks": [],
+  "tags": [],
+  "callouts": [],
+  "tables": [
+    {
+      "columns": 1,
+      "endLine": 8,
+      "startLine": 6
+    }
+  ]
+}

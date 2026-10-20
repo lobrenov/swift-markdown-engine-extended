@@ -1,0 +1,108 @@
+{
+  "summary": "Uses: [Foo][ref], [Bar][], [ref], [Mixed Case][REF] and ![Pic][img].",
+  "headings": [],
+  "tasks": [],
+  "links": [],
+  "embeds": [],
+  "markdownLinks": [
+    {
+      "line": 0,
+      "path": "Note.md",
+      "raw": "Note.md",
+      "angle": false
+    },
+    {
+      "line": 0,
+      "path": "My Note.md",
+      "raw": "My Note.md",
+      "angle": true
+    },
+    {
+      "line": 0,
+      "path": "Note.md",
+      "raw": "Note.md",
+      "angle": false
+    },
+    {
+      "line": 0,
+      "path": "Note.md",
+      "raw": "Note.md",
+      "angle": false
+    },
+    {
+      "line": 0,
+      "path": "pics/a b.png",
+      "raw": "pics/a%20b.png",
+      "angle": false
+    },
+    {
+      "line": 2,
+      "path": "Note.md",
+      "raw": "Note.md",
+      "angle": false
+    },
+    {
+      "line": 13,
+      "path": "dir/x.md",
+      "raw": "dir/x\\.md",
+      "angle": false
+    },
+    {
+      "line": 13,
+      "path": "Note.md",
+      "raw": "Note.md",
+      "angle": false
+    },
+    {
+      "line": 13,
+      "path": "Note.md",
+      "raw": "Note.md",
+      "angle": false
+    },
+    {
+      "line": 13,
+      "path": "inline.md",
+      "raw": "inline.md",
+      "angle": false
+    },
+    {
+      "line": 15,
+      "path": "quote.md",
+      "raw": "quote.md",
+      "angle": false
+    },
+    {
+      "line": 19,
+      "path": "list.md",
+      "raw": "list.md",
+      "angle": false
+    },
+    {
+      "line": 29,
+      "path": "multi.md",
+      "raw": "multi.md",
+      "angle": false
+    },
+    {
+      "line": 33,
+      "path": "Note.md",
+      "raw": "Note.md",
+      "angle": false
+    },
+    {
+      "line": 33,
+      "path": "pics/a b.png",
+      "raw": "pics/a%20b.png",
+      "angle": false
+    }
+  ],
+  "tags": [],
+  "callouts": [],
+  "tables": [
+    {
+      "columns": 1,
+      "endLine": 33,
+      "startLine": 31
+    }
+  ]
+}

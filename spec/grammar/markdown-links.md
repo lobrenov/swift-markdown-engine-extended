@@ -6,7 +6,7 @@ Angle: [Spaces](<My Note.md>) and [Fragment](<My Note.md#Part>).
 
 Not relative: [Web](https://example.com/a.md), [Mail](mailto:a@b.c), [Net](//host/a.md), [Drive](C:/a.md), [Here](#heading), [Query only](?x=1), <https://example.com/b.md>.
 
-Not inline: [Reference][ref], [shortcut] and [shortcut][].
+Reference forms: [Reference][ref], [shortcut] and [shortcut][].
 
 Not links: [Spaces](My Note.md) and [More spaces](d e f.md).
 

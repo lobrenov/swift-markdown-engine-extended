@@ -105,8 +105,9 @@ struct InlineSpanDensityTests {
             extensions: [HighlightExtension(), StrikethroughExtension()]
         ).extensionRegistry
 
-        // Fork: re-recorded for CommonMark's bracket pairing and link tails (FORK.md lists them).
-        #expect(fingerprint(corpus(4000), registry: registry) == "83e1f2fd9c556c0f")
+        // Fork: re-recorded for CommonMark's bracket pairing and link tails, for escapes inside `[[…]]` and for empty list
+        // items (FORK.md lists them).
+        #expect(fingerprint(corpus(4000), registry: registry) == "749583663f4fd688")
     }
 
     // MARK: - Cost curve, counted

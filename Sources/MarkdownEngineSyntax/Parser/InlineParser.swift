@@ -386,6 +386,11 @@ package enum InlineParser {
             switch span {
             case .link(_, let textRange, let url, _): inner = [textRange, url]
             case .image(_, let alt, let url, _): inner = [alt, url]
+            case .wikiLink, .imageEmbed:
+                // Fork: a backslash in `[[…]]` is a character of it: an escape inside claims nothing.
+                return claimed.overlapping(span.fullRange).contains { range in
+                    !(ns.character(at: range.location) == backslash && rangeContains(span.fullRange, range))
+                }
             default: return claimed.overlaps(span.fullRange)
             }
             return claimed.overlapping(span.fullRange).contains { range in !inner.contains { rangeContains($0, range) } }

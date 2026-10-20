@@ -4,7 +4,8 @@
 //
 //  Fork: the parts of an Obsidian link, read from the text between `[[` and `]]`:
 //  `target#heading|alias` or `target#^block|alias`. The `|` splits first, then the
-//  first `#`; the target is trimmed of spaces and tabs, and empty for the same file.
+//  first `#`; the target is trimmed of spaces and tabs, and empty for the same file. A `\|` splits like `|`
+//  (the backslash goes), as it does in a table cell; any other backslash is a character of its part.
 //
 
 import Foundation
@@ -26,6 +27,7 @@ public struct WikiLinkParts: Hashable, Sendable {
         if let bar = rest.firstIndex(of: "|") {
             alias = String(rest[rest.index(after: bar)...])
             rest = rest[..<bar]
+            if rest.last == "\\" { rest = rest.dropLast() }
         }
         if let hash = rest.firstIndex(of: "#") {
             let fragment = rest[rest.index(after: hash)...]
