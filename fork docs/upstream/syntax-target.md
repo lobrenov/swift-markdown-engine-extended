@@ -2,6 +2,18 @@
 
 A draft for `nodes-app/swift-markdown-engine`, written against upstream `main` (after 0.14.0). Upstream's `CONTRIBUTING.md` asks for a large or architectural change to arrive as a draft PR with the design in its description, so the text below works as that description or as an issue that asks first. Everything below the line is the text to post; it describes upstream's code only.
 
+### Related upstream issues
+None rules the proposal out. These shape how it's written and when to raise it.
+
+| Issue | State | Relation |
+|---|---|---|
+| [#29](https://github.com/nodes-app/swift-markdown-engine/issues/29) Consider support iOS as well | open | The maintainer sees iOS as a separate effort. The proposal stays platform-neutral and doesn't pitch iOS. |
+| [#87](https://github.com/nodes-app/swift-markdown-engine/pull/87), [#88](https://github.com/nodes-app/swift-markdown-engine/pull/88) callout blocks | closed PRs | Grammar additions were declined to keep the core close to CommonMark. The proposal changes no grammar (Not in scope). |
+| [#108](https://github.com/nodes-app/swift-markdown-engine/issues/108) Design: directive seam | open | The precedent for an architectural change: a design issue first, then phased PRs, with O(edit) per keystroke guarded hardest. The proposal follows that shape (Plan, Performance). |
+| [#173](https://github.com/nodes-app/swift-markdown-engine/issues/173), [#176](https://github.com/nodes-app/swift-markdown-engine/pull/176) unhandled keys to embedders | open | An embedder-facing proposal that leads with the embedder's problem and a small public surface. The Summary and Access sections follow it. |
+| [#190](https://github.com/nodes-app/swift-markdown-engine/issues/190) one "host decides" seam for link and checkbox activation | open | Not about where the grammar lives, so no overlap in design. It shows the same direction: the engine stays policy-free and embedders get one narrow seam. |
+| [#192](https://github.com/nodes-app/swift-markdown-engine/pull/192) host-decided link activation | open draft PR | Implements #190's link half and also changes link-destination parsing in `Parser/` (interior spaces kept, titles stripped, escaped brackets kept in labels). If it's still open when this is raised, add a line under Plan offering to land the move after it, so the two don't conflict. In the fork, its `clickedOnLink` change lands in `+AppKitDelegate.swift` (FORK.md #19) at the next upstream merge. |
+
 ---
 
 ## Split the parser into a Foundation-only `MarkdownEngineSyntax` target
