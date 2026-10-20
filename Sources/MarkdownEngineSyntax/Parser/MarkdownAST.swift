@@ -385,22 +385,18 @@ package enum DocumentAST {
         }
         let marker = NSRange(location: markerStart, length: i - markerStart)
         func isSpace(_ at: Int) -> Bool { at < end && (ns.character(at: at) == space || ns.character(at: at) == tab) }
-        // Fork: GFM's rule: one to four spaces or tabs, the box, then a space or tab.
-        var box = i
-        while box - i < 4, isSpace(box) { box += 1 }
+        // Fork: GFM's rule (`TaskMarker.boxStart`): one to four spaces or tabs, the box, then a space or tab.
+        let boxStart = TaskMarker.boxStart(in: { ns.character(at: $0) }, markerEnd: i, end: end)
         if isSpace(i) { i += 1 }
         var checkbox: NSRange?
         var checked = false
         var taskMarker: Character?
-        if box > NSMaxRange(marker), box + 3 < end, ns.character(at: box) == 0x5B, ns.character(at: box + 2) == 0x5D,
-           isSpace(box + 3) {   // [ x ]
+        if let box = boxStart {   // [ x ]
             let mid = ns.character(at: box + 1)
-            if TaskMarker.isMarker(mid) {
-                checkbox = NSRange(location: box, length: 3)
-                checked = (mid == 0x78 || mid == 0x58)
-                taskMarker = Character(UnicodeScalar(mid)!)
-                i = box + 4
-            }
+            checkbox = NSRange(location: box, length: 3)
+            checked = (mid == 0x78 || mid == 0x58)
+            taskMarker = Character(UnicodeScalar(mid)!)
+            i = box + 4
         }
         var contentEnd = end
         while contentEnd > i, isLineBreak(ns.character(at: contentEnd - 1)) { contentEnd -= 1 }

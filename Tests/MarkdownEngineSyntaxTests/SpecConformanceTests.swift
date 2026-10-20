@@ -55,6 +55,41 @@ struct SpecConformanceTests {
         #expect(markers.compactMap { ($0["marker"] as? String)?.first } == TaskMarker.all)
     }
 
+    @Test func taskStatesAreTheSpecsStates() throws {
+        let markers = try #require(try Spec.json("data/task-markers.json")["markers"] as? [[String: Any]])
+        for entry in markers {
+            let marker = try #require((entry["marker"] as? String)?.first)
+            let state = TaskMarker.state(of: marker)
+            let name: String? = switch state {
+            case .open: "open"
+            case .done: "done"
+            case .cancelled: "cancelled"
+            case .icon: "icon"
+            case nil: nil
+            }
+            #expect(name == entry["state"] as? String, "[\(marker)]")
+        }
+        #expect(TaskMarker.state(of: "y") == nil)
+        #expect(TaskMarker.toggled("/") == "x" && TaskMarker.toggled("-") == " " && TaskMarker.toggled("?") == nil)
+    }
+
+    @Test func calloutTypesAreTheSpecsTypes() throws {
+        let data = try Spec.json("data/callout-types.json")
+        let types = try #require(data["types"] as? [[String: Any]])
+        #expect(types.compactMap { $0["id"] as? String } == CalloutSyntax.types.map(\.id))
+        #expect(types.compactMap { $0["aliases"] as? [String] } == CalloutSyntax.types.map(\.aliases))
+        #expect(data["unknownType"] as? String == CalloutSyntax.unknownType)
+        #expect(CalloutSyntax.type(named: "FAQ") == "question" && CalloutSyntax.type(named: "custom") == nil)
+    }
+
+    @Test func aBoxIsFoundInAListItemLine() {
+        #expect(TaskMarker.box(inLine: "- [ ] a")?.offset == 3)
+        #expect(TaskMarker.box(inLine: "\t> 12) [/]\tb")?.marker == "/")
+        #expect(TaskMarker.box(inLine: "-     [ ] five spaces") == nil)
+        #expect(TaskMarker.box(inLine: "- [y] a") == nil && TaskMarker.box(inLine: "- [ ]") == nil && TaskMarker.box(inLine: "[ ] a") == nil)
+        #expect(TagSyntax.isTagName("a/b") && !TagSyntax.isTagName("2026/10") && !TagSyntax.isTagName("a b"))
+    }
+
     @Test func taskMarkersAreTheBoxPatternsMarkers() throws {
         let markers = try #require(try Spec.json("data/task-markers.json")["markers"] as? [[String: Any]])
         let pattern = try NSRegularExpression(pattern: "^" + TaskMarker.boxPattern + "$")

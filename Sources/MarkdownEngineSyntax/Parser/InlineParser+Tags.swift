@@ -12,6 +12,11 @@ public enum TagSyntax {
     public static func isTagCharacter(_ c: Character) -> Bool {
         c.isLetter || c.isNumber || c == "_" || c == "-" || c == "/"
     }
+
+    /// A tag's name (after `#`): tag characters, at least one of them neither a digit nor `/`.
+    public static func isTagName(_ name: some StringProtocol) -> Bool {
+        name.allSatisfy(isTagCharacter) && name.contains { !$0.isNumber && $0 != "/" }
+    }
 }
 
 extension InlineParser {
@@ -48,7 +53,7 @@ extension InlineParser {
             while end > i + 1, ns.character(at: end - 1) == 0x2F { end -= 1 }
             let range = NSRange(location: i, length: end - i)
             let name = ns.substring(with: NSRange(location: i + 1, length: end - i - 1))
-            if hasWord, name.contains(where: { !$0.isNumber && $0 != "/" }), !claimed.overlaps(range) {
+            if hasWord, TagSyntax.isTagName(name), !claimed.overlaps(range) {
                 spans.append(.tag(range: range, marker: NSRange(location: i, length: 1)))
                 if delimiters.count > 0 { afterDelimiters.insert(i) }
             }
