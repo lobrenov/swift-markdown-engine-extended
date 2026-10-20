@@ -43,8 +43,10 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var range: NSRange
     }
 
-    /// An inline `[text](destination)` or `![alt](destination)` whose destination is a relative path: not a
-    /// URL with a scheme, a `//` one or a `#fragment` or `?query` alone. Reference links and autolinks aren't read.
+    /// A use of a Markdown link or image whose destination is a relative path: not a URL with a scheme, a `//` one or a
+    /// `#fragment` or `?query` alone. The use is inline (`[text](destination)`, `![alt](destination)`) or through a
+    /// reference (`[text][ref]`, `[ref]`), when `[ref]: destination` is defined; then `path`, `raw`, `range` and `angle`
+    /// are the definition's, and the uses of one definition share its `range`. Autolinks aren't read.
     public struct MarkdownLink: Hashable, Sendable {
         public var line: Int
         /// The destination before any `#` or `?`, backslash escapes resolved and percent-decoded.
@@ -555,9 +557,12 @@ private struct FactScanner {
         var offset = 0
         for line in lines { starts.append(offset); offset += line.length + 1 }
         func source(_ virtual: Int) -> Int {
-            var i = starts.count - 1
-            while i > 0, starts[i] > virtual { i -= 1 }
-            return lines[i].location + virtual - starts[i]
+            var low = 0, high = starts.count - 1
+            while low < high {
+                let mid = (low + high + 1) / 2
+                if starts[mid] <= virtual { low = mid } else { high = mid - 1 }
+            }
+            return lines[low].location + virtual - starts[low]
         }
         var at = 0
         var lastEnd: Int?
@@ -573,11 +578,14 @@ private struct FactScanner {
             at = found.end
         }
         if let startsParagraph, let lastEnd {
-            // The paragraph goes on from the next line.
+            // The paragraph goes on from the next line: the definition's range ends with its line break, or at the end.
             var rest = lastEnd
-            while rest < ns.length, !isLineBreak(ns.character(at: rest)) { rest += 1 }
-            let next = NSMaxRange(ns.lineRange(for: NSRange(location: min(rest, ns.length - 1), length: 0)))
-            paragraphRest[startsParagraph] = max(next, lastEnd)
+            if rest > 0, isLineBreak(ns.character(at: rest - 1)) {
+                if ns.character(at: rest - 1) == 0x0D, rest < ns.length, ns.character(at: rest) == 0x0A { rest += 1 }
+            } else {
+                rest = NSMaxRange(ns.lineRange(for: NSRange(location: min(rest, ns.length - 1), length: 0)))
+            }
+            paragraphRest[startsParagraph] = rest
         }
     }
 
@@ -649,7 +657,7 @@ private struct FactScanner {
     /// has. What is opaque to them is what the inline nodes hold other than text, `excluding` and the definitions.
     private mutating func addReferenceUses(_ nodes: [InlineNode], region: NSRange, excluding: [NSRange]) {
         guard !definitions.isEmpty, region.length > 0 else { return }
-        var opaque = excluding + definitionRanges
+        var opaque = (excluding + definitionRanges).filter { NSIntersectionRange($0, region).length > 0 }
         var inlineLinks: [NSRange] = []
         func walk(_ nodes: [InlineNode]) {
             for node in nodes {
@@ -657,9 +665,16 @@ private struct FactScanner {
                 case .code(let range, _), .escape(let range, _, _), .wikiLink(let range, _, _, _), .imageEmbed(let range, _, _),
                      .inlineLatex(let range, _, _), .tag(let range, _), .image(let range, _, _, _):
                     opaque.append(range)
-                case .link(let range, _, _, let markers, _):
-                    opaque.append(range)
-                    if markers.count == 4 { inlineLinks.append(range) }
+                case .link(let range, _, _, let markers, let children):
+                    if markers.count == 4 {
+                        // The text is read for references (a badge's image); the brackets and destination aren't.
+                        inlineLinks.append(range)
+                        opaque.append(markers[0])
+                        opaque.append(NSRange(location: markers[1].location, length: NSMaxRange(range) - markers[1].location))
+                        walk(children)
+                    } else {
+                        opaque.append(range)
+                    }
                 case .emphasis(_, _, _, let children):
                     walk(children)
                 case .ext(let node):
@@ -670,8 +685,24 @@ private struct FactScanner {
             }
         }
         walk(nodes)
+        // Sorted and merged, so a position is looked up by bisection.
         opaque.sort { $0.location < $1.location }
-        func isOpaque(_ i: Int) -> Bool { opaque.contains { NSLocationInRange(i, $0) } }
+        var merged: [NSRange] = []
+        for range in opaque {
+            if let last = merged.last, range.location <= NSMaxRange(last) {
+                merged[merged.count - 1] = NSUnionRange(last, range)
+            } else {
+                merged.append(range)
+            }
+        }
+        func isOpaque(_ i: Int) -> Bool {
+            var low = 0, high = merged.count - 1
+            while low <= high {
+                let mid = (low + high) / 2
+                if i < merged[mid].location { high = mid - 1 } else if i >= NSMaxRange(merged[mid]) { low = mid + 1 } else { return true }
+            }
+            return false
+        }
         // Brackets pair as CommonMark pairs them, innermost first.
         var open: [Int] = []
         var pairs: [(open: Int, close: Int)] = []

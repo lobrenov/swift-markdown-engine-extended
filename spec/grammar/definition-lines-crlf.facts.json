@@ -1,0 +1,28 @@
+{
+  "summary": "[[Target]] #tag [a]",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 1,
+      "target": "Target"
+    }
+  ],
+  "embeds": [],
+  "markdownLinks": [
+    {
+      "line": 1,
+      "path": "a.md",
+      "raw": "a.md",
+      "angle": false
+    }
+  ],
+  "tags": [
+    {
+      "line": 1,
+      "tag": "tag"
+    }
+  ],
+  "callouts": [],
+  "tables": []
+}

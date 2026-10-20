@@ -43,10 +43,13 @@ public enum WikiLinkService {
     public struct LinkMetadata: Sendable {
         public let id: String?
         public let storageRange: NSRange
+        /// Fork: the storage form writes the bar as `\|` (`[[a\|b]]`, as a table cell needs), which the display form drops.
+        public let escapedBar: Bool
 
-        public init(id: String?, storageRange: NSRange) {
+        public init(id: String?, storageRange: NSRange, escapedBar: Bool = false) {
             self.id = id
             self.storageRange = storageRange
+            self.escapedBar = escapedBar
         }
     }
 
@@ -88,7 +91,7 @@ public enum WikiLinkService {
             }
 
             let nameRange = match.range(at: 1)
-            let name = nsStorage.substring(with: nameRange)
+            var name = nsStorage.substring(with: nameRange)
             let isImage = nsStorage.character(at: match.range.location) == 0x21 // '!'
 
             var linkID: String? = nil
@@ -98,6 +101,10 @@ public enum WikiLinkService {
                     linkID = nsStorage.substring(with: idRange)
                 }
             }
+
+            // Fork: the `\` of a `\|` is the bar's, not the name's.
+            let escapedBar = linkID != nil && name.hasSuffix("\\")
+            if escapedBar { name.removeLast() }
 
             // Auto-sync the DISPLAY label to the target's current name (looked up by the
             // uuid carried in the suffix). The suffix in metadata.id stays untouched.
@@ -115,7 +122,7 @@ public enum WikiLinkService {
             result.append(displayFragment)
             displayLength += displayFragment.utf16.count
 
-            metadata[RangeKey(displayRange)] = LinkMetadata(id: linkID, storageRange: match.range)
+            metadata[RangeKey(displayRange)] = LinkMetadata(id: linkID, storageRange: match.range, escapedBar: escapedBar)
             cursor = match.range.location + match.range.length
         }
 
@@ -170,9 +177,10 @@ public enum WikiLinkService {
             }
 
             let marker = isImage ? "![[" : "[["
+            let escapedBar = existingMetadata[RangeKey(matchRange)]?.escapedBar ?? false
             let storageFragment: String
             if let linkID, !linkID.isEmpty {
-                storageFragment = "\(marker)\(name)|\(linkID)]]"
+                storageFragment = "\(marker)\(name)\(escapedBar ? "\\|" : "|")\(linkID)]]"
             } else {
                 storageFragment = "\(marker)\(name)]]"
             }
@@ -181,7 +189,7 @@ public enum WikiLinkService {
             storage.append(storageFragment)
             storageLength += fragmentLength
 
-            metadata[RangeKey(matchRange)] = LinkMetadata(id: linkID, storageRange: storageRange)
+            metadata[RangeKey(matchRange)] = LinkMetadata(id: linkID, storageRange: storageRange, escapedBar: escapedBar)
             cursor = matchRange.location + matchRange.length
         }
 
@@ -263,7 +271,8 @@ public enum WikiLinkService {
                 metadata[RangeKey(NSRange(location: key.location + delta, length: key.length))] =
                     LinkMetadata(id: meta.id,
                                  storageRange: NSRange(location: meta.storageRange.location + delta,
-                                                       length: meta.storageRange.length))
+                                                       length: meta.storageRange.length),
+                                 escapedBar: meta.escapedBar)
             } else {
                 metadata[key] = meta
             }

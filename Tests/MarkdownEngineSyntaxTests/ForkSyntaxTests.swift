@@ -284,4 +284,17 @@ struct ReferenceLinkFactTests {
         let body = "[o [i][r] o][r] [w][web]\n\n[r]: d.md\n[web]: https://x.y/a.md\n[web]: rel.md\n"
         #expect(MarkdownFacts.scan(body).markdownLinks.map(\.path) == ["d.md", "d.md"])
     }
+
+    @Test func theLineAfterADefinitionIsRead() {
+        let a = MarkdownFacts.scan("[a]: a.md\n[[Target]] #tag [b](b.md)\nthird [[Third]]")
+        #expect(a.links.map(\.parts.target) == ["Target", "Third"] && a.tags.map(\.name) == ["tag"] && a.markdownLinks.map(\.path) == ["b.md"])
+        #expect(MarkdownFacts.scan("[a]: a.md 'title'\n[[Target]]").links.count == 1)
+        #expect(MarkdownFacts.scan("text\n\n[foo]: a.md\n[bar]: b.md\nrest [bar]").markdownLinks.map(\.path) == ["b.md"])
+        #expect(MarkdownFacts.scan("[a]: a.md\r\n[[Target]]").summary == "[[Target]]")
+    }
+
+    @Test func aReferenceImageInsideAnInlineLinkIsAUse() {
+        let facts = MarkdownFacts.scan("[![x][r]](y.md) [![z](p.png)](q.md)\n\n[r]: r.png\n")
+        #expect(facts.markdownLinks.map(\.path) == ["y.md", "r.png", "q.md", "p.png"])
+    }
 }

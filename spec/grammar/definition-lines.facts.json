@@ -1,0 +1,72 @@
+{
+  "summary": "[[Target]] #tag b third [[Third]]",
+  "headings": [],
+  "tasks": [],
+  "links": [
+    {
+      "line": 1,
+      "target": "Target"
+    },
+    {
+      "line": 2,
+      "target": "Third"
+    },
+    {
+      "line": 5,
+      "target": "AfterTitle"
+    }
+  ],
+  "embeds": [],
+  "markdownLinks": [
+    {
+      "line": 1,
+      "path": "b.md",
+      "raw": "b.md",
+      "angle": false
+    },
+    {
+      "line": 5,
+      "path": "c.md",
+      "raw": "c.md",
+      "angle": false
+    },
+    {
+      "line": 9,
+      "path": "bar.md",
+      "raw": "bar.md",
+      "angle": false
+    },
+    {
+      "line": 11,
+      "path": "badge-target.md",
+      "raw": "badge-target.md",
+      "angle": false
+    },
+    {
+      "line": 11,
+      "path": "img.png",
+      "raw": "img.png",
+      "angle": false
+    },
+    {
+      "line": 11,
+      "path": "plain-target.md",
+      "raw": "plain-target.md",
+      "angle": false
+    },
+    {
+      "line": 11,
+      "path": "plain.png",
+      "raw": "plain.png",
+      "angle": false
+    }
+  ],
+  "tags": [
+    {
+      "line": 1,
+      "tag": "tag"
+    }
+  ],
+  "callouts": [],
+  "tables": []
+}

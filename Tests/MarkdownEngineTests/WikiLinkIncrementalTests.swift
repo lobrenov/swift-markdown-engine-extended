@@ -141,4 +141,25 @@ struct WikiLinkIncrementalTests {
         }
         #expect(fastPathTaken > 0, "sweep was vacuous — no position took the fast path")
     }
+
+    // Fork: a `\|` in storage (a table cell's alias bar) leaves its backslash out of the display name.
+    @Test func anEscapedBarIsNotPartOfTheDisplayName() {
+        let storage = "| [[a\\|b]] | ![[pic.png\\|300]] |"
+        let state = WikiLinkService.makeDisplayState(from: storage)
+        #expect(state.display == "| [[a]] | ![[pic.png]] |")
+        let ids = state.metadata.values.compactMap(\.id).sorted()
+        #expect(ids == ["300", "b"])
+        #expect(state.metadata.values.allSatisfy { $0.escapedBar })
+        #expect(WikiLinkService.makeDisplayState(from: "[[a|b]]").metadata.values.first?.escapedBar == false)
+    }
+
+    @Test func anEscapedBarRoundTripsThroughDisplay() {
+        for storage in ["| [[a\\|b]] |", "| ![[pic.png\\|300]] | [[c|d]] |"] {
+            let state = WikiLinkService.makeDisplayState(from: storage)
+            let back = WikiLinkService.makeStorageState(from: state.display, existingMetadata: state.metadata, textStorage: nil)
+            #expect(back.storage == storage)
+            let again = WikiLinkService.makeDisplayState(from: back.storage)
+            #expect(again.display == state.display)
+        }
+    }
 }
