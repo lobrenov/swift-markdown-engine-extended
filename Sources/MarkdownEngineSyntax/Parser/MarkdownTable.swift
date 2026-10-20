@@ -44,7 +44,8 @@ package struct MarkdownTable: Equatable {
 
     /// Ragged rows are padded (or cut) to the wider of the header and the delimiter row.
     package static func parse(_ source: String) -> MarkdownTable? {
-        let lines = source.components(separatedBy: CharacterSet.newlines)
+        // The line breaks the block parser reads (`NSString.lineRange`'s): not a form feed or vertical tab.
+        let lines = source.split(omittingEmptySubsequences: false) { "\n\r\r\n\u{2028}\u{2029}\u{85}".contains($0) }.map(String.init)
             .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         guard lines.count >= 2 else { return nil }
 

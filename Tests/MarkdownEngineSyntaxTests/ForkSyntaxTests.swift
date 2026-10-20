@@ -100,4 +100,24 @@ struct FactRangeTests {
         #expect(facts.links.map(\.parts.alias) == ["al", nil])
         #expect(facts.embeds.map { source(body, $0.range) } == ["![[i.png\\|9]]"])
     }
+
+    @Test func aRowsFormFeedIsNoLineBreak() {
+        let body = "| A |\n| - |\n| a\u{0C}b |\n| [[y]] |\n\npara\n"
+        let facts = MarkdownFacts.scan(body)
+        #expect(facts.links.map { source(body, $0.range) } == ["[[y]]"])
+        #expect(facts.tables.map(\.endLine) == [3])
+    }
+
+    @Test func cellsTrimUnicodeSpaces() {
+        let body = "| A | B |\n| - | - |\n\u{a0}| [[x]] |\u{a0}[[y]]\u{3000}|\n"
+        #expect(MarkdownFacts.scan(body).links.map { source(body, $0.range) } == ["[[x]]", "[[y]]"])
+    }
+
+    @Test func aQuotedTablesLinksAreReadOnce() {
+        let body = "> [!note]\n> | A |\n> | - |\n> | [[y\\|a]] [[z]] |\n>\n> [[after]]\n"
+        let facts = MarkdownFacts.scan(body)
+        #expect(facts.links.map { source(body, $0.range) } == ["[[y\\|a]]", "[[z]]", "[[after]]"])
+        #expect(facts.links.map(\.parts.alias) == ["a", nil, nil])
+        #expect(facts.tables.map(\.startLine) == [1])
+    }
 }

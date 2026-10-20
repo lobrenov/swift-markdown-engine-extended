@@ -7,11 +7,28 @@
       "line": 2,
       "target": "Ysolde Marrow",
       "alias": "Ysolde"
+    },
+    {
+      "line": 13,
+      "target": "Odo Venn",
+      "alias": "Odo"
     }
   ],
   "embeds": [],
-  "tags": [],
-  "callouts": [],
+  "tags": [
+    {
+      "line": 13,
+      "tag": "crew"
+    }
+  ],
+  "callouts": [
+    {
+      "type": "note",
+      "title": "Crew",
+      "startLine": 10,
+      "endLine": 13
+    }
+  ],
   "tables": [
     {
       "startLine": 0,
@@ -22,6 +39,11 @@
       "startLine": 4,
       "endLine": 5,
       "columns": 3
+    },
+    {
+      "startLine": 11,
+      "endLine": 13,
+      "columns": 1
     }
   ]
 }

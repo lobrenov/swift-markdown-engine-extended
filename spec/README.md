@@ -47,7 +47,7 @@ A markdown body (no frontmatter) and the facts it yields. A case passes when a r
 - `links` and `embeds`: in text order. An embed's `segments` are its `|`-separated parts after the target, as written, empty ones included; left out when there's no `|`.
 - `tags`: in text order, as written, without `#`.
 - `callouts`: `type` as written, lowercased; `fold` is `open`, `folded`, or left out; `title` left out when empty. A lazy line after a callout's last quote line continues it.
-- `tables`: GFM pipe tables; `columns` counts the delimiter row's cells. A cell is read as a paragraph of its own, with `\|` as `|`, so `[[Target\|alias]]` in a cell is a link with an alias.
+- `tables`: GFM pipe tables, inside a quote or callout too; `columns` counts the delimiter row's cells. A cell is read as a paragraph of its own, with `\|` as `|`, so `[[Target\|alias]]` in a cell is a link with an alias.
 - `summary`: the first top-level paragraph, with emphasis, `~~strikethrough~~`, `==highlight==`, code backticks, markdown link, image and autolink syntax and backslash escapes removed; wiki links, embeds and tags as written; inline HTML tags dropped and entities decoded; each line break a space.
 - `headings`: ATX and setext; `text` is as written, without the `#` markers or a closing `#` run.
 

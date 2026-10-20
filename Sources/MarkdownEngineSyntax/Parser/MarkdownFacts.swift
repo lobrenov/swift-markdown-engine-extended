@@ -144,12 +144,24 @@ private struct FactScanner {
             case .blockquote(let range, let inlines, let items):
                 addCallouts(in: range)
                 addTasks(items)
-                collect(inlines)
+                let tables = addQuotedTables(in: range)
+                collect(inlines.filter { node in !tables.contains { NSLocationInRange(Self.start(of: node), $0) } })
             case .list(_, let items):
                 addTasks(items)
                 for item in items { collect(item.inlines) }
             case .table(let range):
-                addTable(range)
+                var rows: [NSRange] = []
+                var start = range.location
+                while start < NSMaxRange(range) {
+                    let line = ns.lineRange(for: NSRange(location: start, length: 0))
+                    var end = NSMaxRange(line)
+                    while end > line.location, isLineBreak(ns.character(at: end - 1)) { end -= 1 }
+                    if !string(NSRange(location: line.location, length: end - line.location)).trimmingCharacters(in: .whitespaces).isEmpty {
+                        rows.append(NSRange(location: line.location, length: end - line.location))
+                    }
+                    start = NSMaxRange(line)
+                }
+                addTable(rows: rows)
             case .codeBlock, .indentedCode, .html, .blockLatex, .thematicBreak, .blank, .ext:
                 break
             }
@@ -232,16 +244,17 @@ private struct FactScanner {
         }
     }
 
-    private mutating func addTable(_ range: NSRange) {
-        var end = NSMaxRange(range)
-        while end > range.location, isLineBreak(ns.character(at: end - 1)) { end -= 1 }
-        guard let table = MarkdownTable.parse(string(NSRange(location: range.location, length: end - range.location))) else { return }
-        let startLine = line(range.location)
-        facts.tables.append(.init(startLine: startLine, endLine: lastLine(of: range), columns: table.columnCount))
+    /// A table's lines, without their line breaks (and quote markers): the header, the delimiter row, the body rows.
+    private mutating func addTable(rows: [NSRange]) {
+        guard let table = MarkdownTable.parse(rows.map(string).joined(separator: "\n")), table.rowCount + 1 == rows.count
+        else { return }
+        let startLine = line(rows[0].location)
+        facts.tables.append(.init(startLine: startLine, endLine: line(rows[rows.count - 1].location), columns: table.columnCount))
         // Each cell is read as a paragraph of its own, unescaped as the editor draws it (`\|` is a link's alias bar).
         for row in 0..<table.rowCount {
-            let rowLine = startLine + (row == 0 ? 0 : row + 1)
-            let sources = cellSources(lineStarts[rowLine - firstLineIndex])
+            let source = rows[row == 0 ? 0 : row + 1]
+            let rowLine = line(source.location)
+            let sources = cellSources(source)
             for column in 0..<table.columnCount {
                 let text = table.cell(row: row, column: column)
                 let cell = MarkdownFacts.scan(text, firstLineIndex: rowLine)
@@ -258,12 +271,30 @@ private struct FactScanner {
         }
     }
 
-    /// Each cell's source in the table row starting at `start`, trimmed, split on the `|`s `MarkdownTable` splits on.
-    private func cellSources(_ start: Int) -> [NSRange] {
-        func isSpace(_ i: Int) -> Bool { ns.character(at: i) == 0x20 || ns.character(at: i) == 0x09 }
-        var end = start
-        while end < ns.length, !isLineBreak(ns.character(at: end)) { end += 1 }
-        var from = start
+    /// The tables in a quote's content (a header row, then a delimiter row, then rows), added as tables are.
+    /// Returns the lines they cover.
+    private mutating func addQuotedTables(in range: NSRange) -> [NSRange] {
+        let lines = QuoteLine.lines(in: range, of: ns)
+        var covered: [NSRange] = []
+        var i = 0
+        while i + 1 < lines.count {
+            let header = string(lines[i].content)
+            guard lines[i + 1].level == lines[i].level, BlockParser.isTableRow(header),
+                  BlockParser.isTableSeparator(string(lines[i + 1].content), header: header) else { i += 1; continue }
+            var end = i + 2
+            while end < lines.count, lines[end].level == lines[i].level, BlockParser.isTableRow(string(lines[end].content)) { end += 1 }
+            addTable(rows: lines[i..<end].map(\.content))
+            covered.append(NSUnionRange(lines[i].line, lines[end - 1].line))
+            i = end
+        }
+        return covered
+    }
+
+    /// Each cell's source in a table row, trimmed, split on the `|`s `MarkdownTable` splits on.
+    private func cellSources(_ row: NSRange) -> [NSRange] {
+        func isSpace(_ i: Int) -> Bool { UnicodeScalar(ns.character(at: i)).map(CharacterSet.whitespaces.contains) ?? false }
+        var end = NSMaxRange(row)
+        var from = row.location
         while from < end, isSpace(from) { from += 1 }
         while end > from, isSpace(end - 1) { end -= 1 }
         func backslashes(before i: Int) -> Int {
@@ -328,6 +359,16 @@ private struct FactScanner {
             case .text, .code, .image, .inlineLatex, .escape:
                 break
             }
+        }
+    }
+
+    private static func start(of node: InlineNode) -> Int {
+        switch node {
+        case .text(let range), .code(let range, _), .tag(let range, _), .emphasis(_, let range, _, _),
+             .link(let range, _, _, _, _), .image(let range, _, _, _), .wikiLink(let range, _, _, _),
+             .imageEmbed(let range, _, _), .inlineLatex(let range, _, _), .escape(let range, _, _):
+            range.location
+        case .ext(let node): node.range.location
         }
     }
 

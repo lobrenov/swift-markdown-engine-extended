@@ -7,3 +7,8 @@
 
 | not | a table |
 | still text |
+
+> [!note] Crew
+> | Who |
+> | --- |
+> | [[Odo Venn\|Odo]] #crew |
