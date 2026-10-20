@@ -79,4 +79,12 @@ public enum TaskMarker {
         guard let box = boxStart(in: { ns.character(at: $0) }, markerEnd: i, end: end) else { return nil }
         return (Character(UnicodeScalar(ns.character(at: box + 1))!), box + 1)
     }
+
+    /// Fork: the box in `rest`, the text right after a list marker (`- `'s `-`), by the same rule: its marker
+    /// and the marker's UTF-16 offset in `rest`.
+    public static func box(afterListMarker rest: some StringProtocol) -> (marker: Character, offset: Int)? {
+        let ns = String(rest) as NSString
+        guard let box = boxStart(in: { ns.character(at: $0) }, markerEnd: 0, end: ns.length) else { return nil }
+        return (Character(UnicodeScalar(ns.character(at: box + 1))!), box + 1)
+    }
 }

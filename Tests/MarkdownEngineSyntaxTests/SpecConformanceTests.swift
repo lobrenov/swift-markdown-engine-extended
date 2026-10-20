@@ -86,6 +86,7 @@ struct SpecConformanceTests {
         #expect(TaskMarker.box(inLine: "- [ ] a")?.offset == 3)
         #expect(TaskMarker.box(inLine: "\t> 12) [/]\tb")?.marker == "/")
         #expect(TaskMarker.box(inLine: "-     [ ] five spaces") == nil)
+        #expect(TaskMarker.box(afterListMarker: " [x] a")?.offset == 2 && TaskMarker.box(afterListMarker: "[x] a") == nil)
         #expect(TaskMarker.box(inLine: "- [y] a") == nil && TaskMarker.box(inLine: "- [ ]") == nil && TaskMarker.box(inLine: "[ ] a") == nil)
         #expect(TagSyntax.isTagName("a/b") && !TagSyntax.isTagName("2026/10") && !TagSyntax.isTagName("a b"))
     }
