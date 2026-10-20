@@ -9,12 +9,20 @@
 import Foundation
 
 public enum CalloutSyntax {
-    /// Each type's id and the other names that take its look, in menu order.
-    public static let types: [(id: String, aliases: [String])] = [
+    /// A callout type.
+    public struct Kind: Hashable, Sendable {
+        /// As written between `[!` and `]`, lowercased.
+        public let id: String
+        /// Other names that take its look.
+        public let aliases: [String]
+    }
+
+    /// Every type, in menu order.
+    public static let types: [Kind] = [
         ("note", []), ("abstract", ["summary", "tldr"]), ("info", []), ("todo", []), ("tip", ["hint", "important"]),
         ("success", ["check", "done"]), ("question", ["help", "faq"]), ("warning", ["caution", "attention"]),
         ("failure", ["fail", "missing"]), ("danger", ["error"]), ("bug", []), ("example", []), ("quote", ["cite"]),
-    ]
+    ].map { Kind(id: $0.0, aliases: $0.1) }
 
     /// The type an unknown name reads as.
     public static let unknownType = "note"

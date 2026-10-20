@@ -77,17 +77,20 @@ struct SpecConformanceTests {
         let data = try Spec.json("data/callout-types.json")
         let types = try #require(data["types"] as? [[String: Any]])
         #expect(types.compactMap { $0["id"] as? String } == CalloutSyntax.types.map(\.id))
+        let embeds = try Spec.json("data/image-embeds.json")
+        #expect(embeds["extensions"] as? [String] == EmbedSyntax.imageExtensions)
         #expect(types.compactMap { $0["aliases"] as? [String] } == CalloutSyntax.types.map(\.aliases))
         #expect(data["unknownType"] as? String == CalloutSyntax.unknownType)
         #expect(CalloutSyntax.type(named: "FAQ") == "question" && CalloutSyntax.type(named: "custom") == nil)
     }
 
     @Test func aBoxIsFoundInAListItemLine() {
-        #expect(TaskMarker.box(inLine: "- [ ] a")?.offset == 3)
-        #expect(TaskMarker.box(inLine: "\t> 12) [/]\tb")?.marker == "/")
-        #expect(TaskMarker.box(inLine: "-     [ ] five spaces") == nil)
-        #expect(TaskMarker.box(afterListMarker: " [x] a")?.offset == 2 && TaskMarker.box(afterListMarker: "[x] a") == nil)
-        #expect(TaskMarker.box(inLine: "- [y] a") == nil && TaskMarker.box(inLine: "- [ ]") == nil && TaskMarker.box(inLine: "[ ] a") == nil)
+        #expect(TaskMarker.box(inTextAfterListMarker: " [x] a")?.offset == 2)
+        #expect(TaskMarker.box(inTextAfterListMarker: "\t[/]\tb")?.marker == "/")
+        #expect(TaskMarker.box(inTextAfterListMarker: " [ ] 日本 é")?.offset == 2)
+        #expect(TaskMarker.box(inTextAfterListMarker: "     [ ] five spaces") == nil)
+        #expect(TaskMarker.box(inTextAfterListMarker: "[x] a") == nil && TaskMarker.box(inTextAfterListMarker: " [y] a") == nil)
+        #expect(TaskMarker.box(inTextAfterListMarker: " [ ]") == nil && TaskMarker.box(inTextAfterListMarker: " [é] a") == nil)
         #expect(TagSyntax.isTagName("a/b") && !TagSyntax.isTagName("2026/10") && !TagSyntax.isTagName("a b"))
     }
 

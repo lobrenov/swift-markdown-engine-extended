@@ -13,7 +13,12 @@
     }
   ],
   "embeds": [],
-  "tags": [],
+  "tags": [
+    {
+      "line": 8,
+      "tag": "yes"
+    }
+  ],
   "callouts": [],
   "tables": []
 }

@@ -5,3 +5,5 @@ Inline `[[No]] #no` and ``double `[[No2]]` `` [[Yes1]]
 ```
 
 &#91;[[Entity]] \[[AfterBackslash]]
+
+x&nbsp;#t and x #yes

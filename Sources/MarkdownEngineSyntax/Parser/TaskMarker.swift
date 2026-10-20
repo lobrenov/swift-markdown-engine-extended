@@ -60,30 +60,10 @@ public enum TaskMarker {
         return box
     }
 
-    /// Fork: the box in a list-item line (after any indent and quote `>`s): its marker and the marker's UTF-16
-    /// offset in `line`. Nil when the line isn't a list item with a box.
-    public static func box(inLine line: String) -> (marker: Character, offset: Int)? {
-        let ns = line as NSString
-        let end = ns.length
-        var i = 0
-        while i < end, [0x20, 0x09, 0x3E].contains(ns.character(at: i)) { i += 1 }
-        let c = i < end ? ns.character(at: i) : 0
-        if c == 0x2D || c == 0x2A || c == 0x2B {
-            i += 1
-        } else {
-            let digits = i
-            while i < end, i - digits < 9, ns.character(at: i) >= 0x30, ns.character(at: i) <= 0x39 { i += 1 }
-            guard i > digits, i < end, ns.character(at: i) == 0x2E || ns.character(at: i) == 0x29 else { return nil }
-            i += 1
-        }
-        guard let box = boxStart(in: { ns.character(at: $0) }, markerEnd: i, end: end) else { return nil }
-        return (Character(UnicodeScalar(ns.character(at: box + 1))!), box + 1)
-    }
-
-    /// Fork: the box in `rest`, the text right after a list marker (`- `'s `-`), by the same rule: its marker
-    /// and the marker's UTF-16 offset in `rest`.
-    public static func box(afterListMarker rest: some StringProtocol) -> (marker: Character, offset: Int)? {
-        let ns = String(rest) as NSString
+    /// Fork: the box at the start of `text`, the rest of a list item's line after its marker (after `-`, `*`,
+    /// `+`, `1.` or `1)`), by the list-item parser's rule: its marker and the marker's UTF-16 offset in `text`.
+    public static func box(inTextAfterListMarker text: some StringProtocol) -> (marker: Character, offset: Int)? {
+        let ns = String(text) as NSString
         guard let box = boxStart(in: { ns.character(at: $0) }, markerEnd: 0, end: ns.length) else { return nil }
         return (Character(UnicodeScalar(ns.character(at: box + 1))!), box + 1)
     }
