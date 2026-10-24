@@ -113,7 +113,8 @@ extension NativeTextView {
         }
         let breakout = configuration.readingWidth != nil
         let host: NSView = breakout ? (superview ?? self) : self
-        let viewWidth = host.bounds.width
+        let hostBounds = host.bounds
+        let viewWidth = hostBounds.width
         let text = string as NSString
         let strip = MarkdownTextLayoutFragment.scrollableBlockScrollerStrip
 
@@ -147,7 +148,11 @@ extension NativeTextView {
             }
             overlay.anchorTextLocation = token.range.location
             grid.ordinal = ordinal
-            let columnLeft = (breakout ? frame.origin.x : 0) + textContainerOrigin.x + anchorRect.minX
+            // In breakout the overlay lives in the container and spans its visible width, so the column's left
+            // edge is measured from the container's visible left (the text view sits at the container's origin).
+            let anchorTopLeft = NSPoint(x: textContainerOrigin.x + anchorRect.minX, y: textContainerOrigin.y + anchorRect.minY)
+            let anchorInHost = convert(anchorTopLeft, to: host)
+            let columnLeft = breakout ? anchorInHost.x - hostBounds.minX : anchorTopLeft.x
             // The table grows with its content up to the editor's width: the text column's, or all of it in a reading
             // column, where the table starts at the column's left.
             let available = breakout ? max(containerWidth, viewWidth - columnLeft) : containerWidth
@@ -164,11 +169,10 @@ extension NativeTextView {
                 mismatched.append(text.paragraphRange(for: token.range))
             }
 
-            let breakoutTop = frame.origin.y + textContainerOrigin.y + anchorRect.minY
             // The overlay reaches into the gutter left of the table and the margin above it, where the grips are.
             let overlayFrame: NSRect = breakout
-                ? NSRect(x: 0, y: breakoutTop - topMargin, width: viewWidth, height: totalHeight)
-                : NSRect(x: columnLeft - gutter, y: textContainerOrigin.y + anchorRect.minY - topMargin,
+                ? NSRect(x: hostBounds.minX, y: anchorInHost.y - topMargin, width: viewWidth, height: totalHeight)
+                : NSRect(x: columnLeft - gutter, y: anchorTopLeft.y - topMargin,
                          width: containerWidth + gutter, height: totalHeight)
             if !overlay.frame.equalTo(overlayFrame) {
                 host.setNeedsDisplay(overlay.frame)
@@ -311,8 +315,8 @@ extension NativeTextView {
 
     // MARK: - Focus
 
-    override func becomeFirstResponder() -> Bool {
-        let accepted = super.becomeFirstResponder()
+    /// Fork: the table-cell part of `becomeFirstResponder`.
+    func tableGridDidBecomeFirstResponder(_ accepted: Bool) -> Bool {
         if accepted, hidesSyntaxUnlessFocused {
             hasEditingFocus = true
             (delegate as? NativeTextViewCoordinator)?.editingFocusDidChange(in: self)
@@ -334,8 +338,8 @@ extension NativeTextView {
         return accepted
     }
 
-    override func resignFirstResponder() -> Bool {
-        let accepted = super.resignFirstResponder()
+    /// Fork: the table-cell part of `resignFirstResponder`.
+    func tableGridDidResignFirstResponder(_ accepted: Bool) -> Bool {
         if accepted, hidesSyntaxUnlessFocused {
             hasEditingFocus = false
             (delegate as? NativeTextViewCoordinator)?.editingFocusDidChange(in: self)

@@ -7,7 +7,8 @@
 //  AppKit `NSTextView` subclass used by the markdown editor. Stored state
 //  lives here; behavior is split across `NativeTextView+<Feature>.swift`
 //  files in this folder (frame & overscroll, caret workarounds, click remap,
-//  paste handling, drag-select boost, task checkbox, spelling policy).
+//  paste handling, drag-select boost, task checkbox, spelling policy, Writing
+//  Tools).
 //
 //  Bottom-overscroll math lives in `BottomOverscrollPolicy.swift`.
 //  Pasteboard image inspection lives in `PasteboardImageReader.swift`.
@@ -72,6 +73,17 @@ final class NativeTextView: NSTextView {
     var onPasteImage: ((NSPasteboard) -> String?)?
     /// Fork: the hovered image's `</>` button (`+ImageSourceButton`).
     var imageSourceButton: ImageSourceButton?
+    var onFocusChange: ((Bool) -> Void)?
+    private var reportedFocus = false
+    /// `nil` preserves AppKit-owned focus. A value represents the latest
+    /// explicit host request and stays pending until the view has a window.
+    var requestedFocus: Bool? {
+        didSet {
+            guard requestedFocus != oldValue else { return }
+            hasPendingFocusRequest = requestedFocus != nil
+        }
+    }
+    private var hasPendingFocusRequest = false
     weak var layoutBridge: LayoutBridge?
     var baseFont: NSFont = NSFont.systemFont(ofSize: NSFont.systemFontSize)
 
@@ -139,6 +151,74 @@ final class NativeTextView: NSTextView {
             return nil
         }
         return super.menu(for: event)
+    }
+
+    /// While Writing Tools slide the text below an edit into place: the rest of the
+    /// edited paragraph; fragments from its end on are not drawn (`NativeTextView+WritingTools`).
+    var writingToolsHiddenRemainder: NSTextRange?
+    /// Where each Writing Tools context starts in the document: its ranges are
+    /// relative to it (a proofread's context is one paragraph, a rewrite's the document).
+    var writingToolsContextStarts: [UUID: Int] = [:]
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if let window, window !== newWindow {
+            NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
+            reportFocusLossOnRemoval()
+        }
+        super.viewWillMove(toWindow: newWindow)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let window {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(focusWindowWillClose(_:)),
+                name: NSWindow.willCloseNotification, object: window
+            )
+        }
+        reconcileRequestedFocus()
+    }
+
+    @objc private func focusWindowWillClose(_ notification: Notification) {
+        reportFocusLossOnRemoval()
+    }
+
+    private func reportFocusLossOnRemoval() {
+        hasPendingFocusRequest = false
+        guard reportedFocus else { return }
+        reportedFocus = false
+        onFocusChange?(false)
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let didBecome = super.becomeFirstResponder()
+        if didBecome && !reportedFocus {
+            reportedFocus = true
+            onFocusChange?(true)
+        }
+        return tableGridDidBecomeFirstResponder(didBecome)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let didResign = super.resignFirstResponder()
+        if didResign && reportedFocus {
+            reportedFocus = false
+            onFocusChange?(false)
+        }
+        return tableGridDidResignFirstResponder(didResign)
+    }
+
+    func reconcileRequestedFocus() {
+        guard hasPendingFocusRequest, let requestedFocus, let window else { return }
+        // Consume before calling AppKit: responder callbacks can update the host.
+        hasPendingFocusRequest = false
+        if requestedFocus {
+            if window.firstResponder !== self {
+                window.makeFirstResponder(self)
+            }
+        } else if window.firstResponder === self {
+            window.makeFirstResponder(nil)
+        }
     }
 
     override func viewDidChangeEffectiveAppearance() {

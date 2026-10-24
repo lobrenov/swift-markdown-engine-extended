@@ -93,7 +93,7 @@ extension NativeTextViewCoordinator {
                 (scrollView as? ClampedScrollView)?.clampToInsets()
             }
             #endif
-            if let completedTextMutation {
+            if let completedTextMutation, bindingFollows(documentId) {
                 onTextMutation?(completedTextMutation)
             }
             return
@@ -363,7 +363,7 @@ extension NativeTextViewCoordinator {
         }
         #endif
         previousActiveTokenIndices = activeTokenIndices
-        if let completedTextMutation {
+        if let completedTextMutation, bindingFollows(documentId) {
             onTextMutation?(completedTextMutation)
         }
         onDisplayTextChange?(docString)

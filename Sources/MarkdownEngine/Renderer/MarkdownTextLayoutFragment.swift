@@ -121,6 +121,15 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
     // MARK: - Drawing
 
     override func draw(at point: CGPoint, in context: CGContext) {
+        // A Writing Tools slide hides the text below the edit; a clear foreground
+        // would leave what this fragment paints itself on screen.
+        // Fork: macOS only.
+        #if os(macOS)
+        if let hidden = (textLayoutManager?.textContainer?.textView as? NativeTextView)?.writingToolsHiddenRemainder,
+           rangeInElement.location.compare(hidden.endLocation) != .orderedAscending {
+            return
+        }
+        #endif
         // 1. Code-block backgrounds (behind text)
         drawCodeBlockBackground(at: point, in: context)
 
