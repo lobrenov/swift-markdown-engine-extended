@@ -21,6 +21,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     public var fontSize: CGFloat
     public var documentId: String
     public var isEditable: Bool
+    /// Fork: two-way keyboard focus, as on macOS. Set, it follows the editor gaining and losing the keyboard, and
+    /// setting it gives or drops the keyboard. Without a binding, focus is UIKit's alone.
+    public var isFocused: Binding<Bool>?
     public var onLinkClick: ((String) -> Void)?
     /// A view above the text that scrolls with it (a title and properties, say).
     public var header: AnyView?
@@ -54,6 +57,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         fontSize: CGFloat,
         documentId: String,
         isEditable: Bool = true,
+        isFocused: Binding<Bool>? = nil,
         onLinkClick: ((String) -> Void)? = nil,
         header: AnyView? = nil,
         onSlashCommandChange: ((SlashCommandState?) -> Void)? = nil,
@@ -74,6 +78,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.fontSize = fontSize
         self.documentId = documentId
         self.isEditable = isEditable
+        self.isFocused = isFocused
         self.onLinkClick = onLinkClick
         self.header = header
         self.onSlashCommandChange = onSlashCommandChange
@@ -152,6 +157,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         textView.imageEmbedMenu = imageEmbedMenu
         textView.setHeader(header)
         textView.setKeyboardBar(keyboardBar)
+        coordinator.isFocused = isFocused
+        textView.onFocusChange = { [weak coordinator] focused in coordinator?.reportFocusChange(focused) }
+        textView.requestedFocus = isFocused?.wrappedValue
         return textView
     }
 
@@ -179,6 +187,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         textView.setHeader(header)
         textView.setKeyboardBar(keyboardBar)
         textView.bodyInsets = insets
+        coordinator.isFocused = isFocused
+        textView.requestedFocus = isFocused?.wrappedValue
+        textView.reconcileRequestedFocus()
 
         let isNodeSwitch = coordinator.documentId != documentId
         if isNodeSwitch { coordinator.configuration.calloutFoldOverrides = [:] }

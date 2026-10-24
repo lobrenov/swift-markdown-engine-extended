@@ -381,4 +381,77 @@ struct IOSEditorInputTests {
         #expect(markerFontSize() == revealed)
     }
 }
+
+/// Fork: the iOS `isFocused` binding.
+@MainActor
+@Suite(.serialized)
+struct IOSEditorFocusTests {
+    @Observable final class Model {
+        var text = "Body"
+        var focused: Bool? = false
+    }
+
+    struct Host: View {
+        @Bindable var model: Model
+        var body: some View {
+            NativeTextViewWrapper(
+                text: $model.text, fontName: UIFont.systemFont(ofSize: 17).fontName, fontSize: 17, documentId: "doc",
+                isFocused: model.focused == nil ? nil : Binding(get: { model.focused ?? false }, set: { model.focused = $0 })
+            )
+        }
+    }
+
+    private func host(_ model: Model) throws -> (UIWindow, NativeTextView) {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = UIHostingController(rootView: Host(model: model))
+        window.makeKeyAndVisible()
+        IOSEditorHarness.settle(window)
+        func find(_ view: UIView) -> NativeTextView? {
+            if let textView = view as? NativeTextView { return textView }
+            for subview in view.subviews { if let textView = find(subview) { return textView } }
+            return nil
+        }
+        return (window, try #require(find(window)))
+    }
+
+    private func settle(_ window: UIWindow) async {
+        for _ in 0..<3 {
+            try? await Task.sleep(for: .milliseconds(30))
+            window.layoutIfNeeded()
+        }
+    }
+
+    @Test func theBindingFollowsTheKeyboard() async throws {
+        let model = Model()
+        let (window, textView) = try host(model)
+        _ = textView.becomeFirstResponder()
+        await settle(window)
+        #expect(model.focused == true)
+        _ = textView.resignFirstResponder()
+        await settle(window)
+        #expect(model.focused == false)
+    }
+
+    @Test func settingTheBindingGivesAndDropsTheKeyboard() async throws {
+        let model = Model()
+        let (window, textView) = try host(model)
+        #expect(!textView.isFirstResponder)
+        model.focused = true
+        await settle(window)
+        #expect(textView.isFirstResponder)
+        model.focused = false
+        await settle(window)
+        #expect(!textView.isFirstResponder)
+    }
+
+    @Test func withoutABindingFocusIsUIKits() async throws {
+        let model = Model()
+        model.focused = nil
+        let (window, textView) = try host(model)
+        _ = textView.becomeFirstResponder()
+        await settle(window)
+        #expect(textView.isFirstResponder)
+        #expect(model.focused == nil)
+    }
+}
 #endif

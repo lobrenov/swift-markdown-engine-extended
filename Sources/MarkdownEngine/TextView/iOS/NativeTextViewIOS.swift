@@ -42,6 +42,18 @@ final class NativeTextView: UITextView {
     /// What the selection and text delegates are reacting to: typing or a tap.
     var inputKind: EditorInputKind = .other
 
+    /// Fork: reports gaining and losing the keyboard (see ``NativeTextViewWrapper/isFocused``).
+    var onFocusChange: ((Bool) -> Void)?
+    /// Fork: `nil` leaves focus to UIKit. A value is the latest request from the embedder,
+    /// pending until the view has a window.
+    var requestedFocus: Bool? {
+        didSet {
+            guard requestedFocus != oldValue else { return }
+            hasPendingFocusRequest = requestedFocus != nil
+        }
+    }
+    private var hasPendingFocusRequest = false
+
     /// The attributes typed text starts with: the body font and paragraph style,
     /// so a heading's style never carries into the next line.
     var baseTypingAttributes: [NSAttributedString.Key: Any]?
@@ -88,14 +100,37 @@ final class NativeTextView: UITextView {
     /// The caret's syntax shows only while the keyboard is up (`revealsSyntax`).
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()
-        if became { coordinator?.editingFocusDidChange(in: self) }
+        if became {
+            coordinator?.editingFocusDidChange(in: self)
+            onFocusChange?(true)
+        }
         return became
     }
 
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
-        if resigned { coordinator?.editingFocusDidChange(in: self) }
+        if resigned {
+            coordinator?.editingFocusDidChange(in: self)
+            onFocusChange?(false)
+        }
         return resigned
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        reconcileRequestedFocus()
+    }
+
+    /// Fork: gives or drops the keyboard for a pending ``requestedFocus``.
+    func reconcileRequestedFocus() {
+        guard hasPendingFocusRequest, let requestedFocus, window != nil else { return }
+        // Consumed first: the responder calls report back to the embedder.
+        hasPendingFocusRequest = false
+        if requestedFocus, !isFirstResponder {
+            becomeFirstResponder()
+        } else if !requestedFocus, isFirstResponder {
+            resignFirstResponder()
+        }
     }
 
     override var typingAttributes: [NSAttributedString.Key: Any] {
