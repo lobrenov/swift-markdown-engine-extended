@@ -60,18 +60,46 @@ extension NativeTextViewCoordinator {
 
     /// Writing Tools rewrite prose only: code, formulas, links, embeds and tables come
     /// back as written (the zones spell checking skips too).
+    /// Fork: so do tags, task boxes and a callout's `[!type]` with its fold sign.
     @available(macOS 15.0, *)
     public func textView(_ textView: NSTextView,
                          writingToolsIgnoredRangesInEnclosingRange enclosingRange: NSRange) -> [NSValue] {
-        parsedDocument(for: textView.string).tokens.compactMap { token in
+        let parsed = parsedDocument(for: textView.string)
+        let tokenRanges = parsed.tokens.compactMap { token -> NSRange? in
             switch token.kind {
-            case .codeBlock, .inlineCode, .inlineLatex, .blockLatex, .link, .wikiLink, .imageEmbed, .imageLink, .table:
-                let range = NSIntersectionRange(token.range, enclosingRange)
-                return range.length > 0 ? NSValue(range: range) : nil
+            case .codeBlock, .inlineCode, .inlineLatex, .blockLatex, .link, .wikiLink, .imageEmbed, .imageLink, .table, .tag:
+                return token.range
             default:
                 return nil
             }
         }
+        return (tokenRanges + forkSyntaxRanges(in: textView.string, blocks: parsed.blocks, within: enclosingRange))
+            .compactMap { range in
+                let range = NSIntersectionRange(range, enclosingRange)
+                return range.length > 0 ? NSValue(range: range) : nil
+            }
+    }
+
+    /// Fork: the task boxes (in lists and quotes) and callout markers in the blocks `range` touches.
+    private func forkSyntaxRanges(in text: String, blocks: [Block], within range: NSRange) -> [NSRange] {
+        let ns = text as NSString
+        var ranges: [NSRange] = []
+        for node in DocumentAST.parse(text, scopedRanges: [range], precomputedBlocks: blocks, registry: cachedExtensionRegistry) {
+            switch node {
+            case .list(_, let items):
+                ranges += items.compactMap(\.checkbox)
+            case .blockquote(let quote, _, let items):
+                ranges += items.compactMap(\.checkbox)
+                let lines = QuoteLine.lines(in: quote, of: ns)
+                ranges += Callout.find(in: lines, of: ns).map { callout in
+                    let header = callout.header
+                    return NSRange(location: header.syntax.location, length: NSMaxRange(header.fold) - header.syntax.location)
+                }
+            default:
+                break
+            }
+        }
+        return ranges
     }
 
     // MARK: - Child window (Done/Original panel) position fix
