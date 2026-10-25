@@ -51,9 +51,9 @@ A markdown body (no frontmatter) and the facts it yields. A case passes when a r
 - `tags`: in text order, as written, without `#`.
 - `callouts`: `type` as written, lowercased; `fold` is `open`, `folded`, or left out; `title` left out when empty. A lazy line after a callout's last quote line continues it.
 - `tables`: GFM pipe tables, inside a quote or callout too; `columns` counts the delimiter row's cells. A cell is read as a paragraph of its own, with `\|` as `|`, so `[[Target\|alias]]` in a cell is a link with an alias.
-- `tasks` and lists: a list marker with nothing after it (`-`, `*`, `+`, `1.`, `1)`) is an empty list item, so it isn't `summary` text; like CommonMark's, it can't interrupt a paragraph (`Para\n1.` is one paragraph) and `-` under a paragraph is a setext underline.
+- `tasks` and lists: a list marker with nothing after it (`-`, `*`, `+`, `1.`, `1)`) is an empty list item, so it isn't `summary` text; like CommonMark's, it can't interrupt a paragraph (`Para\n1.` is one paragraph).
 - `summary`: the first top-level paragraph that isn't link reference definitions only, with emphasis, `~~strikethrough~~`, `==highlight==`, code backticks, markdown link and image syntax (a reference link or image too, when its definition exists; an undefined `[x][nope]` stays as written) and autolink syntax and backslash escapes removed; wiki links, embeds and tags as written; inline HTML tags dropped and entities decoded; each line break a space.
-- `headings`: ATX and setext; `text` is as written, without the `#` markers or a closing `#` run.
+- `headings`: ATX only (a line under text, `===` or `---`, doesn't make a heading); `text` is as written, without the `#` markers or a closing `#` run.
 
 A case that a reader can't pass yet may carry `"skip": { "<reader>": "<reason>" }`; a skip without a reason is a failure.
 

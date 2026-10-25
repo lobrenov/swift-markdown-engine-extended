@@ -243,22 +243,8 @@ package enum DocumentAST {
     }
 
     /// ATX heading: optional indent, `#`×level, space(s), then inline content.
-    /// Fork: or a setext heading, whose last line is its `===` (level 1) or `---` (level 2) marker.
     private static func heading(_ range: NSRange, _ ns: NSString, scoped: Bool = true, registry: ExtensionRegistry = .empty) -> BlockNode {
         let end = NSMaxRange(range)
-        let firstLine = ns.lineRange(for: NSRange(location: range.location, length: 0))
-        if NSMaxRange(firstLine) < end {
-            let underline = ns.lineRange(for: NSRange(location: end - 1, length: 0))
-            var markerEnd = NSMaxRange(underline)
-            while markerEnd > underline.location, isLineBreak(ns.character(at: markerEnd - 1)) { markerEnd -= 1 }
-            let level = ns.substring(with: underline).contains("=") ? 1 : 2
-            var contentEnd = underline.location
-            while contentEnd > range.location, isLineBreak(ns.character(at: contentEnd - 1)) { contentEnd -= 1 }
-            let contentRange = NSRange(location: range.location, length: contentEnd - range.location)
-            return .heading(level: level, range: range,
-                            markers: [NSRange(location: underline.location, length: markerEnd - underline.location)],
-                            inlines: scoped ? InlineParser.parse(ns, range: contentRange, registry: registry) : [])
-        }
         var i = range.location
         while i < end, ns.character(at: i) == space || ns.character(at: i) == tab { i += 1 }
         let hashStart = i

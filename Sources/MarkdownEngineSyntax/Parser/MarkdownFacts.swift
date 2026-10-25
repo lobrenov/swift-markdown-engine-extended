@@ -197,8 +197,8 @@ private struct FactScanner {
                 default:
                     if facts.summary == nil { facts.summary = plainText(inlines) }
                 }
-            case .heading(let level, let range, let markers, let inlines):
-                facts.headings.append(.init(line: line(range.location), level: level, text: headingText(range, markers: markers)))
+            case .heading(let level, let range, _, let inlines):
+                facts.headings.append(.init(line: line(range.location), level: level, text: headingText(range)))
                 collect(inlines, region: range)
             case .blockquote(let range, let inlines, let items):
                 addCallouts(in: range)
@@ -260,14 +260,7 @@ private struct FactScanner {
         return c == 0x09 || (c == 0x20 && range.length > 1 && [0x20, 0x09].contains(ns.character(at: range.location + 1)))
     }
 
-    private func headingText(_ range: NSRange, markers: [NSRange]) -> String {
-        // A setext heading's marker is its underline line; its text is the lines above, joined.
-        if let underline = markers.first, line(underline.location) > line(range.location) {
-            return string(NSRange(location: range.location, length: underline.location - range.location))
-                .split(whereSeparator: \.isNewline)
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .joined(separator: " ")
-        }
+    private func headingText(_ range: NSRange) -> String {
         var s = Substring(string(range)).trimmingCharacters(in: .whitespacesAndNewlines)[...]
         s = s.drop { $0 == "#" }
         s = s.drop { $0 == " " || $0 == "\t" }

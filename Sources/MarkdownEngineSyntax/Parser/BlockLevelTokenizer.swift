@@ -97,22 +97,6 @@ enum BlockLevelTokenizer {
 
     private static func heading(in s: NSString) -> [MarkdownToken] {
         let len = s.length
-        // Fork: a setext heading — content lines, then its `===`/`---` line as the marker.
-        let firstLine = line(in: s, from: 0)
-        if firstLine.nextStart < len {
-            var lastStart = firstLine.nextStart
-            while true {
-                let next = line(in: s, from: lastStart).nextStart
-                if next >= len || next <= lastStart { break }
-                lastStart = next
-            }
-            let underlineEnd = line(in: s, from: lastStart).contentEnd
-            var contentEnd = lastStart
-            while contentEnd > 0, s.character(at: contentEnd - 1) == lf || s.character(at: contentEnd - 1) == cr { contentEnd -= 1 }
-            return [MarkdownToken(kind: .heading, range: NSRange(location: 0, length: underlineEnd),
-                                  contentRange: NSRange(location: 0, length: contentEnd),
-                                  markerRanges: [NSRange(location: lastStart, length: underlineEnd - lastStart)])]
-        }
         var i = 0
         while i < len, isWS(s.character(at: i)) { i += 1 }
         let hashStart = i

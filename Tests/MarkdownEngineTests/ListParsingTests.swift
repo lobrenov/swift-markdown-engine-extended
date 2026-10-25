@@ -90,7 +90,7 @@ struct ListParsingTests {
     }
 
     /// Fork: a bare marker is CommonMark's empty list item (`-`, `*`, `+`, `1.`, `1)`), which can't interrupt a
-    /// paragraph; a `-` under one is its setext underline.
+    /// paragraph.
     @Test func bareMarkerIsAnEmptyListItem() {
         for line in ["-", "*", "+", "1.", "1)", "  -", "- ", "-\n"] {
             #expect(BlockParser.isListItem(line) && BlockParser.isEmptyListItem(line), "\(line.debugDescription)")

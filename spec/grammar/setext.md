@@ -1,5 +1,0 @@
-Setext one
-==========
-
-Setext two
-----------

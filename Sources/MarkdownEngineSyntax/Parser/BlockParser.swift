@@ -26,7 +26,7 @@ import Foundation
 /// The block-level classification of a run of lines.
 package enum BlockKind: Equatable {
     case paragraph       // inline-bearing
-    case heading         // ATX line (`# …`) or Fork: setext paragraph + `===`/`---` underline, inline-bearing content
+    case heading         // ATX line (`# …`), inline-bearing content
     case blockquote      // consecutive `>` lines, inline-bearing per line
     case list            // consecutive list-item lines (`-`/`*`/`+` or `1.`/`1)`)
     case fencedCode      // ```…``` or Fork: ~~~…~~~ — opaque (no inline parsing inside)
@@ -273,7 +273,7 @@ package enum BlockParser {
         let prefixContext = (inList: listContext(oldBlocks[0..<winFirst]),
                              lastIsList: winFirst > 0 && oldBlocks[winFirst - 1].kind == .list)
         // 5. Reparse just the window substring, shift to absolute new coords.
-        // Fork: until it ends as the old parse did there. A setext underline, a lazy line or a list's indented
+        // Fork: until it ends as the old parse did there. A lazy line or a list's indented
         // line can move a boundary past the ±1 margin; each miss widens the window by a block.
         var winEndNew = 0
         var reparsed: [Block] = []
@@ -480,12 +480,9 @@ package enum BlockParser {
 
             } else {
                 // Paragraph: merge consecutive plain (non-blank, non-special) lines.
-                // Fork: a `===` or `---` underline makes it a setext heading.
                 var end = i
-                var setext = false
                 while end + 1 < lines.count {
                     let next = lineText(end + 1)
-                    if isSetextUnderline(next) { end += 1; setext = true; break }
                     if isBlank(next) { break }
                     // An indented line continues the paragraph, whatever it looks like.
                     if isIndentedCode(next) { end += 1; continue }
@@ -500,7 +497,7 @@ package enum BlockParser {
                     if registry.blockEntry(opening: next) != nil { break }
                     end += 1
                 }
-                blocks.append(Block(kind: setext ? .heading : .paragraph, range: union(lines[i...end])))
+                blocks.append(Block(kind: .paragraph, range: union(lines[i...end])))
                 i = end + 1
             }
         }
@@ -547,15 +544,6 @@ package enum BlockParser {
             if column >= 4 { return !isBlank(line) }
         }
         return false
-    }
-
-    /// Fork: a setext underline: up to 3 spaces, a run of `=` or of `-`, then only whitespace.
-    private static func isSetextUnderline(_ line: String) -> Bool {
-        let indent = line.prefix { $0 == " " }.count
-        guard indent <= 3 else { return false }
-        let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let first = t.first, first == "=" || first == "-" else { return false }
-        return t.allSatisfy { $0 == first }
     }
 
     private static let htmlRawTags = ["script", "pre", "style", "textarea"]

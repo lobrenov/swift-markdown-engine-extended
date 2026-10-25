@@ -39,6 +39,13 @@ struct CommonMarkBlockTests {
         #expect(kinds("Text\n\n    code\n") == [.paragraph, .blank, .indentedCode])
     }
 
+    @Test func underlinedTextIsNotAHeading() {
+        #expect(kinds("text\n---\n") == [.paragraph, .thematicBreak])
+        #expect(kinds("text\n===\n") == [.paragraph])
+        #expect(kinds("text\n-\n") == [.paragraph])
+        #expect(MarkdownFacts.scan("one\n===\n\ntwo\n---\n\nthree\n-\n").headings.isEmpty)
+    }
+
     @Test func listContextReachesPastTheWindow() {
         expectSpliceMatches("- a\n\n    b\n\n# H\n", at: 10, insert: "c")
         expectSpliceMatches("- a\n\n    - b\n", at: 12, insert: "c")
