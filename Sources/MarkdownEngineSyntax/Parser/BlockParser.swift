@@ -655,7 +655,8 @@ package enum BlockParser {
 
     /// A GFM table row. Fork: any line holding an unescaped `|`; the outer pipes are optional.
     static func isTableRow(_ line: String) -> Bool {
-        tableCells(line).count > 1 || {
+        guard line.utf8.contains(UInt8(ascii: "|")) else { return false }
+        return tableCells(line).count > 1 || {
             let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
             return t.count >= 2 && t.hasPrefix("|") && t.hasSuffix("|")
         }()
