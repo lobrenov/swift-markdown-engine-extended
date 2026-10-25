@@ -35,7 +35,7 @@ Pin an exact `-live` tag:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/lobrenov/swift-markdown-engine-extended.git", exact: "0.15.0-live.4")
+    .package(url: "https://github.com/lobrenov/swift-markdown-engine-extended.git", exact: "0.15.0-live.5")
 ],
 targets: [
     .target(
