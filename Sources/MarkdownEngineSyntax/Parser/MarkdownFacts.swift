@@ -811,7 +811,7 @@ private struct FactScanner {
 
     /// Text with inline HTML tags dropped and character references decoded.
     static func withoutHTML(_ text: String) -> String {
-        guard text.contains("<") || text.contains("&") else { return text }
+        guard text.utf8.contains(where: { $0 == UInt8(ascii: "<") || $0 == UInt8(ascii: "&") }) else { return text }
         var s = htmlTag.stringByReplacingMatches(in: text, range: NSRange(location: 0, length: (text as NSString).length),
                                                 withTemplate: "")
         let ns = s as NSString

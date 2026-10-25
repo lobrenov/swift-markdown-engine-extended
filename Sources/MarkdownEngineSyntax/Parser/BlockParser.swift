@@ -358,7 +358,9 @@ package enum BlockParser {
             cursor = NSMaxRange(r)
         }
 
-        func lineText(_ i: Int) -> String { nsText.substring(with: lines[i]) }
+        // Fork: each line's text, cut once from `text`.
+        let lineTexts = lines.map { String(text[Range($0, in: text)!]) }
+        func lineText(_ i: Int) -> String { lineTexts[i] }
 
         /// Line index of the fence closing a code block opened at `start`; nil when unclosed.
         /// Fork: the closer is the opener's character, at least as many, and nothing else.

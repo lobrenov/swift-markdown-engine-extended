@@ -72,7 +72,7 @@ package enum DirectiveScanner {
 
     /// Try to match a directive starting at `i`. Returns nil for every
     /// rejection — the candidate then stays literal text.
-    static func match(_ ns: NSString, len: Int, at i: Int, registry: DirectiveRegistry) -> DirectiveMatch? {
+    static func match(_ ns: some UTF16Text, len: Int, at i: Int, registry: DirectiveRegistry) -> DirectiveMatch? {
         guard !registry.isEmpty, i >= 0, i < len else { return nil }
         let marker = ns.character(at: i)
         guard let table = registry.byMarker[marker], !table.isEmpty else { return nil }
@@ -218,7 +218,7 @@ package enum DirectiveScanner {
     /// Index of the delimiter balancing the run starting at `from`, or nil
     /// when the run is unbalanced or crosses a line break. Escaped delimiters
     /// and delimiters inside a quoted string don't count.
-    private static func balanced(_ ns: NSString, len: Int, from: Int, open: unichar, close: unichar) -> Int? {
+    private static func balanced(_ ns: some UTF16Text, len: Int, from: Int, open: unichar, close: unichar) -> Int? {
         var depth = 1
         var inQuote = false
         var k = from
@@ -244,7 +244,7 @@ package enum DirectiveScanner {
     /// Whether the character at `index` is preceded by an odd number of
     /// backslashes. Mirrors `InlineParser.isEscaped`, kept local so this file
     /// has no private dependency on the parser.
-    private static func isEscaped(_ index: Int, _ ns: NSString) -> Bool {
+    private static func isEscaped(_ index: Int, _ ns: some UTF16Text) -> Bool {
         var count = 0
         var k = index - 1
         while k >= 0, ns.character(at: k) == backslash {

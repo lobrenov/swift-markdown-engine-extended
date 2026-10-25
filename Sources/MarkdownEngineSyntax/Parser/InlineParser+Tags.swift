@@ -25,7 +25,7 @@ extension InlineParser {
     /// out of the span. Escaped and claimed `#`s are skipped. A `#` after a run of `*` or `_` takes the boundary of the
     /// run's start; such tags are also returned by start, to keep only where the run opens emphasis, and leave as many
     /// trailing `_`s as the run had for its closer.
-    static func scanTags(_ ns: NSString, len: Int, claimed: inout ClaimedIndex, startsAtBoundary: Bool)
+    static func scanTags(_ ns: UTF16Buffer, len: Int, claimed: inout ClaimedIndex, startsAtBoundary: Bool)
         -> (spans: [Span], afterDelimiters: Set<Int>) {
         var spans: [Span] = []
         var afterDelimiters: Set<Int> = []
@@ -64,7 +64,7 @@ extension InlineParser {
 
     /// The run of `*` and `_` before `i` when whitespace (by `Character.isWhitespace`) or the
     /// text's start (when `startsAtBoundary`) comes before the run; nil when the `#` isn't at a boundary.
-    private static func tagBoundary(before i: Int, _ ns: NSString, _ startsAtBoundary: Bool)
+    private static func tagBoundary(before i: Int, _ ns: UTF16Buffer, _ startsAtBoundary: Bool)
         -> (count: Int, underscores: Int)? {
         var k = i - 1
         var underscores = 0

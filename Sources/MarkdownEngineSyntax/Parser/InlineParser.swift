@@ -136,7 +136,8 @@ package enum InlineParser {
 
     private static func parse(_ text: String, registry: ExtensionRegistry, tags: TagStart?,
                               cost: inout InlineParseCost) -> [InlineNode] {
-        let ns = text as NSString
+        // Fork: the passes read a UTF16Buffer.
+        let ns = UTF16Buffer(text as NSString)
         let len = ns.length
         guard len > 0 else { return [] }
 
@@ -279,7 +280,7 @@ package enum InlineParser {
 
     // MARK: - 1. Code spans
 
-    private static func scanCodeSpans(_ ns: NSString, len: Int) -> [Span] {
+    private static func scanCodeSpans(_ ns: UTF16Buffer, len: Int) -> [Span] {
         var spans: [Span] = []
         var i = 0
         while i < len {
@@ -299,7 +300,7 @@ package enum InlineParser {
         return spans
     }
 
-    private static func closingBacktickRun(in ns: NSString, from: Int, length len: Int, runLen: Int) -> Int? {
+    private static func closingBacktickRun(in ns: UTF16Buffer, from: Int, length len: Int, runLen: Int) -> Int? {
         var k = from
         while k < len {
             guard ns.character(at: k) == backtick, !isEscaped(k, ns) else { k += 1; continue }
@@ -310,7 +311,7 @@ package enum InlineParser {
         return nil
     }
 
-    private static func strippedCodeContent(_ raw: NSRange, in ns: NSString) -> NSRange {
+    private static func strippedCodeContent(_ raw: NSRange, in ns: UTF16Buffer) -> NSRange {
         let space: unichar = 0x20
         guard raw.length >= 2,
               ns.character(at: raw.location) == space,
@@ -327,7 +328,7 @@ package enum InlineParser {
 
     /// `<scheme:…>` (a letter, 1–31 more of letters, digits, `+ . -`, a `:`, then no space, `<` or `>`) and
     /// `<local@domain>`, outside code spans.
-    private static func scanAutolinks(_ ns: NSString, len: Int, claimed: inout ClaimedIndex) -> [Span] {
+    private static func scanAutolinks(_ ns: UTF16Buffer, len: Int, claimed: inout ClaimedIndex) -> [Span] {
         var spans: [Span] = []
         var i = 0
         while i < len {
@@ -355,7 +356,7 @@ package enum InlineParser {
 
     // MARK: - 2. Backslash escapes (claimed → escaped chars are inert everywhere)
 
-    private static func scanEscapes(_ ns: NSString, len: Int, claimed: inout ClaimedIndex) -> [Span] {
+    private static func scanEscapes(_ ns: UTF16Buffer, len: Int, claimed: inout ClaimedIndex) -> [Span] {
         var spans: [Span] = []
         var i = 0
         while i < len - 1 {
@@ -375,7 +376,7 @@ package enum InlineParser {
 
     // MARK: - 3. Link family / inline LaTeX / extension spans
 
-    private static func scanLinkFamily(_ ns: NSString, len: Int, claimed: inout ClaimedIndex, registry: ExtensionRegistry) -> [Span] {
+    private static func scanLinkFamily(_ ns: UTF16Buffer, len: Int, claimed: inout ClaimedIndex, registry: ExtensionRegistry) -> [Span] {
         // A candidate overlapping a claimed span is rejected, except for spans
         // wholly nested inside a Markdown link's label (#118). Only that case
         // needs the full overlap list; everything else short-circuits on the
@@ -411,7 +412,7 @@ package enum InlineParser {
         return spans
     }
 
-    private static func matchClaimedSpan(_ ns: NSString, _ len: Int, at i: Int, brackets: [Int], registry: ExtensionRegistry) -> Span? {
+    private static func matchClaimedSpan(_ ns: UTF16Buffer, _ len: Int, at i: Int, brackets: [Int], registry: ExtensionRegistry) -> Span? {
         if let span = matchBuiltIn(ns, len, at: i, brackets: brackets) { return span }
         // Directives (`@font(size: 18){…}`) match after every built-in and
         // BEFORE the extension loop below, on the same terms as extension
@@ -455,7 +456,7 @@ package enum InlineParser {
     /// The built-in constructs, tried exclusively in fixed precedence order —
     /// the first branch whose trigger matches decides (nil = stays literal
     /// for built-ins), exactly the pre-extension behavior.
-    private static func matchBuiltIn(_ ns: NSString, _ len: Int, at i: Int, brackets: [Int]) -> Span? {
+    private static func matchBuiltIn(_ ns: UTF16Buffer, _ len: Int, at i: Int, brackets: [Int]) -> Span? {
         let c = ns.character(at: i)
         let c1 = peek(ns, i + 1, len)
         let c2 = peek(ns, i + 2, len)
@@ -472,7 +473,7 @@ package enum InlineParser {
     /// closes at the FIRST exact `close` match on the same line, and a lone
     /// occurrence of `close`'s first character inside the content aborts the
     /// candidate (it stays literal).
-    private static func matchExtensionSpan(_ ns: NSString, _ len: Int, start i: Int, entry: ExtensionRegistry.Entry) -> Span? {
+    private static func matchExtensionSpan(_ ns: UTF16Buffer, _ len: Int, start i: Int, entry: ExtensionRegistry.Entry) -> Span? {
         let open = entry.open, close = entry.close
         guard !open.isEmpty, !close.isEmpty else { return nil }
         guard matches(ns, len, at: i, chars: open) else { return nil }
@@ -503,18 +504,18 @@ package enum InlineParser {
     }
 
     /// Exact UTF-16 sequence match at `i`.
-    private static func matches(_ ns: NSString, _ len: Int, at i: Int, chars: [unichar]) -> Bool {
+    private static func matches(_ ns: UTF16Buffer, _ len: Int, at i: Int, chars: [unichar]) -> Bool {
         guard i + chars.count <= len else { return false }
         for (offset, u) in chars.enumerated() where ns.character(at: i + offset) != u { return false }
         return true
     }
 
-    private static func peek(_ ns: NSString, _ idx: Int, _ len: Int) -> unichar? {
+    private static func peek(_ ns: UTF16Buffer, _ idx: Int, _ len: Int) -> unichar? {
         (idx >= 0 && idx < len) ? ns.character(at: idx) : nil
     }
 
     /// `![[ target ]]`
-    private static func matchImageEmbed(_ ns: NSString, _ len: Int, start i: Int) -> Span? {
+    private static func matchImageEmbed(_ ns: UTF16Buffer, _ len: Int, start i: Int) -> Span? {
         let contentStart = i + 3
         guard let close = closeDoubleBracket(ns, len, from: contentStart) else { return nil }
         return .imageEmbed(
@@ -525,7 +526,7 @@ package enum InlineParser {
     }
 
     /// `[[ name (| id)? ]]`
-    private static func matchWikiLink(_ ns: NSString, _ len: Int, start i: Int) -> Span? {
+    private static func matchWikiLink(_ ns: UTF16Buffer, _ len: Int, start i: Int) -> Span? {
         let contentStart = i + 2
         var k = contentStart
         var pipeIdx = -1
@@ -553,7 +554,7 @@ package enum InlineParser {
     }
 
     /// `![ alt ]( url )`
-    private static func matchImage(_ ns: NSString, _ len: Int, start i: Int, brackets: [Int]) -> Span? {
+    private static func matchImage(_ ns: UTF16Buffer, _ len: Int, start i: Int, brackets: [Int]) -> Span? {
         let altStart = i + 2
         guard let closeBracket = closingBracket(of: i + 1, brackets),
               let closeParen = linkTail(ns, len, open: closeBracket + 1) else { return nil }
@@ -572,7 +573,7 @@ package enum InlineParser {
     }
 
     /// `[ text ]( url )`
-    private static func matchLink(_ ns: NSString, _ len: Int, start i: Int, brackets: [Int]) -> Span? {
+    private static func matchLink(_ ns: UTF16Buffer, _ len: Int, start i: Int, brackets: [Int]) -> Span? {
         let textStart = i + 1
         guard let closeBracket = closingBracket(of: i, brackets),
               let closeParen = linkTail(ns, len, open: closeBracket + 1) else { return nil }
@@ -599,7 +600,7 @@ package enum InlineParser {
     }
 
     /// `$ math $` — single dollars, content has no `$`, passes the math heuristic.
-    private static func matchInlineLatex(_ ns: NSString, _ len: Int, start i: Int) -> Span? {
+    private static func matchInlineLatex(_ ns: UTF16Buffer, _ len: Int, start i: Int) -> Span? {
         if i > 0, ns.character(at: i - 1) == dollar { return nil }
         let contentStart = i + 1
         var k = contentStart
@@ -621,7 +622,7 @@ package enum InlineParser {
         return nil
     }
 
-    private static func closeDoubleBracket(_ ns: NSString, _ len: Int, from: Int) -> Int? {
+    private static func closeDoubleBracket(_ ns: UTF16Buffer, _ len: Int, from: Int) -> Int? {
         var k = from
         while k < len {
             let ch = ns.character(at: k)
@@ -638,7 +639,7 @@ package enum InlineParser {
 
     /// Fork: for each `[`, the `]` that closes it as CommonMark pairs brackets (innermost first, across line
     /// endings), ignoring the claimed spans (code, escapes, autolinks); -1 where there's none. Empty with no `[`.
-    private static func bracketPairs(_ ns: NSString, len: Int, claimed: ClaimedIndex) -> [Int] {
+    private static func bracketPairs(_ ns: UTF16Buffer, len: Int, claimed: ClaimedIndex) -> [Int] {
         var claimed = claimed
         var pairs: [Int] = []
         var open: [Int] = []
@@ -656,7 +657,7 @@ package enum InlineParser {
     }
 
     /// Fork: whitespace in a link's parentheses; after a line ending, the `>` markers of a quote.
-    package static func skipLinkBlanks(_ ns: NSString, from: Int, end: Int) -> Int {
+    package static func skipLinkBlanks(_ ns: some UTF16Text, from: Int, end: Int) -> Int {
         var k = from
         while k < end {
             let c = ns.character(at: k)
@@ -680,7 +681,7 @@ package enum InlineParser {
 
     /// Fork: the destination after `from` (a link's `(` and its leading blanks): its content, whether it's in
     /// `<…>`, and where it ends. A destination holds no line ending and, outside `<…>`, no space; its parens balance.
-    package static func linkDestination(_ ns: NSString, from: Int, end: Int) -> (range: NSRange, angle: Bool, next: Int)? {
+    package static func linkDestination(_ ns: some UTF16Text, from: Int, end: Int) -> (range: NSRange, angle: Bool, next: Int)? {
         func escapes(_ k: Int) -> Bool {
             ns.character(at: k) == backslash && k + 1 < end && isAsciiPunctuationChar(ns.character(at: k + 1))
         }
@@ -713,7 +714,7 @@ package enum InlineParser {
 
     /// Fork: the `)` closing a link's `(` at `open`: a destination, then blanks and an optional title (`"…"`,
     /// `'…'` or `(…)`, after at least one blank), which may be on the next line.
-    private static func linkTail(_ ns: NSString, _ len: Int, open: Int) -> Int? {
+    private static func linkTail(_ ns: UTF16Buffer, _ len: Int, open: Int) -> Int? {
         guard peek(ns, open, len) == lparen,
               let destination = linkDestination(ns, from: open + 1, end: len), destination.range.length > 0 else { return nil }
         var k = skipLinkBlanks(ns, from: destination.next, end: len)
@@ -799,7 +800,7 @@ package enum InlineParser {
         var remaining: Int { rightEdge - leftEdge }
     }
 
-    private static func resolveEmphasis(_ ns: NSString, len: Int, claimed: inout ClaimedIndex) -> [Span] {
+    private static func resolveEmphasis(_ ns: UTF16Buffer, len: Int, claimed: inout ClaimedIndex) -> [Span] {
         var runs = collectDelimiterRuns(ns, len: len, claimed: &claimed)
         guard !runs.isEmpty else { return [] }
         var stack: [Int] = []
@@ -815,7 +816,7 @@ package enum InlineParser {
         return spans
     }
 
-    private static func collectDelimiterRuns(_ ns: NSString, len: Int, claimed: inout ClaimedIndex) -> [DelimRun] {
+    private static func collectDelimiterRuns(_ ns: UTF16Buffer, len: Int, claimed: inout ClaimedIndex) -> [DelimRun] {
         var runs: [DelimRun] = []
         var lineIdx = 0
         var i = 0
@@ -893,7 +894,7 @@ package enum InlineParser {
 
     // MARK: - 5. Containment tree
 
-    private static func buildTree(region: NSRange, spans: [Span], ns: NSString,
+    private static func buildTree(region: NSRange, spans: [Span], ns: UTF16Buffer,
                                   registry: ExtensionRegistry, cost: inout InlineParseCost) -> [InlineNode] {
         // Spans are non-overlapping or properly nested (each pass claims only
         // inside regions no earlier pass took), so ordering by start ascending
@@ -915,7 +916,7 @@ package enum InlineParser {
     /// Consumes spans from `cursor` for as long as they fall inside `region`,
     /// leaving `cursor` on the first span that doesn't.
     private static func buildTree(
-        region: NSRange, ordered: [Span], cursor: inout Int, ns: NSString,
+        region: NSRange, ordered: [Span], cursor: inout Int, ns: UTF16Buffer,
         registry: ExtensionRegistry, cost: inout InlineParseCost
     ) -> [InlineNode] {
         var result: [InlineNode] = []
@@ -984,7 +985,7 @@ package enum InlineParser {
 
     /// Recursively parse a sub-range's content, offset back to absolute coordinates.
     /// A link's text holds no tags; an extension's content follows its open marker.
-    private static func reparse(_ range: NSRange, ns: NSString, registry: ExtensionRegistry, tags: TagStart?,
+    private static func reparse(_ range: NSRange, ns: UTF16Buffer, registry: ExtensionRegistry, tags: TagStart?,
                                 cost: inout InlineParseCost) -> [InlineNode] {
         offsetNodes(parse(ns.substring(with: range), registry: registry, tags: tags, cost: &cost), by: range.location)
     }
@@ -1018,13 +1019,13 @@ package enum InlineParser {
         inner.location >= outer.location && NSMaxRange(inner) <= NSMaxRange(outer)
     }
 
-    private static func isWhitespaceOrBoundary(_ idx: Int, _ ns: NSString, _ len: Int) -> Bool {
+    private static func isWhitespaceOrBoundary(_ idx: Int, _ ns: UTF16Buffer, _ len: Int) -> Bool {
         guard idx >= 0, idx < len else { return true }
         let c = ns.character(at: idx)
         return c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D
     }
 
-    private static func isAsciiPunctuation(_ idx: Int, _ ns: NSString, _ len: Int) -> Bool {
+    private static func isAsciiPunctuation(_ idx: Int, _ ns: UTF16Buffer, _ len: Int) -> Bool {
         guard idx >= 0, idx < len else { return false }
         return isAsciiPunctuationChar(ns.character(at: idx))
     }
@@ -1035,7 +1036,7 @@ package enum InlineParser {
     }
 
     /// A character is backslash-escaped when preceded by an odd run of `\`.
-    private static func isEscaped(_ idx: Int, _ ns: NSString) -> Bool {
+    private static func isEscaped(_ idx: Int, _ ns: UTF16Buffer) -> Bool {
         var count = 0
         var k = idx - 1
         while k >= 0, ns.character(at: k) == backslash { count += 1; k -= 1 }
