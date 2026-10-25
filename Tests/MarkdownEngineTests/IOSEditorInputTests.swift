@@ -157,6 +157,18 @@ struct IOSEditorInputTests {
         UIPasteboard.general.items = []
     }
 
+    @Test func aURLPastedOverSelectedTextMakesALink() async throws {
+        let editor = try IOSEditorHarness("Read the docs")
+        let pasteboard = try #require(UIPasteboard.withUniqueName())
+        pasteboard.string = "https://example.com"
+        editor.textView.pasteboard = pasteboard
+        editor.textView.selectedRange = NSRange(location: 9, length: 4)
+        editor.textView.paste(nil)
+        await editor.settle()
+        #expect(editor.text == "Read the [docs](https://example.com)")
+        UIPasteboard.remove(withName: pasteboard.name)
+    }
+
     @Test func aPressAndHoldOnAnImageShowsTheEmbeddersMenu() async throws {
         let editor = try IOSEditorHarness("Shots:\n\n![[front.png]]\n\nAfter") { configuration in
             configuration.services = MarkdownEditorServices(images: TealImage())

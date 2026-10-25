@@ -30,6 +30,8 @@ final class NativeTextView: UITextView {
     var onTagClick: ((String) -> Void)?
     /// See ``NativeTextViewWrapper/onPasteImage``.
     var onPasteImage: ((UIPasteboard) -> String?)?
+    /// What a paste reads.
+    var pasteboard: UIPasteboard = .general
     /// The title line location of the callout whose menu is open.
     var calloutMenuTarget: Int?
     /// See ``NativeTextViewWrapper/imageEmbedMenu``.
@@ -289,13 +291,18 @@ final class NativeTextView: UITextView {
     // MARK: Fork: image paste
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(paste(_:)), onPasteImage != nil, isEditable, UIPasteboard.general.hasImages { return true }
+        if action == #selector(paste(_:)), onPasteImage != nil, isEditable, pasteboard.hasImages { return true }
         return super.canPerformAction(action, withSender: sender)
     }
 
-    /// An image on the pasteboard goes to `onPasteImage`, and its embed goes on its own line.
+    /// An image on the pasteboard goes to `onPasteImage`, and its embed goes on its own line. A URL pasted over
+    /// selected text makes a Markdown link.
     override func paste(_ sender: Any?) {
-        guard let onPasteImage, UIPasteboard.general.hasImages, let embed = onPasteImage(.general), !embed.isEmpty else {
+        if isEditable, selectedRange.length > 0, let pasted = pasteboard.string,
+           let link = LinkPaste.link(pasting: pasted, over: (text as NSString).substring(with: selectedRange)) {
+            return replaceCharacters(in: selectedRange, with: link)
+        }
+        guard let onPasteImage, pasteboard.hasImages, let embed = onPasteImage(pasteboard), !embed.isEmpty else {
             return super.paste(sender)
         }
         let selection = selectedRange

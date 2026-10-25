@@ -41,6 +41,14 @@ extension NativeTextView {
             return
         }
 
+        // Fork: a URL pasted over selected text makes a Markdown link.
+        let selection = selectedRange()
+        if let pasted = pasteboard.string(forType: .string),
+           let link = LinkPaste.link(pasting: pasted, over: (string as NSString).substring(with: selection)) {
+            insertPasted(link, replacementRange: selection)
+            return
+        }
+
         // Our own copy: prefer the private raw-markdown flavor so an in-app
         // copy→paste round-trips byte-exact. The derived HTML flavor is lossy
         // (e.g. the HTML renderer drops the `|UUID` of a wiki link), so this
