@@ -278,6 +278,11 @@ final class NativeTextView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // Fork: UIKit cuts a non-scrolling text view's text at its height on each resize; uncut, a line that wraps
+        // past it has a caret rect before the view grows.
+        if !isScrollEnabled, textContainer.size.height != .greatestFiniteMagnitude {
+            textContainer.size.height = .greatestFiniteMagnitude
+        }
         layoutHeader()
         // Fork: images fit the width once it's known.
         RunLoop.main.perform { [weak self] in

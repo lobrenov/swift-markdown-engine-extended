@@ -55,7 +55,9 @@ final class IOSEditorHarness {
             onCalloutMenu: { box.calloutRequests.append($0) },
             onTaskCheckboxToggle: { box.toggles.append($0) }
         )
-        window.rootViewController = UIHostingController(rootView: editor)
+        window.rootViewController = configuration.heightBehavior == .fitsContent
+            ? UIHostingController(rootView: AnyView(ScrollView { editor }))
+            : UIHostingController(rootView: AnyView(editor))
         window.makeKeyAndVisible()
         func find(_ view: UIView) -> NativeTextView? {
             if let textView = view as? NativeTextView { return textView }
@@ -65,6 +67,13 @@ final class IOSEditorHarness {
         Self.settle(window)
         textView = try #require(find(window))
         textView.becomeFirstResponder()
+    }
+
+    /// The scroll view a `.fitsContent` editor sits in.
+    var scrollView: UIScrollView? {
+        var view = textView.superview
+        while let candidate = view, !(candidate is UIScrollView) { view = candidate.superview }
+        return view as? UIScrollView
     }
 
     static func settle(_ window: UIWindow) {
@@ -143,6 +152,23 @@ private struct TealImage: EmbeddedImageProvider {
 @MainActor
 @Suite(.serialized)
 struct IOSEditorInputTests {
+    @Test func typingAtTheEndOfAFittedEditorKeepsItsScrollPosition() async throws {
+        let filler = (1...40).map { "Paragraph \($0), long enough to wrap onto a second line of the editor." }
+        let editor = try IOSEditorHarness(filler.joined(separator: "\n\n")) { $0.heightBehavior = .fitsContent }
+        let scrollView = try #require(editor.scrollView)
+        editor.textView.selectedRange = NSRange(location: (editor.textView.string as NSString).length, length: 0)
+        let bottom = scrollView.contentSize.height + scrollView.adjustedContentInset.bottom - scrollView.bounds.height
+        scrollView.setContentOffset(CGPoint(x: 0, y: bottom), animated: false)
+        await editor.settle()
+        final class Offsets: @unchecked Sendable { var lowest = CGFloat.greatestFiniteMagnitude }
+        let offsets = Offsets()
+        let start = scrollView.contentOffset.y
+        let observation = scrollView.observe(\.contentOffset) { view, _ in offsets.lowest = min(offsets.lowest, view.contentOffset.y) }
+        for _ in 0..<40 { await editor.type(" word") }
+        observation.invalidate()
+        #expect(offsets.lowest >= start - 1, "scrolled to \(offsets.lowest) from \(start)")
+    }
+
     @Test func anImageOnThePasteboardPastesAsAnEmbedOnItsOwnLine() async throws {
         let editor = try IOSEditorHarness("Shots:")
         var pasted = 0
