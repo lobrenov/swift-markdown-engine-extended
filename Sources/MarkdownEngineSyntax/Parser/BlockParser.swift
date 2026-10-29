@@ -488,7 +488,7 @@ package enum BlockParser {
                     if isBlank(next) { break }
                     // An indented line continues the paragraph, whatever it looks like.
                     if isIndentedCode(next) { end += 1; continue }
-                    if isThematicBreak(next) || isHeading(next) || isBlockquote(next) || (isListItem(next) && !isEmptyListItem(next)) { break }
+                    if isThematicBreak(next) || isHeading(next) || isBlockquote(next) || (isListItem(next) && !isBareListMarker(next)) { break }
                     if let type = htmlBlockStart(next), type <= 6 { break }
                     // A table (row + separator), a CLOSED code fence, a
                     // block-LaTeX run, or an extension fence interrupts it —
@@ -647,12 +647,12 @@ package enum BlockParser {
         return after == " " || after == "\t" || after.isNewline
     }
 
-    /// Fork: a list-item line with nothing after its marker. It can't interrupt a paragraph.
-    static func isEmptyListItem(_ line: String) -> Bool {
+    /// Fork: a list-item line that ends at its marker (`-`, `1.`). It can't interrupt a paragraph; `- ` can.
+    static func isBareListMarker(_ line: String) -> Bool {
         guard isListItem(line) else { return false }
         var rest = Substring(line).drop { $0 == " " || $0 == "\t" }
         rest = rest.drop { $0.isNumber }.dropFirst()
-        return rest.allSatisfy { $0 == " " || $0 == "\t" || $0.isNewline }
+        return rest.allSatisfy(\.isNewline)
     }
 
     /// A GFM table row. Fork: any line holding an unescaped `|`; the outer pipes are optional.

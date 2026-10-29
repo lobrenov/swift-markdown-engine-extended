@@ -90,19 +90,23 @@ struct ListParsingTests {
     }
 
     /// Fork: a bare marker is CommonMark's empty list item (`-`, `*`, `+`, `1.`, `1)`), which can't interrupt a
-    /// paragraph.
+    /// paragraph; a marker and a space (`- `) can.
     @Test func bareMarkerIsAnEmptyListItem() {
-        for line in ["-", "*", "+", "1.", "1)", "  -", "- ", "-\n"] {
-            #expect(BlockParser.isListItem(line) && BlockParser.isEmptyListItem(line), "\(line.debugDescription)")
+        for line in ["-", "*", "+", "1.", "1)", "  -", "-\n"] {
+            #expect(BlockParser.isListItem(line) && BlockParser.isBareListMarker(line), "\(line.debugDescription)")
         }
         #expect(hasList(BlockParser.parse("-")))
-        #expect(BlockParser.isListItem("- x") && !BlockParser.isEmptyListItem("- x"))
-        #expect(BlockParser.isListItem("1. x") && !BlockParser.isEmptyListItem("1. x"))
+        #expect(BlockParser.isListItem("- ") && !BlockParser.isBareListMarker("- "))
+        #expect(BlockParser.isListItem("- x") && !BlockParser.isBareListMarker("- x"))
+        #expect(BlockParser.isListItem("1. x") && !BlockParser.isBareListMarker("1. x"))
         #expect(!BlockParser.isListItem("1") && !BlockParser.isListItem("-x") && !BlockParser.isListItem("1.x"))
         #expect(hasList(BlockParser.parse("## Goals\n1.\n")))
         #expect(hasList(BlockParser.parse("Para\n\n*\n")))
         #expect(!hasList(BlockParser.parse("Para\n1.\n")))
-        #expect(!hasList(BlockParser.parse("Para\n+\n- \n")))
+        #expect(!hasList(BlockParser.parse("Para\n+\n")))
+        #expect(!hasList(BlockParser.parse("Para\n-")))
+        #expect(hasList(BlockParser.parse("Para\n- ")))
+        #expect(hasList(BlockParser.parse("Para\n1. \n")))
         #expect(hasList(BlockParser.parse("Para\n- x\n")))
     }
 }
