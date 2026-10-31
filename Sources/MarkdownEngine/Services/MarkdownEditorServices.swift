@@ -58,10 +58,13 @@ public struct WikiLinkResolution: Sendable, Equatable {
     public let id: String
     /// Whether the linked target currently exists/is reachable.
     public let exists: Bool
+    /// Fork: a task marker (`TaskMarker`); an inactive link to an existing target draws that marker's checkbox before its text.
+    public let marker: Character?
 
-    public init(id: String, exists: Bool) {
+    public init(id: String, exists: Bool, marker: Character? = nil) {
         self.id = id
         self.exists = exists
+        self.marker = marker
     }
 }
 

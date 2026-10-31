@@ -282,6 +282,43 @@ struct WikiLinkAliasTests {
     }
 }
 
+@Suite("Fork — wiki-link task boxes")
+struct WikiLinkBoxTests {
+
+    private struct Tasks: WikiLinkResolver {
+        let marker: Character?
+        func resolve(displayName: String, range: NSRange) -> WikiLinkResolution? {
+            displayName == "Target" ? WikiLinkResolution(id: displayName, exists: true, marker: marker) : nil
+        }
+    }
+
+    private func boxes(_ text: String, marker: Character? = "/", caret: Int = -1) -> (markers: [String], kerns: [CGFloat]) {
+        var config = MarkdownEditorConfiguration.default
+        config.services = MarkdownEditorServices(wikiLinks: Tasks(marker: marker))
+        let attrs = MarkdownASTStyler.styleAttributes(
+            text: text, fontName: PlatformFont.systemFont(ofSize: 14).fontName, fontSize: 14,
+            caretLocation: caret, configuration: config
+        )
+        let boxed = attrs.filter { $0.attributes[.markdownWikiLinkBox] != nil }
+        return (boxed.compactMap { $0.attributes[.markdownWikiLinkBox] as? String },
+                attrs.filter { $0.range.length == 1 && $0.range.location == 5 }.compactMap { $0.attributes[.kern] as? CGFloat })
+    }
+
+    @Test func inactiveResolvedLinkWithMarkerCarriesTheBox() {
+        let result = boxes("See [[Target]] now")
+        #expect(result.markers == ["/"])
+        let style = TaskCheckboxStyle.default
+        let size = TaskCheckboxGeometry.size(for: PlatformFont.systemFont(ofSize: 14), style: style)
+        #expect(result.kerns.contains { $0 > size })
+    }
+
+    @Test func noBoxWhenActiveUnresolvedOrWithoutMarker() {
+        #expect(boxes("See [[Target]] now", caret: 8).markers.isEmpty)
+        #expect(boxes("See [[Other]] now").markers.isEmpty)
+        #expect(boxes("See [[Target]] now", marker: nil).markers.isEmpty)
+    }
+}
+
 @MainActor
 @Suite("Fork — undo and redo reach the binding")
 struct UndoBindingTests {

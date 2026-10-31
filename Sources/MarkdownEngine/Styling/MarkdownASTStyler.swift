@@ -1040,6 +1040,15 @@ enum MarkdownASTStyler {
         for marker in markers { attrs.append((marker, [.foregroundColor: ctx.theme.mutedText])) }
     }
 
+    /// Fork: the task marker of an existing wiki-link target and the width reserved for its box (the opening
+    /// `[[`'s last character takes it as kern); nil without a marker.
+    private static func wikiLinkBox(name: NSRange, ctx: Ctx) -> (marker: Character, advance: CGFloat)? {
+        let resolution = ctx.config.services.wikiLinks.resolve(displayName: ctx.ns.substring(with: name), range: name)
+        guard let resolution, resolution.exists, let marker = resolution.marker else { return nil }
+        let style = ctx.config.taskCheckbox
+        return (marker, TaskCheckboxGeometry.size(for: ctx.baseFont, style: style) + style.contentGap)
+    }
+
     /// Fork: a bubble in the tag's tint with the `#` fainter, kerned apart from its neighbours to clear the
     /// bubble's padding; plain source on the caret's line.
     private static func styleTag(range: NSRange, marker: NSRange, ctx: Ctx, into attrs: inout [StyledRange]) {
@@ -1109,8 +1118,14 @@ enum MarkdownASTStyler {
                     }
                 }
                 shrinkInlineMarkers(children, ctx: ctx, forceReveal: active, into: &attrs)
-            case .wikiLink(let range, _, _, let markers):
-                if !(forceReveal || ctx.isActive(range)) { shrink(markers, ctx: ctx, into: &attrs) }
+            case .wikiLink(let range, let name, _, let markers):
+                if !(forceReveal || ctx.isActive(range)) {
+                    shrink(markers, ctx: ctx, into: &attrs)
+                    if let box = wikiLinkBox(name: name, ctx: ctx), let open = markers.first {
+                        attrs.append((open, [.markdownWikiLinkBox: String(box.marker)]))
+                        attrs.append((lastCharacter(of: open), [.kern: box.advance - ctx.inlineMarkerFont.pointSize]))
+                    }
+                }
             case .image(let range, _, _, let markers):
                 if !(forceReveal || ctx.isActive(range)) { shrink(markers, ctx: ctx, into: &attrs) }
             case .escape(let range, _, let marker):

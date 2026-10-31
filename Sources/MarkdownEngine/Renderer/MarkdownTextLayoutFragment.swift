@@ -148,6 +148,7 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
 
         // 4. Task checkboxes (on top of hidden [ ]/[x] markers)
         drawTaskCheckboxes(at: point, in: context)
+        drawWikiLinkBoxes(at: point, in: context)
 
         // 4b. Bullet glyphs (on top of hidden -/*/+ markers)
         drawBulletMarkers(at: point, in: context)
@@ -902,23 +903,57 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
             let boxRect = CGRect(x: alignToPixel(boxX), y: alignToPixel(boxY), width: size, height: size)
             guard !boxRect.isEmpty, !boxRect.isNull else { return }
 
-            let tint = style.tints[marker]
-                ?? (marker == " " ? configuration.theme.mutedText : configuration.theme.bodyText)
-            if let draw = style.draw {
-                draw(marker, boxRect, tint)
-                return
+            drawTaskBox(marker: marker, in: boxRect, style: style, configuration: configuration)
+        }
+    }
+
+    /// Draws a marker's box in `boxRect`: the style's `draw` closure, else its symbol.
+    private func drawTaskBox(marker: Character, in boxRect: CGRect, style: TaskCheckboxStyle,
+                             configuration: MarkdownEditorConfiguration) {
+        let size = boxRect.width
+        let tint = style.tints[marker]
+            ?? (marker == " " ? configuration.theme.mutedText : configuration.theme.bodyText)
+        if let draw = style.draw {
+            draw(marker, boxRect, tint)
+            return
+        }
+        let symbolName = style.symbolNames[marker] ?? "square"
+        guard let baseSymbol = PlatformImage(systemSymbolName: symbolName, accessibilityDescription: nil)
+            ?? PlatformImage(systemSymbolName: "square", accessibilityDescription: nil) else { return }
+        let symbolConfig = PlatformImage.SymbolConfiguration(pointSize: size * 0.85, weight: .regular)
+            .applying(PlatformImage.SymbolConfiguration(hierarchicalColor: tint))
+        let symbol = baseSymbol.withSymbolConfiguration(symbolConfig) ?? baseSymbol
+        // Aspect-fit: the reference set's icons aren't all square.
+        let fit = min(boxRect.width / max(symbol.size.width, 1), boxRect.height / max(symbol.size.height, 1), 1)
+        let drawSize = CGSize(width: symbol.size.width * fit, height: symbol.size.height * fit)
+        symbol.draw(in: CGRect(x: boxRect.midX - drawSize.width / 2, y: boxRect.midY - drawSize.height / 2,
+                               width: drawSize.width, height: drawSize.height))
+    }
+
+    // MARK: - Wiki-link Boxes
+
+    /// Fork: the box of a wiki-link to a task, in the room its hidden opening `[[` reserves before the text.
+    private func drawWikiLinkBoxes(at point: CGPoint, in context: CGContext) {
+        guard let ts = textStorage, let range = fragmentNSRange, range.length > 0 else { return }
+
+        pushGraphicsContext(context)
+        defer { popGraphicsContext() }
+
+        ts.enumerateAttribute(.markdownWikiLinkBox, in: range, options: []) { [weak self] value, attrRange, _ in
+            guard let self, let marker = (value as? String)?.first,
+                  let pos = drawPosition(forDocumentCharAt: attrRange.location, point: point) else { return }
+            let textView = textLayoutManager?.textContainer?.textView as? NativeTextView
+            let font = textView?.baseFont ?? PlatformFont.systemFont(ofSize: PlatformFont.systemFontSize)
+            let configuration = textView?.configuration ?? .default
+            let style = configuration.taskCheckbox
+            let size = TaskCheckboxGeometry.size(for: font, style: style)
+            let centerY = pos.baselineY + (max(0, -font.descender) - max(0, font.ascender)) / 2
+            let scale = displayScale(of: textView)
+            func alignToPixel(_ value: CGFloat) -> CGFloat {
+                (value * scale).rounded(.toNearestOrAwayFromZero) / scale
             }
-            let symbolName = style.symbolNames[marker] ?? "square"
-            guard let baseSymbol = PlatformImage(systemSymbolName: symbolName, accessibilityDescription: nil)
-                ?? PlatformImage(systemSymbolName: "square", accessibilityDescription: nil) else { return }
-            let symbolConfig = PlatformImage.SymbolConfiguration(pointSize: size * 0.85, weight: .regular)
-                .applying(PlatformImage.SymbolConfiguration(hierarchicalColor: tint))
-            let symbol = baseSymbol.withSymbolConfiguration(symbolConfig) ?? baseSymbol
-            // Aspect-fit: the reference set's icons aren't all square.
-            let fit = min(boxRect.width / max(symbol.size.width, 1), boxRect.height / max(symbol.size.height, 1), 1)
-            let drawSize = CGSize(width: symbol.size.width * fit, height: symbol.size.height * fit)
-            symbol.draw(in: CGRect(x: boxRect.midX - drawSize.width / 2, y: boxRect.midY - drawSize.height / 2,
-                                   width: drawSize.width, height: drawSize.height))
+            let boxRect = CGRect(x: alignToPixel(pos.x), y: alignToPixel(centerY - size / 2), width: size, height: size)
+            drawTaskBox(marker: marker, in: boxRect, style: style, configuration: configuration)
         }
     }
 }

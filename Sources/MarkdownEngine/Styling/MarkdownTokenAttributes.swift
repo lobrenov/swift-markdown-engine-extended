@@ -11,4 +11,6 @@ import Foundation
 extension NSAttributedString.Key {
     public static let wikiLinkID = NSAttributedString.Key("NodeLinkID")
     public static let taskCheckbox = NSAttributedString.Key("TaskCheckbox")
+    /// Fork: the task marker (a `String`) whose box draws before a wiki-link's text, on its opening `[[`.
+    static let markdownWikiLinkBox = NSAttributedString.Key("MarkdownWikiLinkBox")
 }
