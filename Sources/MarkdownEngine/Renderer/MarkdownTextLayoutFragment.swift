@@ -941,18 +941,25 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
 
         ts.enumerateAttribute(.markdownWikiLinkBox, in: range, options: []) { [weak self] value, attrRange, _ in
             guard let self, let marker = (value as? String)?.first,
-                  let pos = drawPosition(forDocumentCharAt: attrRange.location, point: point) else { return }
+                  let open = drawPosition(forDocumentCharAt: attrRange.location, point: point),
+                  let first = drawPosition(forDocumentCharAt: NSMaxRange(attrRange), point: point),
+                  first.baselineY == open.baselineY else { return }
             let textView = textLayoutManager?.textContainer?.textView as? NativeTextView
-            let font = textView?.baseFont ?? PlatformFont.systemFont(ofSize: PlatformFont.systemFontSize)
+            let bodyFont = textView?.baseFont ?? PlatformFont.systemFont(ofSize: PlatformFont.systemFontSize)
             let configuration = textView?.configuration ?? .default
             let style = configuration.taskCheckbox
-            let size = TaskCheckboxGeometry.size(for: font, style: style)
-            let centerY = pos.baselineY + (max(0, -font.descender) - max(0, font.ascender)) / 2
+            let size = TaskCheckboxGeometry.size(for: bodyFont, style: style)
+            let nameFont = NSMaxRange(attrRange) < ts.length
+                ? ts.attribute(.font, at: NSMaxRange(attrRange), effectiveRange: nil) as? PlatformFont : nil
+            let font = nameFont ?? bodyFont
+            let centerY = open.baselineY + (max(0, -font.descender) - max(0, font.ascender)) / 2
             let scale = displayScale(of: textView)
             func alignToPixel(_ value: CGFloat) -> CGFloat {
                 (value * scale).rounded(.toNearestOrAwayFromZero) / scale
             }
-            let boxRect = CGRect(x: alignToPixel(pos.x), y: alignToPixel(centerY - size / 2), width: size, height: size)
+            // The room sits between `[[` and the name: left of the name when the text runs left to right.
+            let x = first.x >= open.x ? open.x : open.x - size
+            let boxRect = CGRect(x: alignToPixel(x), y: alignToPixel(centerY - size / 2), width: size, height: size)
             drawTaskBox(marker: marker, in: boxRect, style: style, configuration: configuration)
         }
     }

@@ -317,6 +317,19 @@ struct WikiLinkBoxTests {
         #expect(boxes("See [[Other]] now").markers.isEmpty)
         #expect(boxes("See [[Target]] now", marker: nil).markers.isEmpty)
     }
+
+    @Test func noBoxInsideActiveEmphasis() {
+        #expect(boxes("*see [[Target]]*", caret: 2).markers.isEmpty)
+        #expect(boxes("*see [[Target]]*").markers == ["/"])
+    }
+
+    @Test func headingLinkGetsABox() {
+        #expect(boxes("# See [[Target]]").markers == ["/"])
+    }
+
+    @Test func linksOnOneLineGetSeparateBoxes() {
+        #expect(boxes("[[Target]] and [[Target]]").markers == ["/", "/"])
+    }
 }
 
 @MainActor

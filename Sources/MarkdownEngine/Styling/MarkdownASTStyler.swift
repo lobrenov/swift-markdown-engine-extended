@@ -648,6 +648,11 @@ enum MarkdownASTStyler {
         }
     }
 
+    /// Fork: resolver results for one styling pass, so a link resolves once.
+    final class WikiResolutionMemo {
+        var results: [Int: WikiLinkResolution?] = [:]
+    }
+
     /// Shared inputs threaded through the walk.
     /// Internal (not private) so per-construct styling can live in its own
     /// file — see `MarkdownASTStyler+Directives.swift`.
@@ -674,6 +679,8 @@ enum MarkdownASTStyler {
         let wikiLinkID: (NSRange) -> String?
         let scopedRanges: [NSRange]?
         let orderedDisplayNumbers: [Int: Int]
+        /// Fork: this pass's wiki-link resolutions by name location.
+        let wikiResolutions = WikiResolutionMemo()
 
         /// True when a non-empty selection overlaps `range` — the selection
         /// counterpart of `isActive` for elements that reveal on select.
@@ -1029,8 +1036,7 @@ enum MarkdownASTStyler {
         if !ctx.isActive(range) {
             // Fork: Obsidian semantics — the part after `|` is an alias, so resolve
             // and report clicks by the target name, never by the alias.
-            let exists = ctx.config.services.wikiLinks.resolve(displayName: nodeName, range: name)?.exists ?? false
-            if exists {
+            if resolution(of: name, ctx: ctx)?.exists ?? false {
                 contentAttrs[.link] = nodeName
             } else {
                 contentAttrs[.foregroundColor] = ctx.theme.disabledText
@@ -1040,11 +1046,17 @@ enum MarkdownASTStyler {
         for marker in markers { attrs.append((marker, [.foregroundColor: ctx.theme.mutedText])) }
     }
 
+    private static func resolution(of name: NSRange, ctx: Ctx) -> WikiLinkResolution? {
+        if let cached = ctx.wikiResolutions.results[name.location] { return cached }
+        let result = ctx.config.services.wikiLinks.resolve(displayName: ctx.ns.substring(with: name), range: name)
+        ctx.wikiResolutions.results[name.location] = .some(result)
+        return result
+    }
+
     /// Fork: the task marker of an existing wiki-link target and the width reserved for its box (the opening
     /// `[[`'s last character takes it as kern); nil without a marker.
     private static func wikiLinkBox(name: NSRange, ctx: Ctx) -> (marker: Character, advance: CGFloat)? {
-        let resolution = ctx.config.services.wikiLinks.resolve(displayName: ctx.ns.substring(with: name), range: name)
-        guard let resolution, resolution.exists, let marker = resolution.marker else { return nil }
+        guard let resolution = resolution(of: name, ctx: ctx), resolution.exists, let marker = resolution.marker else { return nil }
         let style = ctx.config.taskCheckbox
         return (marker, TaskCheckboxGeometry.size(for: ctx.baseFont, style: style) + style.contentGap)
     }

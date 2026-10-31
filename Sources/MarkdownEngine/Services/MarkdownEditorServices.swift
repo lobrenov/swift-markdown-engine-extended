@@ -43,7 +43,8 @@ public protocol WikiLinkResolver: Sendable {
 
     /// Coarse fingerprint of the resolver's known targets (typically IDs + names).
     /// A different value triggers a wiki-link restyle, so a rename refreshes link
-    /// clickability/display without waiting for the next keystroke.
+    /// clickability/display without waiting for the next keystroke. Fork: it must
+    /// change whenever any `resolve` result changes (`exists`, `marker`), not only names.
     func fingerprint() -> AnyHashable
 }
 
