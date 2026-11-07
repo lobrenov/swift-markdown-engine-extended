@@ -100,7 +100,8 @@ extension NativeTextView {
     /// Insert pasted content as its own coalescing-fenced undo step: the paste
     /// enters via `insertText` (the typing path), so without fences before and
     /// after, the next edit coalesces into it and one Cmd+Z reverts both.
-    private func insertPasted(_ text: String, replacementRange: NSRange) {
+    /// Fork: internal, for the text menu's paste as plain text.
+    func insertPasted(_ text: String, replacementRange: NSRange) {
         breakUndoCoalescing()
         insertText(text, replacementRange: replacementRange)
         undoManager?.setActionName("Paste")

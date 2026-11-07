@@ -298,3 +298,15 @@ struct ReferenceLinkFactTests {
         #expect(facts.markdownLinks.map(\.path) == ["y.md", "r.png", "q.md", "p.png"])
     }
 }
+
+@Suite("Fork — heading plain text")
+struct HeadingPlainTextTests {
+    @Test func headingsHavePlainText() {
+        let heading = MarkdownFacts.scan("## **Bold** [[A|b]] `c`\n").headings.first
+        #expect(heading?.plainText == "Bold b c")
+        #expect(heading?.text == "**Bold** [[A|b]] `c`")
+    }
+    @Test func aWikiLinkWithoutAliasIsItsTarget() {
+        #expect(MarkdownFacts.scan("# See [[Note#Part]] and [[#Here]]\n").headings.first?.plainText == "See Note and Here")
+    }
+}

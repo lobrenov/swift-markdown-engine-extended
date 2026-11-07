@@ -126,13 +126,13 @@ public final class SlashCommandProxy {
     /// Fork: formats the selection as the editor's formatting commands do, for iOS's formatting bar and the Mac's Format menu.
     public func apply(_ format: MarkdownFormat) {
         guard let coordinator = coordinator?.inputTarget, coordinator.textView != nil else { return }
-        switch format {
-        case .bold: coordinator.didMarkdownBold(nil)
-        case .italic: coordinator.didMarkdownItalic(nil)
-        case .highlight: coordinator.didMarkdownHighlight(nil)
-        case .strikethrough: coordinator.didMarkdownStrikethrough(nil)
-        case .inlineCode: coordinator.didMarkdownInlineCode(nil)
-        }
+        coordinator.toggle(format)
+    }
+
+    /// Fork: scrolls the editor so the 0-based `line` of its text is at the top of the visible area (the last line
+    /// at most), as scrolling by hand does: ``NativeTextViewWrapper/onVisibleTopLine`` reports it.
+    public func scroll(toLine line: Int) {
+        coordinator?.scroll(toLine: line)
     }
 }
 
@@ -142,6 +142,17 @@ public enum MarkdownFormat: Sendable {
 }
 
 extension NativeTextViewCoordinator {
+
+    /// Fork: toggles `format` on the selection, or on the word at the caret.
+    func toggle(_ format: MarkdownFormat) {
+        switch format {
+        case .bold: didMarkdownBold(nil)
+        case .italic: didMarkdownItalic(nil)
+        case .highlight: didMarkdownHighlight(nil)
+        case .strikethrough: didMarkdownStrikethrough(nil)
+        case .inlineCode: didMarkdownInlineCode(nil)
+        }
+    }
 
     /// Fork: the coordinator the embedder's commands act on: the table cell that has the keyboard, else this one.
     var inputTarget: NativeTextViewCoordinator {
@@ -263,7 +274,7 @@ extension NativeTextViewCoordinator {
     }
 
     /// A slash command that leaves the caret straight after a `[[` or `![[` opens that link or embed query.
-    private func openLinkQuery(endingAt caret: Int, in tv: PlatformTextView) {
+    func openLinkQuery(endingAt caret: Int, in tv: PlatformTextView) {
         let text = tv.string as NSString
         guard tv.currentSelectedRange == NSRange(location: caret, length: 0), caret >= 2,
               text.substring(with: NSRange(location: caret - 2, length: 2)) == "[[",

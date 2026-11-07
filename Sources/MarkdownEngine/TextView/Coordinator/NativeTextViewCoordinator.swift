@@ -107,6 +107,10 @@ public final class NativeTextViewCoordinator: NSObject {
     /// Fork: slash commands (see `NativeTextViewCoordinator+SlashCommand`).
     var onSlashCommandChange: ((SlashCommandState?) -> Void)?
     var slashAnchor: Int?
+    /// Fork: see ``NativeTextViewWrapper/onVisibleTopLine`` (`+VisibleLine`).
+    var onVisibleTopLine: ((Int) -> Void)?
+    var reportedTopLine: Int?
+    var isTopLineReportPending = false
     var slashTrigger: SlashCommandState.Trigger = .slash
     /// True from a typed trigger until the end of its `shouldChangeText`.
     var isOpeningSlashCommand = false

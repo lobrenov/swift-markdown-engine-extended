@@ -14,6 +14,8 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var level: Int
         /// As written, without the `#` markers or a closing `#` run.
         public var text: String
+        /// `text` as plain text: markers, code ticks and escapes gone, a wiki link as its alias (else its target or heading).
+        public var plainText: String
     }
 
     public struct TaskItem: Hashable, Sendable {
@@ -198,7 +200,8 @@ private struct FactScanner {
                     if facts.summary == nil { facts.summary = plainText(inlines) }
                 }
             case .heading(let level, let range, _, let inlines):
-                facts.headings.append(.init(line: line(range.location), level: level, text: headingText(range)))
+                facts.headings.append(.init(line: line(range.location), level: level, text: headingText(range),
+                                             plainText: plainText(inlines, wikiLinkLabels: true)))
                 collect(inlines, region: range)
             case .blockquote(let range, let inlines, let items):
                 addCallouts(in: range)
@@ -767,7 +770,7 @@ private struct FactScanner {
         return string(NSRange(location: start, length: markers[1].location - start))
     }
 
-    private func plainText(_ nodes: [InlineNode]) -> String {
+    private func plainText(_ nodes: [InlineNode], wikiLinkLabels: Bool = false) -> String {
         var out = ""
         func walk(_ nodes: [InlineNode]) {
             for node in nodes {
@@ -781,6 +784,9 @@ private struct FactScanner {
                         from = NSMaxRange(inside)
                     }
                     out += Self.withoutHTML(string(NSRange(location: from, length: NSMaxRange(range) - from)))
+                case .wikiLink(let range, _, _, _) where wikiLinkLabels:
+                    let inner = String(string(range).dropFirst(2).dropLast(2))
+                    out += WikiLinkParts(inner: inner).map { $0.alias ?? ($0.target.isEmpty ? ($0.heading ?? $0.block ?? "") : $0.target) } ?? inner
                 case .wikiLink(let range, _, _, _), .imageEmbed(let range, _, _),
                      .tag(let range, _), .inlineLatex(let range, _, _):
                     out += string(range)

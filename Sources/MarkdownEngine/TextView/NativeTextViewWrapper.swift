@@ -174,6 +174,10 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     public var onImageEmbed: ((ImageEmbedRequest) -> Void)?
     /// Fork: a click on a drawn `#tag` (with `configuration.tags` set), with the tag as written, without `#`.
     public var onTagClick: ((String) -> Void)?
+    /// Fork: a right-click on text that no other menu takes, in place of the system menu. The embedder draws the menu.
+    public var onTextMenu: ((TextMenuRequest) -> Void)?
+    /// Fork: the 0-based line (of the editor's text) at the top of the visible area, reported as it changes while scrolling.
+    public var onVisibleTopLine: ((Int) -> Void)?
     /// Fork: inserts the chosen format or closes the slash command.
     public var slashCommandProxy: SlashCommandProxy?
 
@@ -212,7 +216,9 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         onCalloutMenu: ((CalloutMenuRequest) -> Void)? = nil,
         onImageEmbed: ((ImageEmbedRequest) -> Void)? = nil,
         onTagClick: ((String) -> Void)? = nil,
-        onRightClickMenu: ((RightClickMenuRequest) -> Void)? = nil
+        onRightClickMenu: ((RightClickMenuRequest) -> Void)? = nil,
+        onTextMenu: ((TextMenuRequest) -> Void)? = nil,
+        onVisibleTopLine: ((Int) -> Void)? = nil
     ) {
         self._text = text
         self._isWikiLinkActive = isWikiLinkActive
@@ -249,6 +255,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         self.onImageEmbed = onImageEmbed
         self.onTagClick = onTagClick
         self.onRightClickMenu = onRightClickMenu
+        self.onTextMenu = onTextMenu
+        self.onVisibleTopLine = onVisibleTopLine
     }
 
     public func sizeThatFits(
@@ -393,6 +401,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         context.coordinator.onDirectiveCompletion = onDirectiveCompletion
         context.coordinator.onCodeBlockSelectionChange = onCodeBlockSelectionChange
         context.coordinator.onSlashCommandChange = onSlashCommandChange
+        context.coordinator.onVisibleTopLine = onVisibleTopLine
         slashCommandProxy?.coordinator = context.coordinator
         context.coordinator.isFocused = isFocused
         textView.onFocusChange = { [weak coordinator = context.coordinator] focused in
@@ -454,6 +463,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             scrollView.clampToInsets()
             context.coordinator.refreshActiveLinkCaretRect()
             context.coordinator.updateCodeBlockSelection(textView: textView)
+            context.coordinator.reportVisibleTopLine()
         }
         reconcileHeader(textView: textView, context: context)
         return scrollView
@@ -473,6 +483,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.onImageEmbed = onImageEmbed
         textView.onTagClick = onTagClick
         textView.onRightClickMenu = onRightClickMenu
+        textView.onTextMenu = onTextMenu
+        context.coordinator.onVisibleTopLine = onVisibleTopLine
         reconcileHeader(textView: textView, context: context)
 
         let isNodeSwitch = context.coordinator.documentId != documentId

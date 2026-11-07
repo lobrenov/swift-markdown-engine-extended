@@ -31,6 +31,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     /// ↑/↓/↵/esc from a hardware keyboard while a slash, link, embed or tag query is open (on iOS only a query takes
     /// them). Return `true` to consume the key; esc closes the query in the engine.
     public var onInlinePreviewKey: ((InlinePreviewKey) -> Bool)?
+    /// Fork: the 0-based line (of the editor's text) at the top of the visible area, reported as it changes while scrolling.
+    public var onVisibleTopLine: ((Int) -> Void)?
     public var slashCommandProxy: SlashCommandProxy?
     /// A press and hold on a task box: the embedder shows the marker menu.
     public var onTaskMarkerMenu: ((TaskMarkerMenuRequest) -> Void)?
@@ -69,7 +71,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         keyboardBar: AnyView? = nil,
         onPasteImage: ((UIPasteboard) -> String?)? = nil,
         imageEmbedMenu: ((ImageEmbedRequest) -> UIMenu?)? = nil,
-        onTagClick: ((String) -> Void)? = nil
+        onTagClick: ((String) -> Void)? = nil,
+        onVisibleTopLine: ((Int) -> Void)? = nil
     ) {
         self._text = text
         self._isWikiLinkActive = isWikiLinkActive
@@ -91,6 +94,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.onPasteImage = onPasteImage
         self.imageEmbedMenu = imageEmbedMenu
         self.onTagClick = onTagClick
+        self.onVisibleTopLine = onVisibleTopLine
     }
 
     public func makeCoordinator() -> Coordinator {
@@ -147,6 +151,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.textView = textView
         coordinator.wikiLinkMetadata = initialState.metadata
         coordinator.onSlashCommandChange = onSlashCommandChange
+        coordinator.onVisibleTopLine = onVisibleTopLine
         coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = coordinator
         textView.onTaskMarkerMenu = onTaskMarkerMenu
@@ -176,6 +181,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         let coordinator = context.coordinator
         coordinator.refresh(text: $text, isWikiLinkActive: $isWikiLinkActive, onLinkClick: onLinkClick)
         coordinator.onSlashCommandChange = onSlashCommandChange
+        coordinator.onVisibleTopLine = onVisibleTopLine
         coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = coordinator
         textView.onTaskMarkerMenu = onTaskMarkerMenu

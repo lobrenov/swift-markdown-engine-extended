@@ -113,6 +113,8 @@ final class NativeTextView: NSTextView {
     var calloutMenuTarget: Int?
     /// Fork: see ``NativeTextViewWrapper/onRightClickMenu``.
     var onRightClickMenu: ((RightClickMenuRequest) -> Void)?
+    /// Fork: see ``NativeTextViewWrapper/onTextMenu``.
+    var onTextMenu: ((TextMenuRequest) -> Void)?
     /// Fork: see ``NativeTextViewWrapper/onImageEmbed``.
     var onImageEmbed: ((ImageEmbedRequest) -> Void)?
     /// Fork: see ``NativeTextViewWrapper/onTagClick``.
@@ -148,6 +150,10 @@ final class NativeTextView: NSTextView {
         if showImageEmbedMenuIfHit(event: event) { return nil }
         if let onCalloutMenu, let hit = calloutTitleHit(for: event) {
             showCalloutMenu(for: hit, onCalloutMenu)
+            return nil
+        }
+        if let onTextMenu, isEditable, let request = textMenuRequest(for: event) {
+            onTextMenu(request)
             return nil
         }
         return super.menu(for: event)

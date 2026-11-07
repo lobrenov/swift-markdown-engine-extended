@@ -82,7 +82,8 @@ extension NativeTextViewWrapper.Coordinator {
     /// Expands the given text location outward to the nearest alphanumeric
     /// + underscore word boundaries. Returns nil when no word characters
     /// are adjacent to the location.
-    private func wordRange(at location: Int, in nsText: NSString) -> NSRange? {
+    /// Fork: internal, for the text menu.
+    func wordRange(at location: Int, in nsText: NSString) -> NSRange? {
         guard location >= 0, location <= nsText.length else { return nil }
         let charSet = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_"))
         var start = location
