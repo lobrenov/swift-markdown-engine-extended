@@ -125,6 +125,17 @@ struct VisibleLineTests {
         #expect(rig.lines.last?.upperBound == 199)
     }
 
+    @Test(arguments: [false, true]) func theLastLineFollowsTheViewport(fits: Bool) async throws {
+        let rig = await ScrollRig(text: numbered(200), fits: fits)
+        let top = try #require(rig.lines.last)
+        #expect(top.lowerBound == 0 && top.upperBound >= 5 && top.upperBound < 40, "top \(top)")
+        rig.proxy.scroll(toLine: 100)
+        await rig.settle()
+        let middle = try #require(rig.lines.last)
+        #expect(middle.lowerBound == 100 && middle.upperBound >= 105 && middle.upperBound < 140, "middle \(middle)")
+        #expect(middle.count == top.count || abs(middle.count - top.count) <= 2)
+    }
+
     @Test func eachChangeReportsOnce() async throws {
         let rig = await ScrollRig(text: numbered(200))
         rig.proxy.scroll(toLine: 50)
@@ -146,8 +157,8 @@ struct VisibleLineTests {
         #expect(rig.lines.last?.lowerBound == heading.line)
     }
 
-    @Test func switchingDocumentsReports() async throws {
-        let rig = await ScrollRig(text: numbered(200))
+    @Test(arguments: [false, true]) func switchingDocumentsReports(fits: Bool) async throws {
+        let rig = await ScrollRig(text: numbered(200), fits: fits)
         rig.proxy.scroll(toLine: 100)
         await rig.settle()
         #expect(rig.lines.last?.lowerBound == 100)
@@ -156,7 +167,27 @@ struct VisibleLineTests {
         rig.model.documentId = "b"
         await rig.settle()
         #expect(rig.lines.count > count)
-        #expect(rig.lines.last?.lowerBound == 0)
+        let switched = try #require(rig.lines.last)
+        // The page keeps its scroll position in `.fitsContent`; the editor's own scroll view opens at the top.
+        #expect(fits || switched.lowerBound == 0)
+        #expect(switched.count >= 5 && switched.count < 40, "after the switch \(switched)")
+    }
+
+    @Test(arguments: [false, true]) func switchingToALongerDocumentReportsItsViewport(fits: Bool) async throws {
+        let rig = await ScrollRig(text: "short\n", fits: fits)
+        rig.model.text = numbered(300, prefix: "Longer")
+        rig.model.documentId = "b"
+        await rig.settle()
+        let last = try #require(rig.lines.last)
+        #expect(last.lowerBound == 0 && last.upperBound >= 5 && last.upperBound < 40, "\(last)")
+    }
+
+    @Test(arguments: [false, true]) func editingTheTextReportsTheViewportAgain(fits: Bool) async throws {
+        let rig = await ScrollRig(text: "short\n", fits: fits)
+        rig.model.text = numbered(300, prefix: "Longer")
+        await rig.settle()
+        let last = try #require(rig.lines.last)
+        #expect(last.lowerBound == 0 && last.upperBound >= 5 && last.upperBound < 40, "\(last)")
     }
 }
 #endif
@@ -216,6 +247,18 @@ struct VisibleLineTests {
         #expect(box.lines.last?.upperBound == 199)
     }
 
+    @Test(arguments: [false, true]) func theLastLineFollowsTheViewport(fits: Bool) async throws {
+        let box = Box()
+        let harness = try harness(numbered(200), fits: fits, box)
+        await harness.settle()
+        let top = try #require(box.lines.last)
+        #expect(top.lowerBound == 0 && top.upperBound >= 5 && top.upperBound < 40, "top \(top)")
+        harness.proxy.scroll(toLine: 100)
+        await harness.settle()
+        let middle = try #require(box.lines.last)
+        #expect(middle.lowerBound == 100 && middle.upperBound >= 105 && middle.upperBound < 140, "middle \(middle)")
+    }
+
     @Test(arguments: [false, true]) func linesFollowTheParsersLineTerminators(fits: Bool) async throws {
         let box = Box()
         let harness = try harness(mixedTerminators, fits: fits, box)
@@ -226,6 +269,18 @@ struct VisibleLineTests {
         harness.proxy.scroll(toLine: heading.line)
         await harness.settle()
         #expect(box.lines.last?.lowerBound == heading.line)
+    }
+}
+#endif
+
+#if os(macOS)
+@MainActor
+@Suite("Fork — visible lines in a long document")
+struct LongVisibleLineTests {
+    @Test func aLongDocumentReportsTheViewport() async throws {
+        let rig = await ScrollRig(text: numbered(6000, prefix: "Some longer line of text that holds more words, line"), fits: true)
+        let top = try #require(rig.lines.last)
+        #expect(top.lowerBound == 0 && top.upperBound < 40, "top \(top)")
     }
 }
 #endif

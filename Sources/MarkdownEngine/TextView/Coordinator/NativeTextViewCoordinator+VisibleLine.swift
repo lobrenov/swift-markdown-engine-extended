@@ -20,24 +20,31 @@ typealias TopLineScroller = UIScrollView
 /// Watches a scroller's offset and reports the coordinator's top line when it changes.
 final class TopLineObservation {
     weak var scroller: TopLineScroller?
-    private var token: Any?
+    private var tokens: [Any] = []
 
-    init(scroller: TopLineScroller, coordinator: NativeTextViewCoordinator) {
+    /// Reports when the scroller scrolls or the text view is resized: a text view that grows as its text lays out
+    /// moves the bottom edge's line without the scroller moving.
+    init(scroller: TopLineScroller, textView: PlatformTextView, coordinator: NativeTextViewCoordinator) {
         self.scroller = scroller
         #if os(macOS)
         let clip = scroller.contentView
         clip.postsBoundsChangedNotifications = true
-        token = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: nil) {
-            [weak coordinator] _ in coordinator?.reportVisibleLines()
+        textView.postsFrameChangedNotifications = true
+        for (name, object) in [(NSView.boundsDidChangeNotification, clip as NSView), (NSView.frameDidChangeNotification, textView)] {
+            tokens.append(NotificationCenter.default.addObserver(forName: name, object: object, queue: nil) {
+                [weak coordinator] _ in coordinator?.reportVisibleLines()
+            })
         }
         #else
-        token = scroller.observe(\.contentOffset, options: []) { [weak coordinator] _, _ in coordinator?.reportVisibleLines() }
+        tokens.append(scroller.observe(\.contentOffset, options: []) { [weak coordinator] _, _ in coordinator?.reportVisibleLines() })
+        tokens.append(textView.observe(\.contentSize, options: []) { [weak coordinator] _, _ in coordinator?.reportVisibleLines() })
+        tokens.append(textView.observe(\.bounds, options: []) { [weak coordinator] _, _ in coordinator?.reportVisibleLines() })
         #endif
     }
 
     deinit {
         #if os(macOS)
-        if let token { NotificationCenter.default.removeObserver(token) }
+        tokens.forEach(NotificationCenter.default.removeObserver(_:))
         #endif
     }
 }
@@ -69,9 +76,10 @@ extension NativeTextViewCoordinator {
             return
         }
         let scroller = topLineScroller
+        // Every update: the text may have changed, and with it the lines in view.
+        defer { reportVisibleLines() }
         guard topLineObservation?.scroller !== scroller else { return }
-        topLineObservation = scroller.map { TopLineObservation(scroller: $0, coordinator: self) }
-        reportVisibleLines()
+        topLineObservation = textView.flatMap { tv in scroller.map { TopLineObservation(scroller: $0, textView: tv, coordinator: self) } }
     }
 
     /// The top and bottom of the scroller's visible area (inside its insets) in the text view's coordinates.
