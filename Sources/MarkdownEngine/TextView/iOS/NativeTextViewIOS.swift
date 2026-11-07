@@ -136,7 +136,14 @@ final class NativeTextView: UITextView {
     }
 
     override var typingAttributes: [NSAttributedString.Key: Any] {
-        get { baseTypingAttributes ?? super.typingAttributes }
+        // Fork: in the font of the text at the caret, so an inline prediction matches what it completes.
+        get {
+            guard var attributes = baseTypingAttributes else { return super.typingAttributes }
+            if let base = attributes[.font] as? PlatformFont {
+                attributes[.font] = TextStylingService.typingFont(at: selectedRange.location, in: textStorage, base: base)
+            }
+            return attributes
+        }
         set { super.typingAttributes = baseTypingAttributes ?? newValue }
     }
 

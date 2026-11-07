@@ -34,6 +34,17 @@ struct TextStylingService {
         ]
     }
 
+    /// Fork: the font text typed at `caret` shows in (an inline prediction, say): the visible
+    /// character before it on its line, else `base`.
+    static func typingFont(at caret: Int, in storage: NSAttributedString?, base: PlatformFont) -> PlatformFont {
+        guard let storage, caret > 0, caret <= storage.length else { return base }
+        let previous = (storage.string as NSString).character(at: caret - 1)
+        guard previous != 0x0A, previous != 0x0D,
+              let font = storage.attribute(.font, at: caret - 1, effectiveRange: nil) as? PlatformFont,
+              font.pointSize >= base.pointSize / 2 else { return base }
+        return font
+    }
+
     static func makeBaseFontAndStyle(
         fontName: String,
         fontSize: CGFloat,

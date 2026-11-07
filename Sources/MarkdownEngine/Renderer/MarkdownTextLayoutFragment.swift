@@ -804,9 +804,9 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
                         .applying(PlatformImage.SymbolConfiguration(hierarchicalColor: theme.bodyText))
                     let symbol = base.withSymbolConfiguration(symbolConfig) ?? base
                     let markerWidth = (raw as NSString).size(withAttributes: [.font: font]).width
-                    // Centred on the marker slot and on the x-height, like the `•` it replaces.
+                    // Centred on the marker slot and on the cap height.
                     let centerX = pos.x + markerWidth / 2
-                    let centerY = pos.baselineY - font.xHeight / 2
+                    let centerY = pos.baselineY - font.capHeight / 2
                     symbol.draw(in: CGRect(x: centerX - symbol.size.width / 2, y: centerY - symbol.size.height / 2,
                                            width: symbol.size.width, height: symbol.size.height))
                     return
@@ -878,7 +878,9 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
             // is collapsed, so raw glyphs would overlap the content — raw
             // reveal stays caret-based (taskRevealed in the styler).
             let marker = (value as? String)?.first ?? " "
-            guard let pos = drawPosition(forDocumentCharAt: attrRange.location, point: point) else { return }
+            // Fork: anchored inside the box: the kerned spacer before `[` puts `[`'s offset half a kern early.
+            guard let pos = drawPosition(forDocumentCharAt: attrRange.location + min(1, attrRange.length - 1),
+                                         point: point) else { return }
 
             // Box collapsed to 0.1pt, so pos.x sits at the content edge; the
             // square is right-aligned to it (shared with the click hit-test).

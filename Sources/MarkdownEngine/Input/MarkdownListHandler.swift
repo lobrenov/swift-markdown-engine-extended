@@ -44,6 +44,29 @@ struct MarkdownLists {
         #endif
     }
 
+    /// Fork: inserts a space after a bare `-` or `+` bullet (the caret right after the marker, which
+    /// carries `.bulletMarker`), then the typed character through the usual input handling.
+    /// A space, tab, line break, `-`, `+`, `*` or `>` is typed as it is.
+    private static func spaceAfterBareBullet(_ textView: PlatformTextView, range: NSRange, replacement: String,
+                                             isInsideCodeBlock: Bool?) -> Bool {
+        guard range.length == 0, range.location > 0, replacement.count == 1, let typed = replacement.first,
+              !" \t\n\r-+*>".contains(typed),
+              let storage = textView.optionalTextStorage, range.location <= storage.length,
+              storage.attribute(.bulletMarker, at: range.location - 1, effectiveRange: nil) as? Bool == true
+        else { return false }
+        let marker = (storage.string as NSString).character(at: range.location - 1)
+        guard marker == 0x2D || marker == 0x2B else { return false }
+        performEdit(textView, replace: range, with: " ")
+        let after = NSRange(location: range.location + 1, length: 0)
+        textView.setSelectedRange(after)
+        if handleInsertion(textView: textView, affectedCharRange: after, replacementString: replacement,
+                           isInsideCodeBlock: isInsideCodeBlock) {
+            performEdit(textView, replace: after, with: replacement)
+            textView.setSelectedRange(NSRange(location: after.location + replacement.utf16.count, length: 0))
+        }
+        return true
+    }
+
     // Markers: `-`/`*`/`+` (raw Markdown) + legacy `•` (rendered, never typed).
     static let listRegex = try! NSRegularExpression(
         pattern: #"^\s*((?:(\d+)\.|[-•*+])(?:\s+"# + TaskMarker.boxPattern + #")?\s+)"#
@@ -112,6 +135,12 @@ struct MarkdownLists {
     /// falls back to deriving it here, which walks the whole document.
     static func handleInsertion(textView: PlatformTextView, affectedCharRange: NSRange, replacementString: String?, isInsideCodeBlock: Bool? = nil) -> Bool {
         guard let replacementString = replacementString else { return true }
+
+        // Fork: a character typed straight after a bare `-` or `+` drawn as a bullet goes in after a space.
+        if spaceAfterBareBullet(textView, range: affectedCharRange, replacement: replacementString,
+                                isInsideCodeBlock: isInsideCodeBlock) {
+            return false
+        }
 
         // Fast path: plain characters never trigger list/pair/arrow handling.
         if replacementString.count == 1,

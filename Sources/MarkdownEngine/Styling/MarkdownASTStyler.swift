@@ -469,7 +469,8 @@ enum MarkdownASTStyler {
             // the font's natural height: the content height flipped 26 ↔ 24
             // as the line crossed in and out of being a task item, and the
             // text below jumped by those 2pt on the way.
-            let room = taskSlotExtra(markerWidth: markerWidth, ctx: ctx)
+            let room = max(0, TaskCheckboxGeometry.size(for: ctx.baseFont, style: ctx.config.taskCheckbox)
+                + ctx.config.taskCheckbox.contentGap - markerWidth)
             ps.minimumLineHeight = ctx.baseLineHeight + ctx.config.paragraph.lineHeightExtraSpacing
             ps.lineSpacing = 0
             ps.paragraphSpacing = ctx.baseParagraphSpacing
@@ -503,25 +504,40 @@ enum MarkdownASTStyler {
                 NSTextTab(textAlignment: .left, location: quote.indent + CGFloat($0) * ctx.config.lists.indentPerLevel)
             }
         }
-        ps.firstLineHeadIndent = quoteIndent + ctx.config.lists.indentPerLevel - (quote?.markerWidth ?? 0)
+        // Fork: `firstLevelIndent` replaces the first level's indent outside quotes; each tab still nests one level.
+        let firstIndent = quote == nil ? ctx.config.lists.firstLevelIndent ?? ctx.config.lists.indentPerLevel
+            : ctx.config.lists.indentPerLevel
+        if quote == nil, firstIndent != ctx.config.lists.indentPerLevel {
+            ps.tabStops = (1...12).map {
+                NSTextTab(textAlignment: .left, location: firstIndent + CGFloat($0) * ctx.config.lists.indentPerLevel)
+            }
+        }
+        ps.firstLineHeadIndent = quoteIndent + firstIndent - (quote?.markerWidth ?? 0)
         // Wrapped lines hang under the first line's content (indent + marker
         // width). No checkbox-specific extra: the box is a drawn overlay that
         // doesn't change text advance, so adding it here (and only here, not to
         // firstLineHeadIndent) shifted an unchecked task's wrapped lines right
         // of its first line.
-        ps.headIndent = quoteIndent + ctx.config.lists.indentPerLevel + depthIndent + markerWidth
-            + (item.checkbox != nil && !taskRevealed ? taskSlotExtra(markerWidth: markerWidth, ctx: ctx) : 0)
+        ps.headIndent = quoteIndent + firstIndent + depthIndent + markerWidth
+            + (item.checkbox != nil && !taskRevealed ? taskSlotExtra(item, markerWidth: markerWidth, ctx: ctx) : 0)
         attrs.append((line, [.paragraphStyle: ps]))
 
         // 2. Marker decoration (suppressed while the caret edits the syntax).
         if let box = item.checkbox {
             if taskRevealed { return }
-            styleTaskMarker(item, box: box, slotExtra: taskSlotExtra(markerWidth: markerWidth, ctx: ctx), ctx: ctx, into: &attrs)
+            styleTaskMarker(item, box: box, slotExtra: taskSlotExtra(item, markerWidth: markerWidth, ctx: ctx), ctx: ctx, into: &attrs)
         } else if !item.ordered {
             let syntax = NSRange(location: item.marker.location,
                                  length: item.contentRange.location - item.marker.location)
             if NSLocationInRange(ctx.caret, syntax) { return }
-            attrs.append((item.marker, [.bulletMarker: true, .foregroundColor: PlatformColor.clear]))
+            var markerAttrs: [NSAttributedString.Key: Any] = [.bulletMarker: true, .foregroundColor: PlatformColor.clear]
+            // Fork: a bare `-` or `+` ends a space wider, so the caret after it sits where typing
+            // (which adds the space) puts the text.
+            if NSMaxRange(item.marker) == NSMaxRange(line),
+               ["-", "+"].contains(ctx.ns.substring(with: item.marker)) {
+                markerAttrs[.kern] = HeadingHelpers.textWidth(" ", font: ctx.baseFont)
+            }
+            attrs.append((item.marker, markerAttrs))
         } else if orderedOverlayActive, let displayNumber {
             // Hide the ENTIRE source marker (digits + dot) as one unit and paint
             // the whole display marker "N." over it, so the dot travels with the
@@ -556,11 +572,13 @@ enum MarkdownASTStyler {
         }
     }
 
-    /// Fork: extra advance a hidden task item's `- ` slot needs to fit the box plus its gap.
-    private static func taskSlotExtra(markerWidth: CGFloat, ctx: Ctx) -> CGFloat {
+    /// Fork: extra advance a hidden task item's `- ` slot needs to centre the box on the bullet's
+    /// slot (the list marker character) with its gap before the text.
+    private static func taskSlotExtra(_ item: ListItem, markerWidth: CGFloat, ctx: Ctx) -> CGFloat {
         let style = ctx.config.taskCheckbox
         let box = TaskCheckboxGeometry.size(for: ctx.baseFont, style: style)
-        return max(0, box + style.contentGap - markerWidth)
+        let marker = HeadingHelpers.textWidth(ctx.ns.substring(with: item.marker), font: ctx.baseFont)
+        return max(0, marker / 2 + box / 2 + style.contentGap - markerWidth)
     }
 
     /// A task item's own decoration, shared by both geometries: hide `- [ ] `,

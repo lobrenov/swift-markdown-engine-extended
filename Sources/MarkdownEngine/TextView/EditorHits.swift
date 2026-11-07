@@ -41,7 +41,10 @@ extension NativeTextView {
         var hit: (range: NSRange, marker: Character, rect: CGRect)?
         storage.enumerateAttribute(.taskCheckbox, in: scan, options: []) { value, attrRange, stop in
             guard let marker = (value as? String)?.first else { return }
-            let anchor = bridge.boundingRect(forCharacterRange: attrRange, in: textContainer)
+            // Fork: anchored inside the box, as drawn: the kerned spacer before `[` puts `[` half a kern early.
+            let inside = min(1, attrRange.length - 1)
+            let anchor = bridge.boundingRect(forCharacterRange: NSRange(location: attrRange.location + inside,
+                                                                        length: attrRange.length - inside), in: textContainer)
             let rect = CGRect(
                 x: TaskCheckboxGeometry.boxX(contentX: anchor.minX, size: boxSize, style: style),
                 y: anchor.minY,

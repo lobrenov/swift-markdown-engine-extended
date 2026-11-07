@@ -401,12 +401,11 @@ struct TaskCheckboxGeometryStylerTests {
         #expect(font(in: attrs, at: 0)?.pointSize != hiddenSize)
         #expect(font(in: attrs, at: 1)?.pointSize != hiddenSize)
 
-        // Fork: the "- " slot widens to fit the box plus its gap, so wrapped
-        // lines hang under the content, which now starts right of a bullet's.
+        // Fork: the "- " slot widens so the box centres on the bullet's slot with its gap before the
+        // text, so wrapped lines hang under the content, which starts right of a bullet's.
         let taskIndent = headIndent(in: attrs, at: 0)
         let checkbox = TaskCheckboxStyle.default
-        let boxSlot = TaskCheckboxGeometry.size(for: PlatformFont(name: fontName, size: base) ?? .systemFont(ofSize: base),
-                                                style: checkbox) + checkbox.contentGap
+        let boxSlot = width("-") / 2 + TaskCheckboxGeometry.size(for: baseFont, style: checkbox) / 2 + checkbox.contentGap
         let expected = indentPerLevel + max(width("- "), boxSlot)
         #expect(taskIndent != nil)
         #expect(abs((taskIndent ?? -1) - expected) < 0.01)

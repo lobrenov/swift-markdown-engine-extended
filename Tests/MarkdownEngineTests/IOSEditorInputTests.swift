@@ -169,6 +169,22 @@ struct IOSEditorInputTests {
         #expect(offsets.lowest >= start - 1, "scrolled to \(offsets.lowest) from \(start)")
     }
 
+    @Test func typingAfterABareBulletAddsTheSpace() async throws {
+        let editor = try IOSEditorHarness("")
+        await editor.type("-")
+        await editor.type("a")
+        #expect(editor.textView.string == "- a")
+        #expect(editor.textView.selectedRange == NSRange(location: 3, length: 0))
+    }
+
+    @Test func theTypingFontFollowsAHeading() async throws {
+        let editor = try IOSEditorHarness("## Head\nBody")
+        editor.textView.selectedRange = NSRange(location: 7, length: 0)
+        #expect(((editor.textView.typingAttributes[.font] as? UIFont)?.pointSize ?? 0) > 17)
+        editor.textView.selectedRange = NSRange(location: 12, length: 0)
+        #expect((editor.textView.typingAttributes[.font] as? UIFont)?.pointSize == 17)
+    }
+
     @Test func anImageOnThePasteboardPastesAsAnEmbedOnItsOwnLine() async throws {
         let editor = try IOSEditorHarness("Shots:")
         var pasted = 0

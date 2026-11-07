@@ -343,6 +343,8 @@ public struct ListStyle: Sendable {
     public var autoCloseWikiLinksEnabled: Bool
     /// Indent (in points) that one nesting level adds to the list item.
     public var indentPerLevel: CGFloat
+    /// Fork: indent (in points) of a top-level list item outside quotes; nil is `indentPerLevel`.
+    public var firstLevelIndent: CGFloat?
     /// Maximum nesting level reachable by pressing Tab inside a list.
     public var maximumNestingLevel: Int
     /// Extra line height added on top of the default to give list items room.
@@ -359,6 +361,7 @@ public struct ListStyle: Sendable {
         autoCloseFormattingEnabled: Bool = false,
         autoCloseWikiLinksEnabled: Bool = true,
         indentPerLevel: CGFloat = 27.5,
+        firstLevelIndent: CGFloat? = nil,
         maximumNestingLevel: Int = 3,
         extraLineHeight: CGFloat = 2,
         bulletSymbolNames: [String] = ["circle.fill", "circle", "square.fill", "diamond.fill"],
@@ -369,6 +372,7 @@ public struct ListStyle: Sendable {
         self.autoCloseFormattingEnabled = autoCloseFormattingEnabled
         self.autoCloseWikiLinksEnabled = autoCloseWikiLinksEnabled
         self.indentPerLevel = indentPerLevel
+        self.firstLevelIndent = firstLevelIndent
         self.maximumNestingLevel = maximumNestingLevel
         self.extraLineHeight = extraLineHeight
         self.bulletSymbolNames = bulletSymbolNames

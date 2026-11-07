@@ -83,6 +83,9 @@ final class TableCellEditor {
         config.textInsets = TextInsets(horizontal: MarkdownStyler.TableLayout.cellHPadding,
                                        vertical: MarkdownStyler.TableLayout.cellVPadding)
         let font = cellFont(host.baseFont)
+        // Fork: a top-level item starts at the cell's text edge, with just the room its task box needs.
+        let box = TaskCheckboxGeometry.size(for: font, style: config.taskCheckbox)
+        config.lists.firstLevelIndent = ceil(max(0, box - HeadingHelpers.textWidth("-", font: font)) / 2)
         let fontKey = "\(font.fontName)|\(font.pointSize)"
         let changed = appliedTheme != theme || appliedWikiFingerprint != wiki || appliedFont != fontKey
             || appliedHeader != (row == 0)

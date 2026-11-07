@@ -61,7 +61,9 @@ extension NativeTextViewCoordinator: NSTextViewDelegate {
         } else {
             result[.paragraphStyle] = baseParagraphStyle
         }
-        result[.font] = baseFont
+        // Fork: the font of the text at the caret, so an inline prediction matches what it completes.
+        result[.font] = TextStylingService.typingFont(at: textView.selectedRange().location,
+                                                      in: textView.textStorage, base: baseFont)
         result[.foregroundColor] = configuration.theme.bodyText
         return result
     }
