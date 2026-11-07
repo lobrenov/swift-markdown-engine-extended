@@ -31,8 +31,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     /// ↑/↓/↵/esc from a hardware keyboard while a slash, link, embed or tag query is open (on iOS only a query takes
     /// them). Return `true` to consume the key; esc closes the query in the engine.
     public var onInlinePreviewKey: ((InlinePreviewKey) -> Bool)?
-    /// Fork: the 0-based line (of the editor's text) at the top of the visible area, reported as it changes while scrolling.
-    public var onVisibleTopLine: ((Int) -> Void)?
+    /// Fork: the 0-based first and last lines (of the editor's text) at least partly visible, reported as they change while
+    /// scrolling and after a document switch.
+    public var onVisibleLines: ((ClosedRange<Int>) -> Void)?
     public var slashCommandProxy: SlashCommandProxy?
     /// A press and hold on a task box: the embedder shows the marker menu.
     public var onTaskMarkerMenu: ((TaskMarkerMenuRequest) -> Void)?
@@ -72,7 +73,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         onPasteImage: ((UIPasteboard) -> String?)? = nil,
         imageEmbedMenu: ((ImageEmbedRequest) -> UIMenu?)? = nil,
         onTagClick: ((String) -> Void)? = nil,
-        onVisibleTopLine: ((Int) -> Void)? = nil
+        onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil
     ) {
         self._text = text
         self._isWikiLinkActive = isWikiLinkActive
@@ -94,7 +95,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.onPasteImage = onPasteImage
         self.imageEmbedMenu = imageEmbedMenu
         self.onTagClick = onTagClick
-        self.onVisibleTopLine = onVisibleTopLine
+        self.onVisibleLines = onVisibleLines
     }
 
     public func makeCoordinator() -> Coordinator {
@@ -151,7 +152,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.textView = textView
         coordinator.wikiLinkMetadata = initialState.metadata
         coordinator.onSlashCommandChange = onSlashCommandChange
-        coordinator.onVisibleTopLine = onVisibleTopLine
+        coordinator.onVisibleLines = onVisibleLines
         coordinator.observeTopLineScroller()
         coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = coordinator
@@ -182,7 +183,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         let coordinator = context.coordinator
         coordinator.refresh(text: $text, isWikiLinkActive: $isWikiLinkActive, onLinkClick: onLinkClick)
         coordinator.onSlashCommandChange = onSlashCommandChange
-        coordinator.onVisibleTopLine = onVisibleTopLine
+        coordinator.onVisibleLines = onVisibleLines
         coordinator.observeTopLineScroller()
         coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = coordinator
@@ -281,8 +282,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         if isNodeSwitch {
             let saved = coordinator.scrollOffsets[documentId] ?? -textView.adjustedContentInset.top
             textView.setContentOffset(CGPoint(x: 0, y: saved), animated: false)
-            coordinator.reportedTopLine = nil
-            coordinator.reportVisibleTopLine()
+            coordinator.reportedLines = nil
+            coordinator.reportVisibleLines()
         }
         coordinator.didInitialFormatting = true
     }

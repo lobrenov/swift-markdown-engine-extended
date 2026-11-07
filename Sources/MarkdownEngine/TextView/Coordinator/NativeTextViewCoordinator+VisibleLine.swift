@@ -2,8 +2,8 @@
 //  NativeTextViewCoordinator+VisibleLine.swift
 //  MarkdownEngine
 //
-//  Fork: the line at the top of the visible area, reported while scrolling
-//  (`onVisibleTopLine`), and scrolling a line to the top (`SlashCommandProxy.scroll(toLine:)`).
+//  Fork: the lines at least partly visible, reported while scrolling
+//  (`onVisibleLines`), and scrolling a line to the top (`SlashCommandProxy.scroll(toLine:)`).
 //  Lines are the 0-based lines of the editor's text, split as the block parser splits them (`\n`, `\r\n`, `\r`,
 //  U+2028, U+2029, U+0085). The scroller is the editor's own scroll view, or with `.fitsContent` the nearest
 //  ancestor scroll view.
@@ -28,10 +28,10 @@ final class TopLineObservation {
         let clip = scroller.contentView
         clip.postsBoundsChangedNotifications = true
         token = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: nil) {
-            [weak coordinator] _ in coordinator?.reportVisibleTopLine()
+            [weak coordinator] _ in coordinator?.reportVisibleLines()
         }
         #else
-        token = scroller.observe(\.contentOffset, options: []) { [weak coordinator] _, _ in coordinator?.reportVisibleTopLine() }
+        token = scroller.observe(\.contentOffset, options: []) { [weak coordinator] _, _ in coordinator?.reportVisibleLines() }
         #endif
     }
 
@@ -62,48 +62,56 @@ extension NativeTextViewCoordinator {
         #endif
     }
 
-    /// Follows the current scroller while `onVisibleTopLine` is set; called on updates and when the editor joins a window.
+    /// Follows the current scroller while `onVisibleLines` is set; called on updates and when the editor joins a window.
     func observeTopLineScroller() {
-        guard onVisibleTopLine != nil else {
+        guard onVisibleLines != nil else {
             topLineObservation = nil
             return
         }
         let scroller = topLineScroller
         guard topLineObservation?.scroller !== scroller else { return }
         topLineObservation = scroller.map { TopLineObservation(scroller: $0, coordinator: self) }
-        reportVisibleTopLine()
+        reportVisibleLines()
     }
 
-    /// The top of the scroller's visible area (below its top inset) in the text view's coordinates.
-    private var visibleTop: CGFloat? {
+    /// The top and bottom of the scroller's visible area (inside its insets) in the text view's coordinates.
+    private var visibleEdges: (top: CGFloat, bottom: CGFloat)? {
         guard let tv = textView, let scroller = topLineScroller else { return nil }
         #if os(macOS)
         let clip = scroller.contentView
-        let inset = scroller.contentInsets.top
-        let y = clip.isFlipped ? clip.bounds.minY + inset + 1 : clip.bounds.maxY - inset - 1
-        return tv.convert(CGPoint(x: clip.bounds.minX, y: y), from: clip).y
+        let (top, bottom) = (scroller.contentInsets.top + 1, scroller.contentInsets.bottom + 1)
+        let (topY, bottomY) = clip.isFlipped ? (clip.bounds.minY + top, clip.bounds.maxY - bottom)
+                                             : (clip.bounds.maxY - top, clip.bounds.minY + bottom)
+        let x = clip.bounds.minX
+        return (tv.convert(CGPoint(x: x, y: topY), from: clip).y, tv.convert(CGPoint(x: x, y: bottomY), from: clip).y)
         #else
-        return tv.convert(CGPoint(x: 0, y: scroller.bounds.minY + scroller.adjustedContentInset.top + 1), from: scroller).y
+        let top = scroller.bounds.minY + scroller.adjustedContentInset.top + 1
+        let bottom = scroller.bounds.maxY - scroller.adjustedContentInset.bottom - 1
+        return (tv.convert(CGPoint(x: 0, y: top), from: scroller).y, tv.convert(CGPoint(x: 0, y: bottom), from: scroller).y)
         #endif
     }
 
-    /// The top visible line, or nil without a text view or scroller.
-    var visibleTopLine: Int? {
-        guard let tv = textView, let y = visibleTop else { return nil }
-        let index = tv.characterIndex(atViewPoint: CGPoint(x: tv.textContainerOrigin.x + 1, y: y))
-        return lineIndex(at: index, in: tv.string as NSString)
+    /// The first and last lines at least partly visible, or nil without a text view or scroller.
+    var visibleLines: ClosedRange<Int>? {
+        guard let tv = textView, let edges = visibleEdges else { return nil }
+        let text = tv.string as NSString
+        func line(_ y: CGFloat) -> Int {
+            lineIndex(at: tv.characterIndex(atViewPoint: CGPoint(x: tv.textContainerOrigin.x + 1, y: y)), in: text)
+        }
+        let first = line(edges.top)
+        return first...max(first, line(edges.bottom))
     }
 
-    /// Reports the top visible line to `onVisibleTopLine` once the current run-loop turn ends, when it has changed.
-    func reportVisibleTopLine() {
-        guard onVisibleTopLine != nil, !isTopLineReportPending else { return }
-        isTopLineReportPending = true
+    /// Reports the visible lines to `onVisibleLines` once the current run-loop turn ends, when it has changed.
+    func reportVisibleLines() {
+        guard onVisibleLines != nil, !isLinesReportPending else { return }
+        isLinesReportPending = true
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            isTopLineReportPending = false
-            guard let onVisibleTopLine, let line = visibleTopLine, line != reportedTopLine else { return }
-            reportedTopLine = line
-            onVisibleTopLine(line)
+            isLinesReportPending = false
+            guard let onVisibleLines, let lines = visibleLines, lines != reportedLines else { return }
+            reportedLines = lines
+            onVisibleLines(lines)
         }
     }
 

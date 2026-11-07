@@ -2,7 +2,7 @@
 //  VisibleLineTests.swift
 //  MarkdownEngineTests
 //
-//  Fork: `onVisibleTopLine` and `SlashCommandProxy.scroll(toLine:)` (FORK.md #35).
+//  Fork: `onVisibleLines` and `SlashCommandProxy.scroll(toLine:)` (FORK.md #35).
 //
 
 import SwiftUI
@@ -30,7 +30,7 @@ import Observation
 private final class Model {
     var documentId = "a"
     var text: String
-    var lines: [Int] = []
+    var lines: [ClosedRange<Int>] = []
     init(text: String) { self.text = text }
 }
 
@@ -44,7 +44,7 @@ private struct Root: View {
         configuration.heightBehavior = fits ? .fitsContent : .scrolls
         let editor = NativeTextViewWrapper(
             text: Binding(get: { model.text }, set: { model.text = $0 }), configuration: configuration,
-            documentId: model.documentId, slashCommandProxy: proxy, onVisibleTopLine: { model.lines.append($0) })
+            documentId: model.documentId, slashCommandProxy: proxy, onVisibleLines: { model.lines.append($0) })
         return fits ? AnyView(ScrollView { editor }) : AnyView(editor)
     }
 }
@@ -55,7 +55,7 @@ private final class ScrollRig {
     let proxy = SlashCommandProxy()
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 300), styleMask: [.borderless], backing: .buffered, defer: false)
     var scrollView: NSScrollView!
-    var lines: [Int] { model.lines }
+    var lines: [ClosedRange<Int>] { model.lines }
 
     init(text: String, fits: Bool = false) async {
         _ = NSApplication.shared
@@ -95,31 +95,34 @@ struct VisibleLineTests {
         let rig = await ScrollRig(text: numbered(200), fits: fits)
         let lineHeight = try #require(rig.scrollView.documentView).bounds.height / 200
         await rig.scroll(to: lineHeight * 60)
-        let reported = try #require(rig.lines.last)
+        let reported = try #require(rig.lines.last?.lowerBound)
         #expect(abs(reported - 60) <= 3, "reported \(reported)")
         await rig.scroll(to: 0)
-        #expect(rig.lines.last == 0)
+        #expect(rig.lines.last?.lowerBound == 0)
     }
 
     @Test(arguments: [false, true]) func scrollToLinePutsTheLineAtTheTopAndReportsIt(fits: Bool) async throws {
         let rig = await ScrollRig(text: numbered(200), fits: fits)
         rig.proxy.scroll(toLine: 120)
         await rig.settle()
-        #expect(rig.lines.last == 120)
+        #expect(rig.lines.last?.lowerBound == 120)
+        let visible = try #require(rig.lines.last)
+        #expect(visible.count > 3 && visible.count < 40, "\(visible)")
         rig.proxy.scroll(toLine: 5)
         await rig.settle()
-        #expect(rig.lines.last == 5)
+        #expect(rig.lines.last?.lowerBound == 5)
         rig.proxy.scroll(toLine: 0)
         await rig.settle()
-        #expect(rig.lines.last == 0)
+        #expect(rig.lines.last?.lowerBound == 0)
     }
 
     @Test(arguments: [false, true]) func aLinePastTheEndClampsToTheEnd(fits: Bool) async throws {
         let rig = await ScrollRig(text: numbered(200), fits: fits)
         rig.proxy.scroll(toLine: 10_000)
         await rig.settle()
-        let reported = try #require(rig.lines.last)
+        let reported = try #require(rig.lines.last?.lowerBound)
         #expect(reported > 150 && reported <= 200)
+        #expect(rig.lines.last?.upperBound == 199)
     }
 
     @Test func eachChangeReportsOnce() async throws {
@@ -140,20 +143,20 @@ struct VisibleLineTests {
         #expect(coordinator.lineIndex(at: (text as NSString).range(of: "## Target").location, in: text as NSString) == heading.line)
         rig.proxy.scroll(toLine: heading.line)
         await rig.settle()
-        #expect(rig.lines.last == heading.line)
+        #expect(rig.lines.last?.lowerBound == heading.line)
     }
 
     @Test func switchingDocumentsReports() async throws {
         let rig = await ScrollRig(text: numbered(200))
         rig.proxy.scroll(toLine: 100)
         await rig.settle()
-        #expect(rig.lines.last == 100)
+        #expect(rig.lines.last?.lowerBound == 100)
         let count = rig.lines.count
         rig.model.text = numbered(200, prefix: "Other")
         rig.model.documentId = "b"
         await rig.settle()
         #expect(rig.lines.count > count)
-        #expect(rig.lines.last == 0)
+        #expect(rig.lines.last?.lowerBound == 0)
     }
 }
 #endif
@@ -165,11 +168,11 @@ import UIKit
 @Suite("Fork — visible top line", .serialized)
 struct VisibleLineTests {
 
-    private final class Box { var lines: [Int] = [] }
+    private final class Box { var lines: [ClosedRange<Int>] = [] }
 
     private func harness(_ text: String, fits: Bool, _ box: Box) throws -> IOSEditorHarness {
         let harness = try IOSEditorHarness(text, configure: { if fits { $0.heightBehavior = .fitsContent } },
-                                           onVisibleTopLine: { box.lines.append($0) })
+                                           onVisibleLines: { box.lines.append($0) })
         // UIKit scrolls an ancestor to a focused editor's caret.
         harness.textView.resignFirstResponder()
         harness.textView.selectedRange = NSRange(location: 0, length: 0)
@@ -186,7 +189,7 @@ struct VisibleLineTests {
         box.lines = []
         scroller.setContentOffset(CGPoint(x: 0, y: lineHeight * 60 - scroller.adjustedContentInset.top), animated: false)
         await harness.settle()
-        let reported = try #require(box.lines.last)
+        let reported = try #require(box.lines.last?.lowerBound)
         #expect(abs(reported - 60) <= 8, "reported \(reported)")
     }
 
@@ -195,10 +198,12 @@ struct VisibleLineTests {
         let harness = try harness(numbered(200), fits: fits, box)
         harness.proxy.scroll(toLine: 120)
         await harness.settle()
-        #expect(box.lines.last == 120)
+        #expect(box.lines.last?.lowerBound == 120)
+        let visible = try #require(box.lines.last)
+        #expect(visible.count > 3 && visible.count < 40, "\(visible)")
         harness.proxy.scroll(toLine: 0)
         await harness.settle()
-        #expect(box.lines.last == 0)
+        #expect(box.lines.last?.lowerBound == 0)
     }
 
     @Test(arguments: [false, true]) func aLinePastTheEndClampsToTheEnd(fits: Bool) async throws {
@@ -206,8 +211,9 @@ struct VisibleLineTests {
         let harness = try harness(numbered(200), fits: fits, box)
         harness.proxy.scroll(toLine: 10_000)
         await harness.settle()
-        let reported = try #require(box.lines.last)
+        let reported = try #require(box.lines.last?.lowerBound)
         #expect(reported > 150 && reported <= 200)
+        #expect(box.lines.last?.upperBound == 199)
     }
 
     @Test(arguments: [false, true]) func linesFollowTheParsersLineTerminators(fits: Bool) async throws {
@@ -219,7 +225,7 @@ struct VisibleLineTests {
         #expect(coordinator.lineIndex(at: (text as NSString).range(of: "## Target").location, in: text as NSString) == heading.line)
         harness.proxy.scroll(toLine: heading.line)
         await harness.settle()
-        #expect(box.lines.last == heading.line)
+        #expect(box.lines.last?.lowerBound == heading.line)
     }
 }
 #endif

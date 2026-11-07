@@ -176,8 +176,9 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     public var onTagClick: ((String) -> Void)?
     /// Fork: a right-click on text that no other menu takes, in place of the system menu. The embedder draws the menu.
     public var onTextMenu: ((TextMenuRequest) -> Void)?
-    /// Fork: the 0-based line (of the editor's text) at the top of the visible area, reported as it changes while scrolling.
-    public var onVisibleTopLine: ((Int) -> Void)?
+    /// Fork: the 0-based first and last lines (of the editor's text) at least partly visible, reported as they change while
+    /// scrolling and after a document switch.
+    public var onVisibleLines: ((ClosedRange<Int>) -> Void)?
     /// Fork: inserts the chosen format or closes the slash command.
     public var slashCommandProxy: SlashCommandProxy?
 
@@ -218,7 +219,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         onTagClick: ((String) -> Void)? = nil,
         onRightClickMenu: ((RightClickMenuRequest) -> Void)? = nil,
         onTextMenu: ((TextMenuRequest) -> Void)? = nil,
-        onVisibleTopLine: ((Int) -> Void)? = nil
+        onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil
     ) {
         self._text = text
         self._isWikiLinkActive = isWikiLinkActive
@@ -256,7 +257,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         self.onTagClick = onTagClick
         self.onRightClickMenu = onRightClickMenu
         self.onTextMenu = onTextMenu
-        self.onVisibleTopLine = onVisibleTopLine
+        self.onVisibleLines = onVisibleLines
     }
 
     public func sizeThatFits(
@@ -401,7 +402,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         context.coordinator.onDirectiveCompletion = onDirectiveCompletion
         context.coordinator.onCodeBlockSelectionChange = onCodeBlockSelectionChange
         context.coordinator.onSlashCommandChange = onSlashCommandChange
-        context.coordinator.onVisibleTopLine = onVisibleTopLine
+        context.coordinator.onVisibleLines = onVisibleLines
         slashCommandProxy?.coordinator = context.coordinator
         context.coordinator.isFocused = isFocused
         textView.onFocusChange = { [weak coordinator = context.coordinator] focused in
@@ -483,7 +484,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.onTagClick = onTagClick
         textView.onRightClickMenu = onRightClickMenu
         textView.onTextMenu = onTextMenu
-        context.coordinator.onVisibleTopLine = onVisibleTopLine
+        context.coordinator.onVisibleLines = onVisibleLines
         context.coordinator.observeTopLineScroller()
         reconcileHeader(textView: textView, context: context)
 
@@ -757,8 +758,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             textView.breakUndoCoalescing()
             context.coordinator.documentId = documentId
             context.coordinator.armScrollRestore(for: documentId)
-            context.coordinator.reportedTopLine = nil
-            context.coordinator.reportVisibleTopLine()
+            context.coordinator.reportedLines = nil
+            context.coordinator.reportVisibleLines()
             // Drop the incoming document's undo stack if its text changed while
             // switched away — its recorded ranges are now stale.
             context.coordinator.invalidateUndoIfContentDiverged(for: documentId, incomingText: text)

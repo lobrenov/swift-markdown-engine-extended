@@ -130,7 +130,7 @@ public final class SlashCommandProxy {
     }
 
     /// Fork: scrolls the editor so the 0-based `line` of its text is at the top of the visible area (the last line
-    /// at most), as scrolling by hand does: ``NativeTextViewWrapper/onVisibleTopLine`` reports it.
+    /// at most), as scrolling by hand does: ``NativeTextViewWrapper/onVisibleLines`` reports it.
     public func scroll(toLine line: Int) {
         coordinator?.scroll(toLine: line)
     }

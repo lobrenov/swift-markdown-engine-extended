@@ -33,7 +33,7 @@ final class IOSEditorHarness {
     let proxy = SlashCommandProxy()
 
     init(_ text: String, configure: (inout MarkdownEditorConfiguration) -> Void = { _ in },
-         onVisibleTopLine: ((Int) -> Void)? = nil) throws {
+         onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil) throws {
         let box = Box(text)
         self.box = box
         var configuration = MarkdownEditorConfiguration.default
@@ -55,7 +55,7 @@ final class IOSEditorHarness {
             onTaskMarkerMenu: { box.markerRequests.append($0) },
             onCalloutMenu: { box.calloutRequests.append($0) },
             onTaskCheckboxToggle: { box.toggles.append($0) },
-            onVisibleTopLine: onVisibleTopLine
+            onVisibleLines: onVisibleLines
         )
         window.rootViewController = configuration.heightBehavior == .fitsContent
             ? UIHostingController(rootView: AnyView(ScrollView { editor }))
