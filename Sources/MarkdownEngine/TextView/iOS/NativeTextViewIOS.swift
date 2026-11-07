@@ -120,6 +120,7 @@ final class NativeTextView: UITextView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
+        (delegate as? NativeTextViewCoordinator)?.observeTopLineScroller()
         reconcileRequestedFocus()
     }
 

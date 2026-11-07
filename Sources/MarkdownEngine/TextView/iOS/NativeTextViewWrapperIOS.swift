@@ -152,6 +152,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.wikiLinkMetadata = initialState.metadata
         coordinator.onSlashCommandChange = onSlashCommandChange
         coordinator.onVisibleTopLine = onVisibleTopLine
+        coordinator.observeTopLineScroller()
         coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = coordinator
         textView.onTaskMarkerMenu = onTaskMarkerMenu
@@ -182,6 +183,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.refresh(text: $text, isWikiLinkActive: $isWikiLinkActive, onLinkClick: onLinkClick)
         coordinator.onSlashCommandChange = onSlashCommandChange
         coordinator.onVisibleTopLine = onVisibleTopLine
+        coordinator.observeTopLineScroller()
         coordinator.onInlinePreviewKey = onInlinePreviewKey
         slashCommandProxy?.coordinator = coordinator
         textView.onTaskMarkerMenu = onTaskMarkerMenu
@@ -279,6 +281,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         if isNodeSwitch {
             let saved = coordinator.scrollOffsets[documentId] ?? -textView.adjustedContentInset.top
             textView.setContentOffset(CGPoint(x: 0, y: saved), animated: false)
+            coordinator.reportedTopLine = nil
+            coordinator.reportVisibleTopLine()
         }
         coordinator.didInitialFormatting = true
     }

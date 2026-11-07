@@ -110,6 +110,8 @@ public final class NativeTextViewCoordinator: NSObject {
     /// Fork: see ``NativeTextViewWrapper/onVisibleTopLine`` (`+VisibleLine`).
     var onVisibleTopLine: ((Int) -> Void)?
     var reportedTopLine: Int?
+    var topLineObservation: TopLineObservation?
+    var lineStartsCache: (text: NSString, starts: [Int])?
     var isTopLineReportPending = false
     var slashTrigger: SlashCommandState.Trigger = .slash
     /// True from a typed trigger until the end of its `shouldChangeText`.

@@ -463,7 +463,6 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             scrollView.clampToInsets()
             context.coordinator.refreshActiveLinkCaretRect()
             context.coordinator.updateCodeBlockSelection(textView: textView)
-            context.coordinator.reportVisibleTopLine()
         }
         reconcileHeader(textView: textView, context: context)
         return scrollView
@@ -485,6 +484,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.onRightClickMenu = onRightClickMenu
         textView.onTextMenu = onTextMenu
         context.coordinator.onVisibleTopLine = onVisibleTopLine
+        context.coordinator.observeTopLineScroller()
         reconcileHeader(textView: textView, context: context)
 
         let isNodeSwitch = context.coordinator.documentId != documentId
@@ -757,6 +757,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             textView.breakUndoCoalescing()
             context.coordinator.documentId = documentId
             context.coordinator.armScrollRestore(for: documentId)
+            context.coordinator.reportedTopLine = nil
+            context.coordinator.reportVisibleTopLine()
             // Drop the incoming document's undo stack if its text changed while
             // switched away — its recorded ranges are now stale.
             context.coordinator.invalidateUndoIfContentDiverged(for: documentId, incomingText: text)

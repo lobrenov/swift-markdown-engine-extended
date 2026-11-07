@@ -292,12 +292,37 @@ extension NativeTextView {
         breakUndoCoalescing()
         coordinator?.isProgrammaticEdit = true
         defer { coordinator?.isProgrammaticEdit = false }
-        guard shouldChangeText(in: range, replacementString: replacement) else { return }
-        optionalTextStorage?.replaceCharacters(in: range, with: replacement)
+        // `replacement` may hold links in storage form (`[[T|alias]]`): the text shows `[[T]]` and the alias rides on
+        // `.wikiLinkID`, which the new text must not inherit from the replaced characters.
+        let displayState = WikiLinkService.makeDisplayState(from: replacement)
+        let display = displayState.display
+        guard shouldChangeText(in: range, replacementString: display) else { return }
+        optionalTextStorage?.replaceCharacters(in: range, with: display)
+        let inserted = NSRange(location: range.location, length: (display as NSString).length)
+        optionalTextStorage?.removeAttribute(.wikiLinkID, range: inserted)
+        let displayText = display as NSString
+        for (key, metadata) in displayState.metadata {
+            guard let id = metadata.id, !id.isEmpty else { continue }
+            let openLength = displayText.character(at: key.location) == 0x21 ? 3 : 2
+            let length = key.length - openLength - 2
+            if length > 0 {
+                optionalTextStorage?.addAttribute(.wikiLinkID, value: id,
+                                                  range: NSRange(location: range.location + key.location + openLength, length: length))
+            }
+        }
         didChangeText()
         undoManager?.setActionName(actionName)
         breakUndoCoalescing()
-        if let selection { setSelectedRange(NSRange(location: range.location + selection.location, length: selection.length)) }
+        if let selection {
+            // `selection` is relative to `replacement`; the display form can be shorter.
+            let source = replacement as NSString
+            func displayLength(_ length: Int) -> Int {
+                (WikiLinkService.makeDisplayState(from: source.substring(to: length)).display as NSString).length
+            }
+            let start = displayLength(selection.location)
+            let end = displayLength(selection.location + selection.length)
+            setSelectedRange(NSRange(location: range.location + start, length: end - start))
+        }
     }
 }
 

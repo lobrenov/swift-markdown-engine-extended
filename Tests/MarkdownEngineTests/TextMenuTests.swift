@@ -24,17 +24,21 @@ struct TextMenuTests {
         let tv: NativeTextView
         let window: NSWindow
         let coordinator: NativeTextViewCoordinator
-        var requests: [TextMenuRequest] = []
+        let box: Box
     }
+
+    private final class Box { var text = "" }
 
     /// An editor showing `text` (storage form), the caret at 0, with formatting extensions and callouts on.
     private func rig(_ text: String) throws -> Rig {
         _ = NSApplication.shared
+        let box = Box()
+        box.text = text
         var configuration = MarkdownEditorConfiguration.default
         configuration.extensions = [HighlightExtension(), StrikethroughExtension()]
         configuration.callouts = Self.calloutStyle
         let coordinator = NativeTextViewCoordinator(
-            text: .constant(text), fontName: "SF Pro", fontSize: 14,
+            text: Binding(get: { box.text }, set: { box.text = $0 }), fontName: "SF Pro", fontSize: 14,
             isWikiLinkActive: .constant(false), onLinkClick: nil, onInlineSelectionChange: nil)
         coordinator.configuration = configuration
         let tv = NativeTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
@@ -55,7 +59,7 @@ struct TextMenuTests {
         coordinator.lastComputedStorage = text
         coordinator.previousDisplayLength = (text as NSString).length
         tv.setSelectedRange(NSRange(location: 0, length: 0))
-        return Rig(tv: tv, window: window, coordinator: coordinator)
+        return Rig(tv: tv, window: window, coordinator: coordinator, box: box)
     }
 
     /// A right-click event on the middle of the first `needle` in the editor's text.
@@ -299,6 +303,34 @@ struct TextMenuTests {
         #expect(rig.tv.selectedRange() == NSRange(location: 9, length: 0))
         request.replaceSelection("again")
         #expect(rig.tv.string == "[[Hello]] world\n", "the text under the request's range has changed")
+    }
+
+    @Test func replaceSelectionWritesLinksAsDisplayTextWithTheAliasOnTheLink() async throws {
+        let rig = try rig("Hello world\n")
+        let request = try request(on: "Hello", in: rig, selecting: NSRange(location: 0, length: 5))
+        request.replaceSelection("[[T|sel]]")
+        try await Task.sleep(for: .milliseconds(60))
+        #expect(rig.tv.string == "[[T]] world\n")
+        #expect(rig.box.text == "[[T|sel]] world\n")
+        #expect(rig.tv.selectedRange() == NSRange(location: 5, length: 0))
+    }
+
+    @Test func replacingFromInsideALinkDoesNotCarryItsAlias() async throws {
+        let rig = try rig("See [[A|x]] now\n")
+        let start = (rig.tv.string as NSString).range(of: "A").location
+        let range = NSRange(location: start, length: 1)
+        let request = try request(on: "A", in: rig, selecting: range)
+        request.replaceSelection("[[Other|sel]]")
+        try await Task.sleep(for: .milliseconds(60))
+        #expect(!rig.box.text.contains("|x"), "\(rig.box.text)")
+    }
+
+    @Test func insertingALinkSelectsInDisplayCoordinates() throws {
+        let rig = try rig("Hello world\n")
+        let request = try request(on: "Hello", in: rig, selecting: NSRange(location: 0, length: 5))
+        request.insert("[[T|sel]] x", selecting: NSRange(location: "[[T|sel]] ".count, length: 1), asBlock: false)
+        #expect(rig.tv.string.hasPrefix("[[T]] x"))
+        #expect(rig.tv.selectedRange() == NSRange(location: 6, length: 1))
     }
 
     @Test func clipboardActions() throws {

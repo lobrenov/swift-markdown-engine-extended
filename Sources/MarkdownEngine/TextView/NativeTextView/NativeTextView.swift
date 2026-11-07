@@ -176,6 +176,7 @@ final class NativeTextView: NSTextView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        (delegate as? NativeTextViewCoordinator)?.observeTopLineScroller()
         if let window {
             NotificationCenter.default.addObserver(
                 self, selector: #selector(focusWindowWillClose(_:)),

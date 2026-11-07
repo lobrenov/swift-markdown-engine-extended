@@ -16,11 +16,6 @@ extension NativeTextViewCoordinator: UITextViewDelegate {
         (textView as? NativeTextView)?.revealCaretAboveKeyboardBarSoon()
     }
 
-    /// Fork: reports the top visible line (`+VisibleLine`).
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        reportVisibleTopLine()
-    }
-
     public func textViewDidChangeSelection(_ textView: UITextView) {
         selectionDidChange(in: textView)
         (textView as? NativeTextView)?.revealCaretAboveKeyboardBarSoon()
