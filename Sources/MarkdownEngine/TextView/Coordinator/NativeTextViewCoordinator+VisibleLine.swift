@@ -50,6 +50,7 @@ extension NativeTextViewCoordinator {
         #if os(iOS)
         // UIKit re-estimates the heights above a line it has just laid out, so lay out all of it first.
         (tv as? NativeTextView)?.ensureFullLayout()
+        tv.layoutIfNeeded()
         #endif
         bridge.ensureLayout(forCharacterRange: lineRange)
         var rect = bridge.boundingRect(forCharacterRange: lineRange, in: container)

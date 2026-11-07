@@ -72,6 +72,68 @@ struct VisibleLineTests {
         let rig = await ScrollRig(lines: 200)
         rig.proxy.scroll(toLine: 120)
         await rig.settle()
+        #expect(rig.box.lines.last == 120)
+        rig.proxy.scroll(toLine: 5)
+        await rig.settle()
+        #expect(rig.box.lines.last == 5)
+        rig.proxy.scroll(toLine: 0)
+        await rig.settle()
+        #expect(rig.box.lines.last == 0)
+    }
+
+    @Test func aLinePastTheEndClampsToTheEnd() async throws {
+        let rig = await ScrollRig(lines: 200)
+        rig.proxy.scroll(toLine: 10_000)
+        await rig.settle()
+        let reported = try #require(rig.box.lines.last)
+        #expect(reported > 150 && reported <= 200)
+    }
+
+    @Test func eachChangeReportsOnce() async throws {
+        let rig = await ScrollRig(lines: 200)
+        rig.proxy.scroll(toLine: 50)
+        await rig.settle()
+        let count = rig.box.lines.count
+        rig.proxy.scroll(toLine: 50)
+        await rig.settle()
+        #expect(rig.box.lines.count == count)
+    }
+}
+#endif
+
+#if os(iOS)
+import UIKit
+
+@MainActor
+@Suite("Fork — visible top line", .serialized)
+struct VisibleLineTests {
+
+    private final class Box { var lines: [Int] = [] }
+
+    private func harness(lines count: Int, _ box: Box) throws -> IOSEditorHarness {
+        let text = (0..<count).map { "Line \($0)" }.joined(separator: "\n") + "\n"
+        return try IOSEditorHarness(text, onVisibleTopLine: { box.lines.append($0) })
+    }
+
+    @Test func scrollingReportsTheTopLine() async throws {
+        let box = Box()
+        let harness = try harness(lines: 200, box)
+        let textView = harness.textView
+        harness.proxy.scroll(toLine: 100)
+        await harness.settle()
+        let lineHeight = textView.contentSize.height / 200
+        box.lines = []
+        textView.setContentOffset(CGPoint(x: 0, y: lineHeight * 60 - textView.adjustedContentInset.top), animated: false)
+        await harness.settle()
+        let reported = try #require(box.lines.last)
+        #expect(abs(reported - 60) <= 8, "reported \(reported)")
+    }
+
+    @Test func scrollToLinePutsTheLineAtTheTopAndReportsIt() async throws {
+        let box = Box()
+        let harness = try harness(lines: 200, box)
+        harness.proxy.scroll(toLine: 120)
+        await harness.settle()
         #expect(box.lines.last == 120)
         harness.proxy.scroll(toLine: 0)
         await harness.settle()
