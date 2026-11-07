@@ -38,6 +38,7 @@ private struct Root: View {
     let model: Model
     let proxy: SlashCommandProxy
     let fits: Bool
+    var header: CGFloat = 0
 
     var body: some View {
         var configuration = MarkdownEditorConfiguration.default
@@ -45,7 +46,7 @@ private struct Root: View {
         let editor = NativeTextViewWrapper(
             text: Binding(get: { model.text }, set: { model.text = $0 }), configuration: configuration,
             documentId: model.documentId, slashCommandProxy: proxy, onVisibleLines: { model.lines.append($0) })
-        return fits ? AnyView(ScrollView { editor }) : AnyView(editor)
+        return fits ? AnyView(ScrollView { VStack(spacing: 0) { Color.clear.frame(height: header); editor } }) : AnyView(editor)
     }
 }
 
@@ -57,10 +58,10 @@ private final class ScrollRig {
     var scrollView: NSScrollView!
     var lines: [ClosedRange<Int>] { model.lines }
 
-    init(text: String, fits: Bool = false) async {
+    init(text: String, fits: Bool = false, header: CGFloat = 0) async {
         _ = NSApplication.shared
         model = Model(text: text)
-        let hosting = NSHostingView(rootView: Root(model: model, proxy: proxy, fits: fits))
+        let hosting = NSHostingView(rootView: Root(model: model, proxy: proxy, fits: fits, header: header))
         hosting.frame = window.contentRect(forFrameRect: window.frame)
         window.contentView = hosting
         window.orderBack(nil)
@@ -134,6 +135,20 @@ struct VisibleLineTests {
         let middle = try #require(rig.lines.last)
         #expect(middle.lowerBound == 100 && middle.upperBound >= 105 && middle.upperBound < 140, "middle \(middle)")
         #expect(middle.count == top.count || abs(middle.count - top.count) <= 2)
+    }
+
+    @Test func contentAboveTheEditorKeepsItsLinesOutOfTheRange() async throws {
+        let rig = await ScrollRig(text: numbered(200), fits: true, header: 600)
+        // The viewport (300pt) shows only the header.
+        #expect(rig.lines.last == 0...0, "\(String(describing: rig.lines.last))")
+        let lineHeight = try #require(rig.scrollView.documentView).bounds.height / 220
+        await rig.scroll(to: 600 - 100)
+        // 100pt of the editor's first lines show below 200pt of header.
+        let partly = try #require(rig.lines.last)
+        #expect(partly.lowerBound == 0 && partly.upperBound >= 2 && partly.upperBound < 15, "\(partly)")
+        await rig.scroll(to: 600 + lineHeight * 100)
+        let middle = try #require(rig.lines.last)
+        #expect(abs(middle.lowerBound - 100) <= 4 && middle.count < 20, "\(middle)")
     }
 
     @Test func eachChangeReportsOnce() async throws {

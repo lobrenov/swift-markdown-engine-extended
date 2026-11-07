@@ -103,8 +103,16 @@ extension NativeTextViewCoordinator {
     var visibleLines: ClosedRange<Int>? {
         guard let tv = textView, let edges = visibleEdges else { return nil }
         let text = tv.string as NSString
+        // A scroller above or below the editor (a page with a title over it) shows none of its text at that edge: a point
+        // outside the text view hits the end of the text, so the edge is held to the text's own extent.
+        #if os(iOS)
+        let extent = tv.isScrollEnabled ? tv.contentSize.height : tv.bounds.height
+        #else
+        let extent = tv.bounds.height
+        #endif
         func line(_ y: CGFloat) -> Int {
-            lineIndex(at: tv.characterIndex(atViewPoint: CGPoint(x: tv.textContainerOrigin.x + 1, y: y)), in: text)
+            let held = min(max(y, tv.textContainerOrigin.y + 1), max(tv.textContainerOrigin.y + 1, extent - tv.textContainerOrigin.y - 1))
+            return lineIndex(at: tv.characterIndex(atViewPoint: CGPoint(x: tv.textContainerOrigin.x + 1, y: held)), in: text)
         }
         let first = line(edges.top)
         return first...max(first, line(edges.bottom))
