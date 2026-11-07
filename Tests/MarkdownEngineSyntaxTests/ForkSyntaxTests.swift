@@ -309,4 +309,7 @@ struct HeadingPlainTextTests {
     @Test func aWikiLinkWithoutAliasIsItsTarget() {
         #expect(MarkdownFacts.scan("# See [[Note#Part]] and [[#Here]]\n").headings.first?.plainText == "See Note and Here")
     }
+    @Test func plainTextLeavesOutTheClosingRun() {
+        #expect(MarkdownFacts.scan("## **Two** ##\n#  ##\n# C#\n").headings.map(\.plainText) == ["Two", "", "C#"])
+    }
 }

@@ -14,7 +14,7 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var level: Int
         /// As written, without the `#` markers or a closing `#` run.
         public var text: String
-        /// `text` as plain text: markers, code ticks and escapes gone, a wiki link as its alias (else its target or heading).
+        /// `text` as plain text: markers, code ticks, escapes and a closing `#` run gone, a wiki link as its alias (else its target or heading).
         public var plainText: String
     }
 
@@ -200,8 +200,9 @@ private struct FactScanner {
                     if facts.summary == nil { facts.summary = plainText(inlines) }
                 }
             case .heading(let level, let range, _, let inlines):
-                facts.headings.append(.init(line: line(range.location), level: level, text: headingText(range),
-                                             plainText: plainText(inlines, wikiLinkLabels: true)))
+                let text = headingText(range)
+                facts.headings.append(.init(line: line(range.location), level: level, text: text,
+                                             plainText: text.isEmpty ? "" : droppingClosingRun(plainText(inlines, wikiLinkLabels: true)[...]).trimmingCharacters(in: .whitespaces)))
                 collect(inlines, region: range)
             case .blockquote(let range, let inlines, let items):
                 addCallouts(in: range)
@@ -267,14 +268,17 @@ private struct FactScanner {
         var s = Substring(string(range)).trimmingCharacters(in: .whitespacesAndNewlines)[...]
         s = s.drop { $0 == "#" }
         s = s.drop { $0 == " " || $0 == "\t" }
-        // A closing run of `#`s after a space, or the whole content.
+        return droppingClosingRun(s).trimmingCharacters(in: .whitespaces)
+    }
+
+    /// `s` without a closing run of `#`s after a space, or empty when it is all `#`s.
+    private func droppingClosingRun(_ s: Substring) -> Substring {
         let withoutRun = s.reversed().drop { $0 == "#" }
-        if withoutRun.isEmpty {
-            s = ""
-        } else if let last = withoutRun.first, last == " " || last == "\t", withoutRun.count < s.count {
-            s = s.prefix(withoutRun.count)
+        if withoutRun.isEmpty { return "" }
+        if let last = withoutRun.first, last == " " || last == "\t", withoutRun.count < s.count {
+            return s.prefix(withoutRun.count)
         }
-        return s.trimmingCharacters(in: .whitespaces)
+        return s
     }
 
     private mutating func addTasks(_ items: [ListItem]) {
