@@ -66,6 +66,10 @@ struct TextMenuTests {
     private func rightClick(_ needle: String, in rig: Rig) throws -> NSEvent {
         let range = (rig.tv.string as NSString).range(of: needle)
         try #require(range.location != NSNotFound)
+        return try rightClick(range, in: rig)
+    }
+
+    private func rightClick(_ range: NSRange, in rig: Rig) throws -> NSEvent {
         let rect = try #require(rig.tv.layoutBridge).boundingRect(forCharacterRange: range, in: try #require(rig.tv.textContainer))
         let point = CGPoint(x: rect.midX + rig.tv.textContainerOrigin.x, y: rect.midY + rig.tv.textContainerOrigin.y)
         return try #require(NSEvent.mouseEvent(
@@ -130,6 +134,30 @@ struct TextMenuTests {
         let link = try #require(try request(on: "site", in: rig).link)
         #expect(link.kind == .markdown && link.target == "https://a.example/c" && link.alias == "site")
         #expect(link.source == "[site](https://a.example/c)" && link.range == NSRange(location: 3, length: 27))
+    }
+
+    @Test func selectionTouchesLinkForEachKindAndNotForPlainText() throws {
+        let text = "pre [[W]] a [m](u.md) b ![[i.png]] c ![alt](p.png) d <https://x.io> e `code` post\n"
+        let rig = try rig(text)
+        let ns = rig.tv.string as NSString
+        func touches(_ range: NSRange) throws -> Bool {
+            var received: [TextMenuRequest] = []
+            rig.tv.onTextMenu = { received.append($0) }
+            rig.tv.setSelectedRange(range)
+            _ = rig.tv.menu(for: try rightClick(range, in: rig))
+            return try #require(received.first).selectionTouchesLink
+        }
+        for needle in ["[[W]]", "[m](u.md)", "![[i.png]]", "![alt](p.png)", "<https://x.io>", "`code`"] {
+            let whole = ns.range(of: needle)
+            #expect(try touches(whole), "\(needle) whole")
+            #expect(try touches(NSRange(location: whole.location - 1, length: 2)), "\(needle) start")
+            #expect(try touches(NSRange(location: NSMaxRange(whole) - 1, length: 2)), "\(needle) end")
+            #expect(try touches(NSRange(location: whole.location + 1, length: 1)), "\(needle) inside")
+        }
+        for plain in ["pre", " a ", " b ", " c ", " d ", " e ", "post"] {
+            #expect(try !touches(ns.range(of: plain)), "\(plain)")
+        }
+        #expect(try !touches(NSRange(location: ns.range(of: "[[W]]").location + 2, length: 0)))
     }
 
     @Test func textAwayFromALinkHasNone() throws {

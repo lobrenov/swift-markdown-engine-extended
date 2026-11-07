@@ -66,6 +66,8 @@ public struct TextMenuRequest {
     public let link: TextMenuLink?
     /// The formats the selection, or the word at the caret, is already in.
     public let activeFormats: Set<MarkdownFormat>
+    /// The selection overlaps a wiki link, Markdown link, autolink, image, embed or inline code. False for a caret.
+    public let selectionTouchesLink: Bool
     /// The kind of the line the selection starts on.
     public let blockKind: TextMenuBlockKind
     /// The line above the selection's line is blank, or there is none.
@@ -203,7 +205,12 @@ extension NativeTextView {
 
         return TextMenuRequest(
             selection: selection, selectedText: selectedText,
-            link: coordinator.textMenuLink(at: index, in: text), activeFormats: formats,
+            link: coordinator.textMenuLink(at: index, in: text),
+            activeFormats: formats,
+            selectionTouchesLink: selection.length > 0 && coordinator.parsedDocument(for: string).tokens.contains {
+                [.link, .wikiLink, .imageLink, .imageEmbed, .inlineCode].contains($0.kind)
+                    && NSIntersectionRange($0.range, selection).length > 0
+            },
             blockKind: TextMenuBlockKind.parse(line).kind, followsBlankLine: followsBlank,
             anchorRect: menuAnchorRect(forViewRect: CGRect(x: point.x, y: point.y, width: 1, height: 1)),
             toggleFormatAction: { [weak self] in self?.toggleForTextMenu($0) },
