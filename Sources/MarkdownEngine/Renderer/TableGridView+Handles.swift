@@ -359,26 +359,26 @@ extension TableGridView {
         guard table.rowCount > 1 else { return deleteTable(actionName: actionName) }
         var newTable = table
         newTable.deleteRow(at: row)
-        structuralCommit(newTable, actionName: actionName)
+        structuralCommit(newTable, change: .deleteRow(row), actionName: actionName)
     }
 
     func deleteColumn(_ column: Int, actionName: String = "Delete Column") {
         guard table.columnCount > 1 else { return deleteTable(actionName: actionName) }
         var newTable = table
         newTable.deleteColumn(at: column)
-        structuralCommit(newTable, actionName: actionName)
+        structuralCommit(newTable, change: .deleteColumn(column), actionName: actionName)
     }
 
     func insertRow(at index: Int) {
         var newTable = table
         newTable.insertRow(at: index)
-        structuralCommit(newTable, actionName: "Insert Row")
+        structuralCommit(newTable, change: .insertRow(index), actionName: "Insert Row")
     }
 
     func insertColumn(at index: Int) {
         var newTable = table
         newTable.insertColumn(at: index)
-        structuralCommit(newTable, actionName: "Insert Column")
+        structuralCommit(newTable, change: .insertColumn(index), actionName: "Insert Column")
     }
 
     func setAlignment(_ alignment: MarkdownTable.Alignment, column: Int) {
@@ -391,26 +391,29 @@ extension TableGridView {
     func move(_ handle: TableHandle, toGap gap: Int) {
         var newTable = table
         let destination: Int
+        let change: MarkdownTable.Change
         switch handle {
         case .row(let r):
             destination = gap > r ? gap - 1 : gap
             guard r > 0, destination != r else { return }
             newTable.moveRow(from: r, to: destination)
+            change = .moveRow(from: r, to: destination)
         case .column(let c):
             destination = gap > c ? gap - 1 : gap
             guard destination != c else { return }
             newTable.moveColumn(from: c, to: destination)
+            change = .moveColumn(from: c, to: destination)
         }
         // A finished move leaves nothing selected.
-        structuralCommit(newTable, actionName: handle.isRow ? "Move Row" : "Move Column")
+        structuralCommit(newTable, change: change, actionName: handle.isRow ? "Move Row" : "Move Column")
         selectedHandle = nil
     }
 
     /// One undo step; the caret stays where it was.
-    private func structuralCommit(_ newTable: MarkdownTable, actionName: String) {
+    private func structuralCommit(_ newTable: MarkdownTable, change: MarkdownTable.Change = .edit, actionName: String) {
         host?.coalescingTableEdit = nil
         let focus = focusedCell
-        commit(newTable, actionName: actionName, beforeFocus: focus, afterFocus: focus)
+        commit(newTable, change: change, actionName: actionName, beforeFocus: focus, afterFocus: focus)
         needsDisplay = true
     }
 

@@ -114,7 +114,7 @@ package struct MarkdownTable: Equatable {
         return out
     }
 
-    private static func finishCell(_ raw: String) -> String {
+    static func finishCell(_ raw: String) -> String {
         decode(raw.trimmingCharacters(in: .whitespaces)).replacingOccurrences(
             of: #"<br\s*/?>"#, with: "\n", options: [.regularExpression, .caseInsensitive]
         )
@@ -197,7 +197,7 @@ package struct MarkdownTable: Equatable {
 
     /// A cell's text as it is written: `|` as `\|`, line breaks as `<br>`, and a backslash run before a `|` or at the
     /// end doubled so the reader can tell it from the escape.
-    private static func escape(_ cell: String) -> String {
+    static func escape(_ cell: String) -> String {
         var out = ""
         var run = 0
         let characters = Array(cell)

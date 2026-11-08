@@ -79,11 +79,11 @@ struct TableGridTests {
         #expect(h.grid.frame.height > 0)
     }
 
-    @Test func typingInACellRewritesTheTableLinesPadded() {
+    @Test func typingInACellRewritesOnlyItsRow() {
         let h = GridHarness(Self.source)
         h.type("xyz", row: 1, column: 0)
         #expect(h.cell(1, 0).string == "1xyz")
-        #expect(h.host.string == "Before\n\n| a    | b   |\n| ---- | --- |\n| 1xyz | 2   |\n\nAfter\n")
+        #expect(h.host.string == "Before\n\n| a | b |\n|---|---|\n| 1xyz | 2 |\n\nAfter\n")
     }
 
     @Test func markdownTypedInACellIsKept() {
@@ -213,7 +213,7 @@ struct TableGridKeyTests {
         h.cell(2, 1).doCommand(by: #selector(NSResponder.insertTab(_:)))
         #expect(h.grid.table.rowCount == 4)
         #expect(focused(h)! == (3, 0))
-        #expect(h.host.string.contains("|     |     |"))
+        #expect(h.host.string.contains("|  |  |"))
         h.host.undoManager?.undo()
         #expect(h.grid.table.rowCount == 3)
         #expect(h.host.string.contains("| 3 | 4 |"))
@@ -478,7 +478,7 @@ struct TableGridMenuTests {
                                                           ["Align left", "Align centre", "Align right"]])
         #expect(menu.sections[1].map(\.isChecked) == [false, false, true])
         item(menu, "Align centre").action()
-        #expect(h.host.string.contains("| :-: |") || h.host.string.contains(":-:"))
+        #expect(h.host.string.contains(":--:"))
         #expect(h.grid.table.alignments == [.left, .center])
         item(menu, "Insert left").action()
         #expect(h.grid.table.header == ["h1", "", "h2"])
@@ -550,9 +550,9 @@ struct TableGridDetailTests {
         let source = "- item\n\n  | a | b |\n  |---|---|\n  | 1 | 2 |\n"
         let h = GridHarness(source)
         h.type("x", row: 1, column: 0)
-        #expect(h.host.string == "- item\n\n  | a   | b   |\n  | --- | --- |\n  | 1x  | 2   |\n")
+        #expect(h.host.string == "- item\n\n  | a | b |\n  |---|---|\n  | 1x | 2 |\n")
         h.grid.deleteRow(1)
-        #expect(h.host.string.hasPrefix("- item\n\n  | a   | b   |"))
+        #expect(h.host.string.hasPrefix("- item\n\n  | a | b |"))
     }
 
     @Test func theHeaderRowIsBoldInTheLaidOutText() {
@@ -840,7 +840,7 @@ struct TableGridTypingTests {
         }
     }
 
-    @Test func aCellGrowingPastItsColumnRewritesEveryLineMidWordWithoutLosingFocus() {
+    @Test func aCellGrowingPastItsColumnKeepsFocus() {
         let h = GridHarness("| a | b |\n|---|---|\n| c | d |\n")
         h.grid.focus(row: 0, column: 0)
         for character in "abcdefghijklmnopqrstuvwxyz" {
@@ -934,6 +934,148 @@ struct TableGridAlignmentWidthTests {
         let h = GridHarness("| first | h |\n|---|---:|\n| x |  |\n")
         let style = h.cell(0, 1).textStorage?.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
         #expect(style?.alignment == .right)
+    }
+}
+
+@MainActor
+@Suite("Fork — live table writes change only the lines they must")
+struct TableGridMinimalWriteTests {
+    static let unpadded = "| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |"
+    static let padded = "| a    | b   |\n| ---- | --- |\n| 1    | 2   |\n| 3    | 4   |"
+    static let styles = [("unpadded", unpadded), ("padded", padded)]
+
+    private func harness(_ table: String) -> GridHarness {
+        GridHarness("Before\n\n" + table + "\n\nAfter\n")
+    }
+
+    /// The lines removed from and inserted into the document by an edit.
+    private func diff(_ before: String, _ after: String) -> (removed: [String], inserted: [String]) {
+        let difference = after.components(separatedBy: "\n").difference(from: before.components(separatedBy: "\n"))
+        var removed: [String] = []
+        var inserted: [String] = []
+        for change in difference {
+            switch change {
+            case .remove(_, let line, _): removed.append(line)
+            case .insert(_, let line, _): inserted.append(line)
+            }
+        }
+        return (removed, inserted)
+    }
+
+    /// Runs `edit`, then checks it as one undo step.
+    private func run(_ table: String, _ edit: (GridHarness) -> Void) -> (before: String, after: String, h: GridHarness) {
+        let h = harness(table)
+        let before = h.host.string
+        edit(h)
+        let after = h.host.string
+        h.host.undoManager?.undo()
+        #expect(h.host.string == before)
+        h.host.undoManager?.redo()
+        #expect(h.host.string == after)
+        h.host.undoManager?.undo()
+        return (before, after, h)
+    }
+
+    @Test(arguments: styles) func aCellEditReplacesOnlyItsRowLine(_ style: (String, String)) {
+        let (before, after, _) = run(style.1) { $0.type("x", row: 2, column: 1) }
+        let d = diff(before, after)
+        #expect(d.removed.count == 1 && d.inserted.count == 1)
+        #expect(d.removed == [before.components(separatedBy: "\n").first { $0.hasPrefix("| 3") }!])
+        #expect(d.inserted.first?.contains("4x") == true)
+    }
+
+    @Test(arguments: styles) func aHeaderEditReplacesOnlyTheHeaderLine(_ style: (String, String)) {
+        let (before, after, _) = run(style.1) { $0.type("z", row: 0, column: 0) }
+        let d = diff(before, after)
+        #expect(d.removed.count == 1 && d.removed[0].hasPrefix("| a") && d.inserted.count == 1)
+    }
+
+    @Test(arguments: styles) func anAlignmentChangeReplacesOnlyTheDelimiterLine(_ style: (String, String)) {
+        let (before, after, _) = run(style.1) { $0.grid.setAlignment(.center, column: 0) }
+        let d = diff(before, after)
+        #expect(d.removed.count == 1 && d.inserted.count == 1)
+        #expect(d.inserted == [style.0 == "padded" ? "| :--: | --- |" : "|:-:|---|"])
+    }
+
+    @Test(arguments: styles) func insertingARowAddsOneLine(_ style: (String, String)) {
+        let (before, after, _) = run(style.1) { $0.grid.insertRow(at: 2) }
+        let d = diff(before, after)
+        #expect(d.removed.isEmpty && d.inserted.count == 1)
+        #expect(d.inserted[0] == (style.0 == "padded" ? "|      |     |" : "|  |  |"))
+    }
+
+    @Test(arguments: styles) func tabOnTheLastCellAddsOneLineInTheTablesStyle(_ style: (String, String)) {
+        let (before, after, _) = run(style.1) { h in
+            h.grid.focus(row: 2, column: 1)
+            h.cell(2, 1).doCommand(by: #selector(NSResponder.insertTab(_:)))
+        }
+        let d = diff(before, after)
+        #expect(d.removed.isEmpty && d.inserted.count == 1)
+    }
+
+    @Test(arguments: styles) func deletingARowRemovesOneLine(_ style: (String, String)) {
+        let (before, after, _) = run(style.1) { $0.grid.deleteRow(2) }
+        let d = diff(before, after)
+        #expect(d.removed.count == 1 && d.removed[0].hasPrefix("| 3") && d.inserted.isEmpty)
+    }
+
+    @Test(arguments: styles) func deletingTheHeaderPromotesTheNextRowLine(_ style: (String, String)) {
+        let (before, after, _) = run(style.1) { $0.grid.deleteRow(0) }
+        let d = diff(before, after)
+        #expect(d.removed.count == 2 && d.inserted.count == 1)
+        #expect(after.contains("| 1") && !after.contains("| a"))
+    }
+
+    @Test(arguments: styles) func movingARowMovesItsLine(_ style: (String, String)) {
+        let (before, after, _) = run(style.1) { $0.grid.move(.row(1), toGap: 3) }
+        let d = diff(before, after)
+        #expect(d.removed.count == 1 && d.inserted.count == 1)
+        #expect(before.components(separatedBy: "\n").filter { after.components(separatedBy: "\n").contains($0) }.count
+                == before.components(separatedBy: "\n").count)
+    }
+
+    @Test func columnChangesKeepEveryCellsSpacing() {
+        for (name, table) in Self.styles {
+            let padded = name == "padded"
+            var (_, after, _) = run(table) { $0.grid.insertColumn(at: 1) }
+            #expect(after.contains(padded ? "| a    |      | b   |" : "| a |  | b |"))
+            #expect(after.contains(padded ? "| ---- | ---- | --- |" : "|---|---|---|"))
+            #expect(after.contains(padded ? "| 3    |      | 4   |" : "| 3 |  | 4 |"))
+            (_, after, _) = run(table) { $0.grid.deleteColumn(0) }
+            #expect(after.contains(padded ? "| b   |\n| --- |\n| 2   |\n| 4   |" : "| b |\n|---|\n| 2 |\n| 4 |"))
+            (_, after, _) = run(table) { $0.grid.move(.column(0), toGap: 2) }
+            #expect(after.contains(padded ? "| b   | a    |\n| --- | ---- |\n| 2   | 1    |"
+                                          : "| b | a |\n|---|---|\n| 2 | 1 |"))
+        }
+    }
+
+    @Test func escapesInUntouchedCellsAreKeptByteForByte() {
+        let table = "| x\\|y | p\\\\ |\n|---|---|\n| m\\|n | q |"
+        #expect(table.contains("x\\|y"))
+        let (before, edited, _) = run(table) { $0.type("r", row: 1, column: 1) }
+        let d = diff(before, edited)
+        #expect(d.removed == ["| m\\|n | q |"] && d.inserted == ["| m\\|n | qr |"])
+        let (_, header, _) = run(table) { $0.type("z", row: 0, column: 1) }
+        #expect(header.contains("| x\\|y | p\\z |"))
+        #expect(header.contains("| m\\|n | q |"))
+        let (_, deleted, _) = run(table) { $0.grid.deleteColumn(1) }
+        #expect(deleted.contains("| x\\|y |\n|---|\n| m\\|n |"))
+        let (_, moved, _) = run(table) { $0.grid.move(.column(0), toGap: 2) }
+        #expect(moved.contains("| p\\\\ | x\\|y |"))
+        #expect(moved.contains("| q | m\\|n |"))
+    }
+
+    @Test func aPipeTypedInACellIsEscaped() {
+        let (_, after, _) = run(Self.unpadded) { $0.type("|", row: 1, column: 0) }
+        #expect(after.contains("| 1\\| | 2 |"))
+    }
+
+    @Test func deletingTheLastRowOrOnlyColumnStillDeletesTheTable() {
+        let h = harness("| a |\n|---|\n| 1 |")
+        h.grid.deleteColumn(0)
+        #expect(h.host.string == "Before\n\n\nAfter\n")
+        h.host.undoManager?.undo()
+        #expect(h.host.string == "Before\n\n| a |\n|---|\n| 1 |\n\nAfter\n")
     }
 }
 #endif

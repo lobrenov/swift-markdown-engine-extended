@@ -205,4 +205,48 @@ struct MarkdownTableTests {
         t.insertColumn(at: 1)
         #expect(t.markdown.split(separator: "\n").allSatisfy { $0.hasPrefix("  | ") || $0.hasPrefix("  |") })
     }
+
+    // MARK: - Writing over the source
+
+    private func write(_ source: String, _ change: MarkdownTable.Change, _ edit: (inout MarkdownTable) -> Void) throws -> String {
+        let old = try table(source)
+        var new = old
+        edit(&new)
+        return new.markdown(replacing: source, from: old, change: change)
+    }
+
+    @Test func aCellEditKeepsTheOtherLinesAndCellsExactly() throws {
+        let source = "a | b\r\n--|--\r\n  1  |   2\r\n3|4"
+        let out = try write(source, .edit) { $0.setCell(row: 1, column: 1, to: "x") }
+        #expect(out == "a | b\r\n--|--\r\n  1  |   x\r\n3|4")
+    }
+
+    @Test func aRowOfAnotherLengthIsWrittenWholeInTheDefaultStyle() throws {
+        let source = "| a | b |\n|---|---|\n| 1 |\n| 3 | 4 |"
+        let out = try write(source, .edit) { $0.setCell(row: 1, column: 1, to: "x") }
+        #expect(out == "| a | b |\n|---|---|\n| 1 | x |\n| 3 | 4 |")
+    }
+
+    @Test func aSourceThatDoesNotMatchTheTableIsWrittenWhole() throws {
+        let old = try table("| a | b |\n|---|---|\n| 1 | 2 |")
+        #expect(old.markdown(replacing: "| a | b |\n\n|---|---|", from: old, change: .edit) == old.markdown)
+    }
+
+    @Test func aTextEqualToTheCellKeepsItsSpellingAndAnEditedCellIsEscaped() throws {
+        let source = "| a<BR/>b | c |\n|---|---|\n| 1 | 2 |"
+        let same = try write(source, .edit) { $0.setCell(row: 0, column: 0, to: "a\nb") }
+        #expect(same == source)
+        let piped = try write(source, .edit) { $0.setCell(row: 1, column: 1, to: "x|y") }
+        #expect(piped == "| a<BR/>b | c |\n|---|---|\n| 1 | x\\|y |")
+    }
+
+    @Test func wikiLinkAliasBarsAndBackslashRunsInUntouchedCellsStayAsWritten() throws {
+        let source = "| [[A\\|b]] | p\\\\ |\n|---|---|\n| [[C\\|d]] | q\\\\\\| |"
+        let edited = try write(source, .edit) { $0.setCell(row: 1, column: 1, to: "z") }
+        #expect(edited == "| [[A\\|b]] | p\\\\ |\n|---|---|\n| [[C\\|d]] | z |")
+        let deleted = try write(source, .deleteColumn(1)) { $0.deleteColumn(at: 1) }
+        #expect(deleted == "| [[A\\|b]] |\n|---|\n| [[C\\|d]] |")
+        let moved = try write(source, .moveColumn(from: 0, to: 1)) { $0.moveColumn(from: 0, to: 1) }
+        #expect(moved == "| p\\\\ | [[A\\|b]] |\n|---|---|\n| q\\\\\\| | [[C\\|d]] |")
+    }
 }

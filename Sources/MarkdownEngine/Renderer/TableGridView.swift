@@ -4,7 +4,7 @@
 //
 //  Fork: a table as a grid of cell editors over its hidden source lines, on the Mac. The cells are the
 //  editors; the grid draws the header fill and the borders, sizes each row to its tallest cell, and writes every
-//  change back as one splice of the table's lines, padded (`MarkdownTable.markdown`).
+//  change back as one splice of the lines it changes (`MarkdownTable.markdown(replacing:from:change:)`).
 //
 
 #if os(macOS)
@@ -345,7 +345,7 @@ final class TableGridView: NSView {
             var newTable = table
             newTable.insertRow(at: newTable.rowCount)
             host?.coalescingTableEdit = nil
-            commit(newTable, actionName: "Add Row", beforeFocus: focusedCell,
+            commit(newTable, change: .insertRow(table.rowCount), actionName: "Add Row", beforeFocus: focusedCell,
                    afterFocus: CellFocus(row: newTable.rowCount - 1, column: 0, selection: NSRange(location: 0, length: 0)))
             focus(row: newTable.rowCount - 1, column: 0)
         }
@@ -404,29 +404,56 @@ final class TableGridView: NSView {
         typingEnd = (editor.row, editor.column, prefix + inserted)
     }
 
-    /// Writes `newTable` over the table's lines as one splice and registers its undo. With `coalesces`, a typing
-    /// edit continues the one on top of the undo stack instead.
-    func commit(_ newTable: MarkdownTable, actionName: String, beforeFocus: CellFocus?, afterFocus: CellFocus?,
-                coalesces: Bool = false) {
+    /// Writes `newTable` over the table's source as one splice of the lines that changed (`MarkdownTable.markdown(replacing:)`)
+    /// and registers its undo. With `coalesces`, a typing edit continues the one on top of the undo stack instead.
+    func commit(_ newTable: MarkdownTable, change: MarkdownTable.Change = .edit, actionName: String,
+                beforeFocus: CellFocus?, afterFocus: CellFocus?, coalesces: Bool = false) {
         guard let host, let range = host.tableRange(ordinal: ordinal) else { return }
         let old = (host.string as NSString).substring(with: range)
-        let markdown = newTable.markdown
+        let markdown = MarkdownTable.parse(old).map { newTable.markdown(replacing: old, from: $0, change: change) }
+            ?? newTable.markdown
         table = newTable
         needsRelayout = true
         guard markdown != old else {
             host.updateWideTableOverlays(immediately: true)
             return
         }
-        host.replaceTableText(range, with: markdown)
-        if coalesces, let edit = host.coalescingTableEdit {
-            edit.after = markdown
+        let (span, replaced, replacement) = Self.changedLines(from: old, to: markdown, at: range.location)
+        host.replaceTableText(span, with: replacement)
+        if coalesces, let edit = host.coalescingTableEdit, edit.location == span.location {
+            edit.after = replacement
             edit.afterFocus = afterFocus
             return
         }
-        let edit = TableEdit(ordinal: ordinal, location: range.location, before: old, after: markdown,
+        let edit = TableEdit(ordinal: ordinal, location: span.location, before: replaced, after: replacement,
                              beforeFocus: beforeFocus, afterFocus: afterFocus, actionName: actionName)
         host.registerTableEdit(edit)
         host.coalescingTableEdit = actionName == "Typing" ? edit : nil
+    }
+
+    /// The whole lines (with their line breaks) that differ between `old` and `new`: the span in the document, the
+    /// text it holds and the text to put there.
+    static func changedLines(from old: String, to new: String, at location: Int) -> (NSRange, String, String) {
+        func pieces(_ string: String) -> [String] {
+            let text = string as NSString
+            var result: [String] = []
+            var start = 0
+            while start < text.length {
+                let range = text.lineRange(for: NSRange(location: start, length: 0))
+                result.append(text.substring(with: range))
+                start = NSMaxRange(range)
+            }
+            return result
+        }
+        let (a, b) = (pieces(old), pieces(new))
+        var prefix = 0
+        while prefix < min(a.count, b.count), a[prefix] == b[prefix] { prefix += 1 }
+        var suffix = 0
+        while suffix < min(a.count, b.count) - prefix, a[a.count - 1 - suffix] == b[b.count - 1 - suffix] { suffix += 1 }
+        let replaced = a[prefix..<a.count - suffix].joined()
+        let replacement = b[prefix..<b.count - suffix].joined()
+        let start = location + a[..<prefix].reduce(0) { $0 + ($1 as NSString).length }
+        return (NSRange(location: start, length: (replaced as NSString).length), replaced, replacement)
     }
 }
 #endif
