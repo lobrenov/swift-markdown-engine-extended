@@ -11,6 +11,10 @@ Optional: a frontmatter profile that keeps files readable by Obsidian and by eve
 - **Unknown keys** are kept as written: a writer changes only the lines of the keys it sets, and never re-serialises the block.
 - A writer adds a key by inserting its line; it never reorders keys or rewrites quoting.
 
+## Positions
+
+- A fact that places text in a line (a tag's `column` and `length`) counts UTF-16 code units from the line's start, so readers in Swift and JavaScript use the same numbers.
+
 ## Filenames
 
 - A file's title is its filename without `.md`.

@@ -20,6 +20,8 @@
   "tags": [
     {
       "line": 1,
+      "column": 11,
+      "length": 4,
       "tag": "tag"
     }
   ],

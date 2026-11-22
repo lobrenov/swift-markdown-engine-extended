@@ -43,42 +43,62 @@
   "tags": [
     {
       "line": 0,
+      "column": 0,
+      "length": 8,
       "tag": "errands"
     },
     {
       "line": 0,
+      "column": 14,
+      "length": 12,
       "tag": "home/garden"
     },
     {
       "line": 0,
+      "column": 28,
+      "length": 6,
       "tag": "a-b_c"
     },
     {
       "line": 2,
+      "column": 0,
+      "length": 11,
       "tag": "2026-goals"
     },
     {
       "line": 2,
+      "column": 12,
+      "length": 5,
       "tag": "café"
     },
     {
       "line": 2,
+      "column": 20,
+      "length": 2,
       "tag": "a"
     },
     {
       "line": 4,
+      "column": 10,
+      "length": 6,
       "tag": "after"
     },
     {
       "line": 5,
+      "column": 1,
+      "length": 5,
       "tag": "lead"
     },
     {
       "line": 5,
+      "column": 16,
+      "length": 6,
       "tag": "inner"
     },
     {
       "line": 6,
+      "column": 3,
+      "length": 3,
       "tag": "タグ"
     }
   ],

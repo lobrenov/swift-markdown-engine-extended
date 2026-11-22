@@ -142,7 +142,7 @@ struct SpecConformanceTests {
             "markdownLinks": facts.markdownLinks.map {
                 ["line": $0.line, "path": $0.path, "raw": $0.raw, "angle": $0.angle]
             },
-            "tags": facts.tags.map { ["line": $0.line, "tag": $0.name] },
+            "tags": facts.tags.map { ["line": $0.line, "column": $0.column, "length": $0.length, "tag": $0.name] },
             "callouts": facts.callouts.map {
                 optional([("type", $0.type), ("fold", $0.fold.map { $0 == .open ? "open" : "folded" }),
                           ("title", $0.title), ("startLine", $0.startLine), ("endLine", $0.endLine)])

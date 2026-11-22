@@ -19,6 +19,8 @@
   "tags": [
     {
       "line": 13,
+      "column": 22,
+      "length": 5,
       "tag": "crew"
     }
   ],

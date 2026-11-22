@@ -2,7 +2,7 @@
 //  SpecEditConformanceTests.swift
 //  MarkdownEngineTests
 //
-//  Fork: every `spec/edits` case through the editor (macOS) or `MarkdownTable`.
+//  Fork: every `spec/edits` case through the editor (macOS) or `MarkdownTable`; `tag.*` cases run in `TagEditTests`.
 //
 
 #if os(macOS)
@@ -112,6 +112,7 @@ struct SpecEditConformanceTests {
             #expect(!skip.isEmpty, "a skip needs a reason")
             return
         }
+        if c.command.hasPrefix("tag.") { return }   // Whole-text edits, run by `TagEditTests` on both platforms.
         let (text, selection) = EditSpec.unmark(c.before)
         let expected = EditSpec.unmark(c.after)
         if c.command.hasPrefix("table.") {

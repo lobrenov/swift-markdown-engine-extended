@@ -45,6 +45,8 @@
   "tags": [
     {
       "line": 7,
+      "column": 27,
+      "length": 5,
       "tag": "docs"
     }
   ],

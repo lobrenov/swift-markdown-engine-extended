@@ -1,0 +1,338 @@
+{
+  "description": "Renaming or deleting a tag changes each inline tag whose path is the tag or under it, ignoring case, and only the tag's own bytes. A sibling that merely starts with the same letters, and text where no tag is read (code, links, URLs, escapes, headings), stay.",
+  "cases": [
+    {
+      "name": "Rename a tag",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "Tidy #home today.\n",
+      "after": "Tidy #house today.\n"
+    },
+    {
+      "name": "Rename ignoring case",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "A #Home and #HOME.\n",
+      "after": "A #house and #house.\n"
+    },
+    {
+      "name": "Rename a nested child, keeping the rest of its path",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "#home/Garden and #Home/garden/Beds\n",
+      "after": "#house/Garden and #house/garden/Beds\n"
+    },
+    {
+      "name": "Rename leaves a sibling",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "#homework #home-office #home_ #home/x #homes\n",
+      "after": "#homework #home-office #home_ #house/x #homes\n"
+    },
+    {
+      "name": "Rename into a nested path",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "a/b"
+      },
+      "before": "#home/x #home\n",
+      "after": "#a/b/x #a/b\n"
+    },
+    {
+      "name": "Rename a nested path",
+      "command": "tag.rename",
+      "args": {
+        "from": "home/garden",
+        "to": "home/yard"
+      },
+      "before": "#home/garden #home/gardening #home\n",
+      "after": "#home/yard #home/gardening #home\n"
+    },
+    {
+      "name": "Rename in emphasis",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "*#home* and **x #home**\n",
+      "after": "*#house* and **x #house**\n"
+    },
+    {
+      "name": "Rename after a no-break space",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "a #home\n",
+      "after": "a #house\n"
+    },
+    {
+      "name": "Rename at line start",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "#home first\n  #home indented\n",
+      "after": "#house first\n  #house indented\n"
+    },
+    {
+      "name": "Rename at line end",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "first #home\nsecond #home",
+      "after": "first #house\nsecond #house"
+    },
+    {
+      "name": "Rename the only thing on a line",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "a\n#home\nb\n",
+      "after": "a\n#house\nb\n"
+    },
+    {
+      "name": "Rename two on one line",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "#home #home/x\n",
+      "after": "#house #house/x\n"
+    },
+    {
+      "name": "Rename a tag with trailing slashes",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "#home// and #home/x/\n",
+      "after": "#house// and #house/x/\n"
+    },
+    {
+      "name": "Rename in a table cell",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "| a |\n| - |\n| #home |\n",
+      "after": "| a |\n| - |\n| #house |\n"
+    },
+    {
+      "name": "Rename leaves code, a link, a wiki link, a URL, an escape and a heading marker",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "`#home`\n\n```\n#home\n```\n\n[#home](x) [[Note #home]] ![[a #home]] example.com/#home \\#home x#home\n\n# home\n",
+      "after": "`#home`\n\n```\n#home\n```\n\n[#home](x) [[Note #home]] ![[a #home]] example.com/#home \\#home x#home\n\n# home\n"
+    },
+    {
+      "name": "Rename keeps CRLF",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "#home a\r\nb #home\r\n",
+      "after": "#house a\r\nb #house\r\n"
+    },
+    {
+      "name": "Rename with no match",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "#other and home\n",
+      "after": "#other and home\n"
+    },
+    {
+      "name": "Rename in text with non-ASCII",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "日本 #Home/é and é #home\n",
+      "after": "日本 #house/é and é #house\n"
+    },
+    {
+      "name": "Delete a tag",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "Tidy #home today.\n",
+      "after": "Tidy today.\n"
+    },
+    {
+      "name": "Delete ignoring case",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "A #Home and #HOME b\n",
+      "after": "A and b\n"
+    },
+    {
+      "name": "Delete a nested child",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a #home/garden b #Home/garden/beds c\n",
+      "after": "a b c\n"
+    },
+    {
+      "name": "Delete leaves a sibling",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "#homework #home-office #home_ #homes x\n",
+      "after": "#homework #home-office #home_ #homes x\n"
+    },
+    {
+      "name": "Delete a nested path only",
+      "command": "tag.delete",
+      "args": {
+        "from": "home/garden"
+      },
+      "before": "a #home/garden #home/gardening #home b\n",
+      "after": "a #home/gardening #home b\n"
+    },
+    {
+      "name": "Delete in emphasis",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "*#home* x\n",
+      "after": "** x\n"
+    },
+    {
+      "name": "Delete after a no-break space",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a #home b\n",
+      "after": "a b\n"
+    },
+    {
+      "name": "Delete at line start",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "#home first\nnext\n",
+      "after": "first\nnext\n"
+    },
+    {
+      "name": "Delete at line end",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "first #home\nsecond #home",
+      "after": "first\nsecond"
+    },
+    {
+      "name": "Delete the only thing on a line",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a\n#home\nb\n",
+      "after": "a\n\nb\n"
+    },
+    {
+      "name": "Delete two on one line",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a #home #home/x b\n#home #home\n",
+      "after": "a b\n\n"
+    },
+    {
+      "name": "Delete next to another tag",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "#home #other\n#other #home\n",
+      "after": "#other\n#other\n"
+    },
+    {
+      "name": "Delete a tag with trailing slashes",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a #home// b\n",
+      "after": "a// b\n"
+    },
+    {
+      "name": "Delete keeps CRLF",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a #home\r\n#home b\r\n#home\r\n",
+      "after": "a\r\nb\r\n\r\n"
+    },
+    {
+      "name": "Delete leaves code, a link, a wiki link, a URL, an escape and a heading marker",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "`#home`\n\n```\n#home\n```\n\n[#home](x) [[Note #home]] ![[a #home]] example.com/#home \\#home x#home\n\n# home\n",
+      "after": "`#home`\n\n```\n#home\n```\n\n[#home](x) [[Note #home]] ![[a #home]] example.com/#home \\#home x#home\n\n# home\n"
+    },
+    {
+      "name": "Delete with no match",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "#other and home\n",
+      "after": "#other and home\n"
+    },
+    {
+      "name": "Delete in a table cell",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "| a |\n| - |\n| x #home |\n",
+      "after": "| a |\n| - |\n| x |\n"
+    }
+  ]
+}

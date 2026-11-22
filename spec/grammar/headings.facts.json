@@ -34,10 +34,14 @@
   "tags": [
     {
       "line": 3,
+      "column": 14,
+      "length": 5,
       "tag": "hash"
     },
     {
       "line": 5,
+      "column": 0,
+      "length": 8,
       "tag": "NoSpace"
     }
   ],

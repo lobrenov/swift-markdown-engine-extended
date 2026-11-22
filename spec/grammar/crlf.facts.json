@@ -33,10 +33,14 @@
   "tags": [
     {
       "line": 0,
+      "column": 15,
+      "length": 4,
       "tag": "tag"
     },
     {
       "line": 7,
+      "column": 10,
+      "length": 2,
       "tag": "t"
     }
   ],

@@ -65,6 +65,10 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var line: Int
         /// Without `#`.
         public var name: String
+        /// Where the tag starts in its line: the `#`, in UTF-16 units from the line's start.
+        public var column: Int
+        /// The tag's length in UTF-16 units: `#` through the last character of its name (trailing `/`s excluded).
+        public var length: Int
     }
 
     public struct Callout: Hashable, Sendable {
@@ -341,7 +345,15 @@ private struct FactScanner {
                     }
                     uses.append(use)
                 }
-                facts.tags += cell.tags.map { var tag = $0; tag.line = rowLine; return tag }
+                facts.tags += cell.tags.map {
+                    var tag = $0
+                    let start = cellScanner.lineStarts[tag.line - rowLine] + tag.column
+                    let source = mapped(NSRange(location: start, length: tag.length))
+                    tag.line = rowLine
+                    tag.column = source.location - lineStarts[rowLine - firstLineIndex]
+                    tag.length = source.length
+                    return tag
+                }
             }
         }
     }
@@ -429,7 +441,9 @@ private struct FactScanner {
                 }
             case .tag(let range, let marker):
                 let name = NSRange(location: NSMaxRange(marker), length: NSMaxRange(range) - NSMaxRange(marker))
-                facts.tags.append(.init(line: line(range.location), name: string(name)))
+                let tagLine = line(range.location)
+                facts.tags.append(.init(line: tagLine, name: string(name),
+                                        column: range.location - lineStarts[tagLine - firstLineIndex], length: range.length))
             case .link(_, _, let url, let markers, let children):
                 addMarkdownLink(url: url, markers: markers)
                 collect(children)

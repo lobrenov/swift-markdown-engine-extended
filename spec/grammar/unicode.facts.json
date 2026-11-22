@@ -23,6 +23,8 @@
   "tags": [
     {
       "line": 2,
+      "column": 4,
+      "length": 4,
       "tag": "été"
     }
   ],
