@@ -402,6 +402,8 @@ enum MarkdownASTStyler {
             guard last == 0x0A || last == 0x0D else { break }
             line.length -= 1
         }
+        // Fork: a bare `-`, `+` or `*` stays as typed, with no bullet or list indent, until a space follows.
+        if !item.ordered, item.checkbox == nil, NSMaxRange(item.marker) == NSMaxRange(line) { return }
 
         // 1. Indent paragraph style (hanging indent so wrapped lines align).
         let wsRange = NSRange(location: item.marker.location - item.indent, length: item.indent)
@@ -530,14 +532,7 @@ enum MarkdownASTStyler {
             let syntax = NSRange(location: item.marker.location,
                                  length: item.contentRange.location - item.marker.location)
             if NSLocationInRange(ctx.caret, syntax) { return }
-            var markerAttrs: [NSAttributedString.Key: Any] = [.bulletMarker: true, .foregroundColor: PlatformColor.clear]
-            // Fork: a bare `-` or `+` ends a space wider, so the caret after it sits where typing
-            // (which adds the space) puts the text.
-            if NSMaxRange(item.marker) == NSMaxRange(line),
-               ["-", "+"].contains(ctx.ns.substring(with: item.marker)) {
-                markerAttrs[.kern] = HeadingHelpers.textWidth(" ", font: ctx.baseFont)
-            }
-            attrs.append((item.marker, markerAttrs))
+            attrs.append((item.marker, [.bulletMarker: true, .foregroundColor: PlatformColor.clear]))
         } else if orderedOverlayActive, let displayNumber {
             // Hide the ENTIRE source marker (digits + dot) as one unit and paint
             // the whole display marker "N." over it, so the dot travels with the

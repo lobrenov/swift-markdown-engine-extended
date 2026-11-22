@@ -63,7 +63,7 @@ Each change is marked `Fork:` in the source, and every file the fork changed car
 
 32. **Wiki-link task boxes** (`Services/MarkdownEditorServices.swift`, `Styling/MarkdownASTStyler.swift`, `Renderer/MarkdownTextLayoutFragment.swift`). `WikiLinkResolution.marker` (a task marker) makes an inactive link to an existing target draw that marker's `TaskCheckboxStyle` box before its text: the hidden opening `[[` carries `.markdownWikiLinkBox` and the box's width as kern, so the text storage is unchanged. Drawing only; the active link is plain source. Tests: `WikiLinkBoxTests`. **Conflicts:** Fork's.
 
-33. **Bare bullets** (`Input/MarkdownListHandler.swift`, `Styling/MarkdownASTStyler.swift`). A bare `-` or `+` item (#27) is kerned a space wider, so the caret after it sits where the text will start. A character typed there goes in after an added space, through the usual input handling (`-[` → `- [|]`); a space, tab, line break, `-`, `+`, `*` or `>` is typed as it is. Tests: `ListTypographyTests`, `IOSEditorInputTests`. **Conflicts:** Fork's.
+33. **Bare bullets** (`Styling/MarkdownASTStyler.swift`). A bare `-`, `+` or `*` item (#27) is drawn as typed, with no bullet or list indent, until a space follows it; a character typed after it goes in as it is. Tests: `ListTypographyTests`, `IOSEditorInputTests`. **Conflicts:** Fork's.
 
 34. **Typing font at the caret** (`Styling/TextStylingService.swift`). The typing attributes take the font of the visible character before the caret on its line (`typingFont(at:in:base:)`), so an inline prediction in a heading is heading-sized. On iOS the `typingAttributes` getter applies it; on the Mac, `shouldChangeTypingAttributes`. Tests: `ListTypographyTests`, `IOSEditorInputTests`. **Conflicts:** Fork's.
 

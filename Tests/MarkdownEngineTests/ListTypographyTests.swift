@@ -2,8 +2,8 @@
 //  ListTypographyTests.swift
 //  MarkdownEngineTests
 //
-//  Fork: list geometry (task box on the bullet's slot, a bare bullet's room, the first level's indent),
-//  the space typed after a bare bullet, and the typing font at the caret.
+//  Fork: list geometry (task box on the bullet's slot, a bare marker that stays a dash, the first level's indent),
+//  and the typing font at the caret.
 //
 
 #if canImport(AppKit)
@@ -54,11 +54,18 @@ struct ListTypographyTests {
         #expect(abs(boxCentre - (paragraph.firstLineHeadIndent + width("-") / 2)) < 1)
     }
 
-    @Test func aBareBulletEndsASpaceWider() {
-        #expect(attribute(.kern, in: style("-"), at: 0) == width(" "))
-        #expect(attribute(.kern, in: style("+"), at: 0) == width(" "))
-        #expect((attribute(.kern, in: style("*"), at: 0) as CGFloat?) == nil)
-        #expect((attribute(.kern, in: style("- a"), at: 0) as CGFloat?) == nil)
+    @Test(arguments: ["-", "+", "*", "a\n\n-", "# H\n-"])
+    func aBareMarkerStaysADashWithNoListIndent(_ text: String) {
+        let ns = text as NSString
+        let attrs = style(text, caret: ns.length)
+        let marker = ns.length - 1
+        #expect((attribute(.bulletMarker, in: attrs, at: marker) as Bool?) == nil)
+        #expect((attribute(.kern, in: attrs, at: marker) as CGFloat?) == nil)
+        #expect(((attribute(.paragraphStyle, in: attrs, at: marker) as NSParagraphStyle?)?.firstLineHeadIndent ?? 0) == 0)
+    }
+
+    @Test func aMarkerAndASpaceDrawsABullet() {
+        #expect(attribute(.bulletMarker, in: style("# H\n- ", caret: 6), at: 4) == true)
     }
 
     @Test func firstLevelIndentSetsTheTopLevelAndNestsFromIt() throws {
@@ -117,18 +124,11 @@ struct ListTypographyTests {
         return (tv.string as NSString).replacingCharacters(in: tv.selectedRange(), with: "|")
     }
 
-    @Test func typingAfterABareBulletAddsTheSpace() {
-        #expect(typed("-a") == "- a|")
-        #expect(typed("+a") == "+ a|")
-        #expect(typed("-[") == "- [|]")
-        #expect(typed("\t-a", into: "- x\n") == "- x\n\t- a|")
-        #expect(typed("> -a") == "> - a|")
-        // Typed as they are.
-        #expect(typed("---") == "---|")
+    @Test func aCharacterAfterABareMarkerIsTypedAsItIs() {
+        #expect(typed("-a") == "-a|")
+        #expect(typed("-a", into: "# H\n") == "# H\n-a|")
         #expect(typed("- a") == "- a|")
-        #expect(typed("*a") == "*a|")
-        // A bare marker under a paragraph line isn't a bullet.
-        #expect(typed("-a", into: "Text\n") == "Text\n-a|")
+        #expect(typed("-[") == "-[|]")
     }
 
     @Test func aTableCellsListStartsAtItsTextEdge() throws {

@@ -171,12 +171,12 @@ struct IOSEditorInputTests {
         #expect(offsets.lowest >= start - 1, "scrolled to \(offsets.lowest) from \(start)")
     }
 
-    @Test func typingAfterABareBulletAddsTheSpace() async throws {
+    @Test func aCharacterAfterABareMarkerIsTypedAsItIs() async throws {
         let editor = try IOSEditorHarness("")
         await editor.type("-")
         await editor.type("a")
-        #expect(editor.textView.string == "- a")
-        #expect(editor.textView.selectedRange == NSRange(location: 3, length: 0))
+        #expect(editor.textView.string == "-a")
+        #expect(editor.textView.selectedRange == NSRange(location: 2, length: 0))
     }
 
     @Test func theTypingFontFollowsAHeading() async throws {
