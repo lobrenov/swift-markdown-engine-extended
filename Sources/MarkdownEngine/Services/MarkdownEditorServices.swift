@@ -92,6 +92,15 @@ public protocol EmbeddedImageProvider: Sendable {
     /// a different value invalidates the engine's image cache. Embedders
     /// typically combine the IDs of all known images.
     func fingerprint() -> AnyHashable
+
+    /// Fork: whether the reference's target exists as a file that isn't an image. The engine then draws a file
+    /// block with the target's name and extension instead of a missing embed. Defaults to `false`.
+    func isFile(for reference: EmbeddedImageRequest) -> Bool
+}
+
+extension EmbeddedImageProvider {
+    /// Fork: no file blocks unless the embedder says a target is a file.
+    public func isFile(for reference: EmbeddedImageRequest) -> Bool { false }
 }
 
 /// What the engine asks an `EmbeddedImageProvider` for.

@@ -105,14 +105,30 @@ final class EmbeddedImageCache {
     private init() {}
 
     private var cache: [String: PlatformImage] = [:]
+    private var files: [String: Bool] = [:]
     private var lastFingerprint: AnyHashable?
 
-    func image(for reference: ImageEmbedReference, services: MarkdownEditorServices) -> PlatformImage? {
+    /// Fork: whether the provider says the reference is a non-image file; cached under the same fingerprint.
+    func isFile(for reference: ImageEmbedReference, services: MarkdownEditorServices) -> Bool {
+        invalidateIfNeeded(services)
+        let cacheKey = reference.nodeID?.uuidString ?? reference.name
+        if let cached = files[cacheKey] { return cached }
+        let result = services.images.isFile(for: reference.providerRequest)
+        files[cacheKey] = result
+        return result
+    }
+
+    private func invalidateIfNeeded(_ services: MarkdownEditorServices) {
         let currentFingerprint = services.images.fingerprint()
         if currentFingerprint != lastFingerprint {
             cache.removeAll()
+            files.removeAll()
             lastFingerprint = currentFingerprint
         }
+    }
+
+    func image(for reference: ImageEmbedReference, services: MarkdownEditorServices) -> PlatformImage? {
+        invalidateIfNeeded(services)
 
         let cacheKey = reference.nodeID?.uuidString ?? reference.name
         if let cached = cache[cacheKey] {

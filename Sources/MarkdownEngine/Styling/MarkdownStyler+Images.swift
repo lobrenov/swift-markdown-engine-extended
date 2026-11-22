@@ -1,6 +1,7 @@
 //
 //  MarkdownStyler+Images.swift
 //  MarkdownEngine
+//  Fork: changed from upstream; FORK.md lists the changes.
 //
 //  Created by Luca Chen on 16.03.26.
 //
@@ -137,7 +138,25 @@ extension MarkdownStyler {
                 continue
             }
 
-            if let image = EmbeddedImageCache.shared.image(for: reference, services: ctx.services) {
+            // Fork: an existing non-image file draws as a file block, as wide as the text container.
+            var isFile = false
+            var drawn = EmbeddedImageCache.shared.image(for: reference, services: ctx.services)
+            if drawn == nil, EmbeddedImageCache.shared.isFile(for: reference, services: ctx.services) {
+                isFile = true
+                let fileConfig = ctx.configuration.imageEmbed
+                let width: CGFloat = {
+                    if let tc = ctx.layoutBridge?.firstTextContainer {
+                        let w = tc.containerSize.width - tc.lineFragmentPadding * 2
+                        if w > 0 && w < fileConfig.unreasonableMaxWidth { return w }
+                    }
+                    return fileConfig.fallbackMaxWidth
+                }()
+                drawn = FileEmbedImage.make(
+                    target: reference.name, width: width, style: fileConfig.file, theme: ctx.configuration.theme,
+                    codeBackground: ctx.codeBackgroundColor, bodyFont: ctx.baseFont,
+                    codeFont: ctx.services.syntaxHighlighter.codeFont(size: 8))
+            }
+            if let image = drawn {
                 let imageEmbedConfig = ctx.configuration.imageEmbed
                 // Determine max width from text container
                 let maxWidth: CGFloat = {
@@ -151,7 +170,7 @@ extension MarkdownStyler {
                 let minWidth = imageEmbedConfig.minimumWidth
                 let imageSize = image.size
                 let targetWidth: CGFloat
-                if let rw = reference.requestedWidth, rw > 0 {
+                if !isFile, let rw = reference.requestedWidth, rw > 0 {
                     targetWidth = min(max(rw, minWidth), maxWidth)
                 } else {
                     targetWidth = min(imageSize.width, maxWidth)
@@ -191,7 +210,7 @@ extension MarkdownStyler {
                 if !rendered {
                     appendSecondaryMarkers(for: token, to: &attrs, theme: ctx.configuration.theme)
                 } else if imageEmbedConfig.cornerRadius > 0 || imageEmbedConfig.selectionRing != nil {
-                    attrs.append((token.range, [.imageCornerRadius: imageEmbedConfig.cornerRadius]))
+                    attrs.append((token.range, [.imageCornerRadius: isFile ? imageEmbedConfig.file.cornerRadius : imageEmbedConfig.cornerRadius]))
                 }
             } else {
                 // Image not found — show syntax with marker coloring (like broken link)

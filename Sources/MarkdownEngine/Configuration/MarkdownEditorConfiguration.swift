@@ -600,6 +600,44 @@ public struct ImageEmbedStyle: Sendable {
     /// Fork: with a colour, a click on a drawn image selects its `![[ ]]` and rings the image in this colour, as
     /// does an open image menu.
     public var selectionRing: PlatformColor?
+    /// Fork: the file block an embed of an existing non-image file draws.
+    public var file = FileEmbedStyle()
+
+    /// Fork: the look of a file block (``EmbeddedImageProvider/isFile(for:)``): a callout-shaped row with a file
+    /// badge and the file's name. Nil colours come from the theme.
+    public struct FileEmbedStyle: Sendable {
+        /// Block height.
+        public var height: CGFloat
+        /// Badge size: a page with a folded corner, holding the file's extension.
+        public var badgeSize: CGSize
+        public var cornerRadius: CGFloat = 10
+        /// Hairline border width.
+        public var borderWidth: CGFloat = 1
+        public var leadingPadding: CGFloat = 10
+        public var trailingPadding: CGFloat = 14
+        /// Gap between the badge and the name.
+        public var gap: CGFloat = 12
+        /// Block fill. Nil is the code block background.
+        public var background: PlatformColor?
+        /// Border colour. Nil is the theme's muted text at 30%.
+        public var border: PlatformColor?
+        /// Badge colour; its fill and outline are this at ``badgeFillAlpha`` and ``badgeOutlineAlpha``. Nil is the theme's link colour.
+        public var badge: PlatformColor?
+        public var badgeFillAlpha: CGFloat = 0.2
+        public var badgeOutlineAlpha: CGFloat = 0.8
+        /// The name's and the extension's colour. Nil is the theme's body text.
+        public var text: PlatformColor?
+
+        public init() {
+            #if os(macOS)
+            height = 52
+            badgeSize = CGSize(width: 28, height: 34)
+            #else
+            height = 56
+            badgeSize = CGSize(width: 30, height: 36)
+            #endif
+        }
+    }
 
     /// Fork: the source button's colours, and while the pointer is on it.
     public struct SourceButtonColors: Sendable {

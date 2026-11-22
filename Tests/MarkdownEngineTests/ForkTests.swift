@@ -743,6 +743,7 @@ private struct OneImage: EmbeddedImageProvider {
             NSColor.systemTeal.setFill(); rect.fill(); return true
         }
     }
+    func isFile(for reference: EmbeddedImageRequest) -> Bool { reference.name == "docs/report.pdf" }
     func fingerprint() -> AnyHashable { 1 }
 }
 
@@ -752,10 +753,9 @@ struct ImageEmbedTests {
     static let text = "Intro\n\n![[front.png]]\n\nAfter ![[frnt.png]]\n"
     static let embed = NSRange(location: 7, length: 14)
 
-    private func editor() throws
+    fileprivate func editor(text: String = Self.text) throws
         -> (tv: NativeTextView, proxy: SlashCommandProxy, window: NSWindow, coordinator: NativeTextViewCoordinator) {
         _ = NSApplication.shared
-        let text = Self.text
         var configuration = MarkdownEditorConfiguration.default
         configuration.services = MarkdownEditorServices(images: OneImage())
         configuration.imageEmbed.revealsSourceAtCaret = false
@@ -927,6 +927,72 @@ struct ImageEmbedTests {
         let underline = tv.textStorage?.attribute(.underlineStyle, at: name.location, effectiveRange: nil) as? Int
         #expect(underline == NSUnderlineStyle.single.union(.patternDash).rawValue)
         withExtendedLifetime((window, coordinator)) {}
+    }
+}
+
+extension ImageEmbedTests {
+    static let fileText = "Intro\n\n![[docs/report.pdf|300]]\n\n![[gone.pdf]]\n"
+    static let fileEmbed = NSRange(location: 7, length: 20)
+
+    @Test func anExistingNonImageFileDrawsAsAFileBlock() throws {
+        let (tv, _, window, coordinator) = try editor(text: Self.fileText)
+        let storage = try #require(tv.textStorage)
+        let at = Self.fileEmbed.location + 3
+        #expect(storage.attribute(.latexImage, at: at, effectiveRange: nil) != nil)
+        #expect(storage.attribute(.underlineStyle, at: at, effectiveRange: nil) == nil, "not the missing style")
+        #expect(storage.attribute(.imageCornerRadius, at: at, effectiveRange: nil) as? CGFloat == 10)
+        let rect = try #require(tv.imageEmbedRect(for: Self.fileEmbed))
+        let container = try #require(tv.textContainer)
+        #expect(rect.height == 52 && rect.width == container.size.width - container.lineFragmentPadding * 2,
+                "the container's width, whatever the |300 segment says")
+        withExtendedLifetime((window, coordinator)) {}
+    }
+
+    @Test func aMissingFileKeepsTheMissingStyle() throws {
+        let (tv, _, window, coordinator) = try editor(text: Self.fileText)
+        let name = (Self.fileText as NSString).range(of: "gone.pdf")
+        #expect(tv.textStorage?.attribute(.latexImage, at: name.location, effectiveRange: nil) == nil)
+        let underline = tv.textStorage?.attribute(.underlineStyle, at: name.location, effectiveRange: nil) as? Int
+        #expect(underline == NSUnderlineStyle.single.union(.patternDash).rawValue)
+        withExtendedLifetime((window, coordinator)) {}
+    }
+
+    @Test func aFileBlockSelectsAndReachesTheEmbedderLikeAnImage() throws {
+        let (tv, _, window, coordinator) = try editor(text: Self.fileText)
+        tv.configuration.imageEmbed.selectionRing = .systemBlue
+        coordinator.configuration.imageEmbed.selectionRing = .systemBlue
+        var requests: [ImageEmbedRequest] = []
+        tv.onImageEmbed = { requests.append($0) }
+        let rect = try #require(tv.imageEmbedRect(for: Self.fileEmbed))
+        let point = CGPoint(x: rect.midX, y: rect.midY)
+        func event(_ type: NSEvent.EventType) throws -> NSEvent {
+            try #require(NSEvent.mouseEvent(
+                with: type, location: tv.convert(point, to: nil), modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        }
+        tv.mouseDown(with: try event(.leftMouseDown))
+        #expect(tv.selectedImageEmbed == Self.fileEmbed && tv.ringsImage(at: Self.fileEmbed.location + 3))
+        _ = tv.menu(for: try event(.rightMouseDown))
+        tv.copy(nil)
+        #expect(requests.map(\.action) == [.menu, .copy] && requests.allSatisfy { $0.name == "docs/report.pdf" })
+        withExtendedLifetime(coordinator) {}
+    }
+
+    @Test func theBadgeTextIsTheUpperCasedExtension() {
+        #expect(FileEmbedImage.badgeText(forName: "docs/Report.final.pdf") == "PDF")
+        #expect(FileEmbedImage.badgeText(forName: "data.xlsx") == "XLSX")
+        #expect(FileEmbedImage.badgeText(forName: "Makefile") == "")
+        #expect(FileEmbedImage.badgeText(forName: ".env") == "")
+        #expect(FileEmbedImage.fileName(of: "a/b/c.zip") == "c.zip")
+    }
+
+    @Test func theBadgeTextSizeFollowsItsLength() {
+        let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .semibold)
+        #expect(FileEmbedImage.badgeFontSize(forText: "PDF", fitting: 20, font: font) == 8)
+        #expect(FileEmbedImage.badgeFontSize(forText: "XLSX", fitting: 20, font: font) == 7.5)
+        #expect(FileEmbedImage.badgeFontSize(forText: "MARKDOWN", fitting: 20, font: font) < 7.5)
+        let size = FileEmbedImage.badgeFontSize(forText: "MARKDOWN", fitting: 20, font: font)
+        #expect((("MARKDOWN" as NSString).size(withAttributes: [.font: font.withSize(size)]).width) <= 20.01)
     }
 }
 
