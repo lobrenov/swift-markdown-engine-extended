@@ -304,18 +304,19 @@ final class NativeTextView: UITextView {
     // MARK: Fork: image paste
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(paste(_:)), onPasteImage != nil, isEditable, pasteboard.hasImages { return true }
+        if action == #selector(paste(_:)), onPasteImage != nil, isEditable, pasteboard.hasImages || pasteboard.hasURLs { return true }
         return super.canPerformAction(action, withSender: sender)
     }
 
-    /// An image on the pasteboard goes to `onPasteImage`, and its embed goes on its own line. A URL pasted over
+    /// An image or a file URL on the pasteboard goes to `onPasteImage`, and its embed goes on its own line. A URL pasted over
     /// selected text makes a Markdown link.
     override func paste(_ sender: Any?) {
         if isEditable, selectedRange.length > 0, let pasted = pasteboard.string,
            let link = LinkPaste.link(pasting: pasted, over: (text as NSString).substring(with: selectedRange)) {
             return replaceCharacters(in: selectedRange, with: link)
         }
-        guard let onPasteImage, pasteboard.hasImages, let embed = onPasteImage(pasteboard), !embed.isEmpty else {
+        guard let onPasteImage, pasteboard.hasImages || pasteboard.urls?.contains(where: \.isFileURL) == true,
+              let embed = onPasteImage(pasteboard), !embed.isEmpty else {
             return super.paste(sender)
         }
         let selection = selectedRange

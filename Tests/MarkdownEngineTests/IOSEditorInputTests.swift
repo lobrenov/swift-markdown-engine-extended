@@ -201,6 +201,26 @@ struct IOSEditorInputTests {
         UIPasteboard.general.items = []
     }
 
+    @Test func aFileURLOnThePasteboardGoesToOnPasteImageAndFallsBackOnNil() async throws {
+        let editor = try IOSEditorHarness("Docs:")
+        let pasteboard = try #require(UIPasteboard.withUniqueName())
+        pasteboard.urls = [URL(fileURLWithPath: "/tmp/report.pdf")]
+        editor.textView.pasteboard = pasteboard
+        var answer: String? = "![[report.pdf]]"
+        editor.textView.onPasteImage = { _ in answer }
+        editor.textView.selectedRange = NSRange(location: 5, length: 0)
+        #expect(editor.textView.canPerformAction(#selector(UIResponder.paste(_:)), withSender: nil))
+        editor.textView.paste(nil)
+        await editor.settle()
+        #expect(editor.text == "Docs:\n![[report.pdf]]")
+        answer = nil
+        editor.textView.selectedRange = NSRange(location: 0, length: 0)
+        editor.textView.paste(nil)
+        await editor.settle()
+        #expect(!editor.text.hasPrefix("![["))
+        UIPasteboard.remove(withName: pasteboard.name)
+    }
+
     @Test func aURLPastedOverSelectedTextMakesALink() async throws {
         let editor = try IOSEditorHarness("Read the docs")
         let pasteboard = try #require(UIPasteboard.withUniqueName())

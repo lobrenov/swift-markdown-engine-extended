@@ -41,6 +41,12 @@ public enum PasteboardImageReader {
         })
     }
 
+    /// Fork: whether the pasteboard carries a file URL of any type.
+    static func hasFileURL(_ pasteboard: NSPasteboard) -> Bool {
+        let objects = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+        return objects?.isEmpty == false
+    }
+
     /// PNG-encoded image data extracted from the pasteboard, or `nil` when
     /// no decodable image is available.
     ///

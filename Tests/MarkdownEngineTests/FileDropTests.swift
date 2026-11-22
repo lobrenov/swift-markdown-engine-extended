@@ -74,6 +74,35 @@ struct FileDropTests {
         var handedOff: [[URL]] = []
     }
 
+    @Test("without fileDrop, any dropped file goes to onPasteImage, and a nil answer leaves the drop to AppKit")
+    func droppedFilesOfAnyTypeOfferThemselvesToOnPasteImage() {
+        let doc = URL(fileURLWithPath: "/tmp/report.pdf")
+        let tv = NativeTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 200))
+        tv.isEditable = true
+        tv.string = "Before"
+        var offered = 0
+        tv.onPasteImage = { _ in offered += 1; return "![[report.pdf]]" }
+        #expect(tv.performImageFileDrop(FakeDrag(pasteboard(files: [doc]))))
+        #expect(offered == 1 && tv.string.contains("![[report.pdf]]"))
+        tv.string = "Before"
+        tv.onPasteImage = { _ in offered += 1; return nil }
+        _ = tv.performImageFileDrop(FakeDrag(pasteboard(files: [doc])))
+        #expect(offered == 2 && !tv.string.contains("![["))
+    }
+
+    @Test("Paste is enabled for a file on the pasteboard with onPasteImage")
+    func pasteValidatesForFiles() {
+        let tv = NativeTextView(frame: .zero)
+        tv.isEditable = true
+        let item = NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "")
+        let general = NSPasteboard.general
+        general.clearContents()
+        general.writeObjects([URL(fileURLWithPath: "/tmp/report.pdf") as NSURL])
+        tv.onPasteImage = { _ in nil }
+        #expect(tv.validateUserInterfaceItem(item))
+        general.clearContents()
+    }
+
     @Test("file URLs become a drag type only with a handler")
     func registersFileURLsOnlyWithAHandler() {
         let base = NativeTextView(frame: .zero).acceptableDragTypes

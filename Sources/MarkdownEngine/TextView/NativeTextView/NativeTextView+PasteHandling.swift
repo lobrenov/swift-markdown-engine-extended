@@ -14,11 +14,12 @@ extension NativeTextView {
         "md", "markdown", "mdown", "mkd", "txt", "text"
     ]
 
-    /// Fork: without `fileDrop`, an image file dropped from Finder goes to `onPasteImage`, and its embed goes on
-    /// its own line where it was dropped (`performDragOperation` in `+FileDrop`).
+    /// Fork: without `fileDrop`, a file dropped from Finder goes to `onPasteImage`, and its embed goes on
+    /// its own line where it was dropped (`performDragOperation` in `+FileDrop`). When `onPasteImage` returns
+    /// nil, the drop is AppKit's.
     func performImageFileDrop(_ sender: any NSDraggingInfo) -> Bool {
         let pasteboard = sender.draggingPasteboard
-        guard isEditable, sender.draggingSource == nil, PasteboardImageReader.imageFileURL(from: pasteboard) != nil,
+        guard isEditable, sender.draggingSource == nil, PasteboardImageReader.hasFileURL(pasteboard),
               let embed = onPasteImage?(pasteboard), !embed.isEmpty else {
             return super.performDragOperation(sender)
         }
@@ -230,6 +231,8 @@ extension NativeTextView {
         if item.action == #selector(paste(_:)) {
             let pasteboard = NSPasteboard.general
             if PasteboardImageReader.canPasteImage(from: pasteboard) { return true }
+            // Fork: a file on the pasteboard can paste as an embed.
+            if isEditable, onPasteImage != nil, PasteboardImageReader.hasFileURL(pasteboard) { return true }
             if textFromPastedFileURL(pasteboard: pasteboard) != nil { return true }
         }
         return super.validateUserInterfaceItem(item)
