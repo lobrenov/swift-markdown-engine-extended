@@ -108,6 +108,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
             onInlineSelectionChange: nil
         )
         coordinator.documentId = documentId
+        coordinator.retainUndo(for: documentId)
         coordinator.configuration = configuration
         coordinator.lastImageFingerprint = configuration.services.images.fingerprint()
         coordinator.lastWikiFingerprint = configuration.services.wikiLinks.fingerprint()
@@ -263,10 +264,11 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         if isNodeSwitch {
             if let outgoingId = coordinator.documentId {
                 coordinator.scrollOffsets[outgoingId] = textView.contentOffset.y
-                coordinator.undoContentSnapshots[outgoingId] = coordinator.lastSyncedText
             }
+            coordinator.noteUndoBaseline(for: coordinator.documentId, text: textView.string)
+            coordinator.noteSelection(for: coordinator.documentId, in: textView)
             coordinator.documentId = documentId
-            coordinator.invalidateUndoIfContentDiverged(for: documentId, incomingText: text)
+            coordinator.retainUndo(for: documentId)
             coordinator.didInitialFormatting = false
             coordinator.didEnsureLayoutForCurrentDocument = false
             coordinator.resetImageEmbedState()
@@ -278,7 +280,11 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.fontName = fontName
         coordinator.fontSize = fontSize
         textView.baseTypingAttributes = baseTypingAttributes(layoutBridge: coordinator.layoutBridge)
-        coordinator.rebuildTextStorageAndStyle(textView, from: text, invalidateLayout: isNodeSwitch)
+        if !isNodeSwitch {
+            coordinator.noteUndoBaseline(for: documentId, text: textView.string)
+        }
+        coordinator.rebuildTextStorageAndStyle(textView, from: text, invalidateLayout: isNodeSwitch,
+                                               restoring: coordinator.selectionToRestore(for: documentId, text: text))
         if isNodeSwitch {
             let saved = coordinator.scrollOffsets[documentId] ?? -textView.adjustedContentInset.top
             textView.setContentOffset(CGPoint(x: 0, y: saved), animated: false)

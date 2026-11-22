@@ -96,6 +96,10 @@ extension NativeTextViewCoordinator: NSTextViewDelegate {
         // Fork: ↓ or ↑ from the line beside a table enters it.
         if configuration.liveTables, let native = textView as? NativeTextView, native.tableCell == nil,
            native.enterTable(from: commandSelector) { return true }
+        if let nativeTextView = textView as? NativeTextView,
+           nativeTextView.startLineMoveFromHangingCaret(commandSelector) {
+            return true
+        }
         return false
     }
 

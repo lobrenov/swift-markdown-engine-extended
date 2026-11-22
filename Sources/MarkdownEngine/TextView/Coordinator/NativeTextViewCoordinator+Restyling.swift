@@ -22,7 +22,8 @@ extension NativeTextViewCoordinator {
     func rebuildTextStorageAndStyle(
         _ textView: PlatformTextView,
         from text: String,
-        invalidateLayout: Bool = false
+        invalidateLayout: Bool = false,
+        restoring selectionToRestore: NSRange? = nil
     ) {
         // Suppress the re-entrant textViewDidChangeSelection that `textView.string =`
         // and the setAttributedString transfer below fire synchronously (71ms of
@@ -61,6 +62,11 @@ extension NativeTextViewCoordinator {
         lastComputedStorage = text
         previousDisplayLength = (displayText as NSString).length
         let nsDisplay = displayText as NSString
+        // The selection this document was left with (see `leftSelections`). Set
+        // inside the rebuild, after the transfer below has reset it, so the
+        // selection handler stays suppressed: no link preview, no snap-back. The
+        // styling is told now, so the caret's own token is revealed for it.
+        let restoredSelection = selectionToRestore.flatMap { NSMaxRange($0) <= nsDisplay.length ? $0 : nil }
         // Fresh document baseline: drop the incremental parse state and reseed
         // the backtick census (a stale count from the previous document would
         // force a spurious full-document restyle on the first keystroke).
@@ -115,10 +121,11 @@ extension NativeTextViewCoordinator {
             lastCodeSelKey = nil
             let tokens = parsed.tokens
             // Hide caret from styling when read-only, else clicks reveal raw token syntax.
-            let caretLocation = textView.revealsSyntax ? textView.currentSelectedRange.location : -1
+            let styledSelection = restoredSelection ?? textView.currentSelectedRange
+            let caretLocation = textView.revealsSyntax ? styledSelection.location : -1
             activeTokenIndices = activeTokenIndices(
                 parsed: parsed,
-                selection: textView.currentSelectedRange,
+                selection: styledSelection,
                 in: nsDisplay,
                 suppressed: !textView.revealsSyntax
             )
@@ -131,7 +138,7 @@ extension NativeTextViewCoordinator {
                 caretLocation: caretLocation,
                 // Selection-revealed syntax (task checkboxes) needs the full
                 // range, not just the caret; read-only suppresses it like the caret.
-                selection: textView.revealsSyntax ? textView.currentSelectedRange : nil,
+                selection: textView.revealsSyntax ? styledSelection : nil,
                 activeTokenIndices: activeTokenIndices,
                 // FIX: apply .wikiLinkID attributes on load/node-switch too. Without this the uuid
                 // survived only in the range-keyed wikiLinkMetadata; once a later writeback shifted a
@@ -171,6 +178,9 @@ extension NativeTextViewCoordinator {
         textView.optionalTextStorage?.setAttributedString(built)
         textView.optionalTextStorage?.endEditing()
         applyParagraphAlignment(to: textView)
+        if let restoredSelection {
+            textView.setSelectedRange(restoredSelection)
+        }
 
 
         textView.typingAttributes = TextStylingService.makeBaseTypingAttributes(
