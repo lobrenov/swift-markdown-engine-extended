@@ -1,6 +1,17 @@
 # Upstream proposal: a Foundation-only `MarkdownEngineSyntax` target
 
-A draft for `nodes-app/swift-markdown-engine`, written against upstream `main` (after 0.14.0). Upstream's `CONTRIBUTING.md` asks for a large or architectural change to arrive as a draft PR with the design in its description, so the text below works as that description or as an issue that asks first. Everything below the line is the text to post; it describes upstream's code only.
+A draft for `nodes-app/swift-markdown-engine`, written against upstream `main` (after 0.14.0). Upstream's `CONTRIBUTING.md` asks for a large or architectural change to arrive as a draft PR with the design in its description, so the text below works as that description or as an issue that asks first. Everything below the line is the text to post; it describes upstream's code only. It was posted as [#208](https://github.com/nodes-app/swift-markdown-engine/issues/208).
+
+### The series
+The maintainer accepted the series and asked for a public library product in step 3, so the plan below the line is now five steps. #223 asks which entry points the maintainer's app uses, which scopes step 5. Each step is its own branch from upstream `main`, opened against `main`; a later step's PR is a draft that names the one it depends on until that one merges. Upstream squash-merges, so after each merge the next branch is rebased onto `upstream/main` (`git rebase --onto upstream/main <old tip of the merged step> <next branch>`) and force-pushed.
+
+| Step | Branch | Change |
+|---|---|---|
+| 1 | `feat/markdown-engine-syntax-target` | The syntax types in their own files. Merged as [#209](https://github.com/nodes-app/swift-markdown-engine/pull/209), in 0.16.0. |
+| 2 | `feat/syntax-registries` | `ExtensionRegistry` and `DirectiveRegistry` built from syntax values; the protocol-based initialisers kept as extensions. [#222](https://github.com/nodes-app/swift-markdown-engine/pull/222). |
+| 3 | `feat/syntax-target` | The `MarkdownEngineSyntax` target and library product, the files moved in a rename-only commit, `package` access, the typealiases and re-export. The product's public API is the seam types that are already public. [#223](https://github.com/nodes-app/swift-markdown-engine/pull/223). |
+| 4 | `feat/syntax-tests` | The parser-only suites in `MarkdownEngineSyntaxTests`, and the Foundation-only import check. [#224](https://github.com/nodes-app/swift-markdown-engine/pull/224). |
+| 5 | | A public read API for the product (`DocumentAST.parse` and the nodes an embedder reads), scoped to what the maintainer's iOS app uses from `Parser/`. The product already builds for iOS. |
 
 ### Related upstream issues
 None rules the proposal out. These shape how it's written and when to raise it.
