@@ -69,6 +69,19 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var column: Int
         /// The tag's length in UTF-16 units: `#` through the last character of its name (trailing `/`s excluded).
         public var length: Int
+        /// Fork: the emphasis and strong spans the tag sits in, innermost first.
+        package var wrappers: [Wrapper] = []
+
+        /// Fork: an emphasis or strong span around a tag, as UTF-16 distances from the tag's own bounds.
+        package struct Wrapper: Hashable, Sendable {
+            /// From the span's start to the tag's `#`.
+            package var before: Int
+            /// From the tag's end (trailing `/`s excluded) to the span's end.
+            package var after: Int
+            /// The lengths of the opening and closing markers.
+            package var open: Int
+            package var close: Int
+        }
     }
 
     public struct Callout: Hashable, Sendable {
@@ -351,6 +364,7 @@ private struct FactScanner {
                     let source = mapped(NSRange(location: start, length: tag.length))
                     tag.line = rowLine
                     tag.column = source.location - lineStarts[rowLine - firstLineIndex]
+                    if source.length != tag.length { tag.wrappers = [] }
                     tag.length = source.length
                     return tag
                 }
@@ -423,7 +437,8 @@ private struct FactScanner {
     // MARK: - Inlines
 
     /// `region` is the text `nodes` were parsed from: where a reference link is looked for, outside `excluding`.
-    private mutating func collect(_ nodes: [InlineNode], region: NSRange? = nil, excluding: [NSRange] = []) {
+    private mutating func collect(_ nodes: [InlineNode], region: NSRange? = nil, excluding: [NSRange] = [],
+                                 enclosing: [(range: NSRange, open: Int, close: Int)] = []) {
         if let region { addReferenceUses(nodes, region: region, excluding: excluding) }
         for node in nodes {
             switch node {
@@ -442,15 +457,21 @@ private struct FactScanner {
             case .tag(let range, let marker):
                 let name = NSRange(location: NSMaxRange(marker), length: NSMaxRange(range) - NSMaxRange(marker))
                 let tagLine = line(range.location)
+                let wrappers = enclosing.reversed().map {
+                    MarkdownFacts.Tag.Wrapper(before: range.location - $0.range.location, after: NSMaxRange($0.range) - NSMaxRange(range),
+                                open: $0.open, close: $0.close)
+                }
                 facts.tags.append(.init(line: tagLine, name: string(name),
-                                        column: range.location - lineStarts[tagLine - firstLineIndex], length: range.length))
+                                        column: range.location - lineStarts[tagLine - firstLineIndex], length: range.length,
+                                        wrappers: wrappers))
             case .link(_, _, let url, let markers, let children):
                 addMarkdownLink(url: url, markers: markers)
                 collect(children)
             case .image(_, _, let url, let markers):
                 addMarkdownLink(url: url, markers: markers)
-            case .emphasis(_, _, _, let children):
-                collect(children)
+            case .emphasis(_, let range, let markers, let children):
+                // Fork: the enclosing spans, for a tag edit that empties one.
+                collect(children, enclosing: enclosing + [(range, markers[0].length, markers[1].length)])
             case .ext(let node):
                 collect(node.children)
             case .text, .code, .inlineLatex, .escape:

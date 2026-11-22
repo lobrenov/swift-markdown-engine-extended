@@ -227,13 +227,13 @@
       "after": "a #home/gardening #home b\n"
     },
     {
-      "name": "Delete in emphasis",
+      "name": "Delete in emphasis keeps content",
       "command": "tag.delete",
       "args": {
         "from": "home"
       },
-      "before": "*#home* x\n",
-      "after": "** x\n"
+      "before": "*#home x* **y #home**\n",
+      "after": "*x* **y**\n"
     },
     {
       "name": "Delete after a no-break space",
@@ -296,7 +296,7 @@
         "from": "home"
       },
       "before": "a #home// b\n",
-      "after": "a// b\n"
+      "after": "a b\n"
     },
     {
       "name": "Delete keeps CRLF",
@@ -333,6 +333,153 @@
       },
       "before": "| a |\n| - |\n| x #home |\n",
       "after": "| a |\n| - |\n| x |\n"
+    },
+    {
+      "name": "Rename a tag with empty segments, matched by its normalised path",
+      "command": "tag.rename",
+      "args": {
+        "from": "home",
+        "to": "house"
+      },
+      "before": "#home//garden and #Home///Garden//x/\n",
+      "after": "#house/garden and #house/Garden/x/\n"
+    },
+    {
+      "name": "Rename a nested path through empty segments",
+      "command": "tag.rename",
+      "args": {
+        "from": "home/garden",
+        "to": "home/yard"
+      },
+      "before": "#home//garden/x #home/gardening\n",
+      "after": "#home/yard/x #home/gardening\n"
+    },
+    {
+      "name": "Rename from a path with empty segments",
+      "command": "tag.rename",
+      "args": {
+        "from": "home//",
+        "to": "house"
+      },
+      "before": "#home/garden\n",
+      "after": "#house/garden\n"
+    },
+    {
+      "name": "Delete a tag with empty segments",
+      "command": "tag.delete",
+      "args": {
+        "from": "home/garden"
+      },
+      "before": "a #home//garden b\n",
+      "after": "a b\n"
+    },
+    {
+      "name": "Delete a tag with a trailing slash",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "x #home/ y\n",
+      "after": "x y\n"
+    },
+    {
+      "name": "Delete a nested tag with trailing slashes",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "x #home/a// y\n",
+      "after": "x y\n"
+    },
+    {
+      "name": "Delete a tag alone in strong",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "**#home**\n",
+      "after": "\n"
+    },
+    {
+      "name": "Delete a tag alone in strong with underscores",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "__#home__\n",
+      "after": "\n"
+    },
+    {
+      "name": "Delete a tag alone in emphasis",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "*#home*\n_#home_\n",
+      "after": "\n\n"
+    },
+    {
+      "name": "Delete a tag alone in emphasis in a list item",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "- **#home**\n",
+      "after": "-\n"
+    },
+    {
+      "name": "Delete a tag alone in emphasis after text",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a **#home** b\n",
+      "after": "a b\n"
+    },
+    {
+      "name": "Delete a tag alone in nested emphasis",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a ***#home*** b\n",
+      "after": "a b\n"
+    },
+    {
+      "name": "Delete a tag with a trailing slash alone in emphasis",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a **#home/** b\n",
+      "after": "a b\n"
+    },
+    {
+      "name": "Delete keeps the strong span that holds more",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "**#home x** and **#home** y\n",
+      "after": "**x** and y\n"
+    },
+    {
+      "name": "Delete two tags that fill one span",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "a **#home #home/x** b\n",
+      "after": "a b\n"
+    },
+    {
+      "name": "Delete keeps the outer span that holds more",
+      "command": "tag.delete",
+      "args": {
+        "from": "home"
+      },
+      "before": "**x _#home_** y\n",
+      "after": "**x** y\n"
     }
   ]
 }
