@@ -78,6 +78,72 @@ public enum TaskAttributeSyntax {
         package var value: String
     }
 
+    private static let (backslash, paren, closeParen): (UInt16, UInt16, UInt16) = (0x5C, 0x28, 0x29)
+
+    /// The index after the code span opened by the backtick run at `i`, or after the run when nothing closes it.
+    private static func afterCodeSpan(_ u: [UInt16], at i: Int) -> Int {
+        var length = 0
+        while i + length < u.count, u[i + length] == 0x60 { length += 1 }
+        var j = i + length
+        while j < u.count {
+            guard u[j] == 0x60 else { j += 1; continue }
+            var run = 0
+            while j + run < u.count, u[j + run] == 0x60 { run += 1 }
+            if run == length { return j + run }
+            j += run
+        }
+        return i + length
+    }
+
+    /// The index after the `[[…]]`, `[text](target)` or `[text][ref]` that starts at `i`, or after the bracket when it
+    /// isn't one. The text's brackets nest, a backslash escapes, and the target's parentheses balance.
+    private static func afterLink(_ u: [UInt16], at i: Int) -> Int {
+        if i + 1 < u.count, u[i + 1] == 0x5B {
+            var j = i + 2
+            while j + 1 < u.count {
+                if u[j] == 0x5D, u[j + 1] == 0x5D { return j + 2 }
+                j += 1
+            }
+            return i + 1
+        }
+        guard let end = closingBracket(u, from: i), end + 1 < u.count else { return i + 1 }
+        if u[end + 1] == 0x5B {
+            return u[(end + 2)...].firstIndex(of: 0x5D).map { $0 + 1 } ?? i + 1
+        }
+        guard u[end + 1] == paren else { return i + 1 }
+        var depth = 0, j = end + 1
+        while j < u.count {
+            switch u[j] {
+            case backslash: j += 1
+            case paren: depth += 1
+            case closeParen:
+                depth -= 1
+                if depth == 0 { return j + 1 }
+            default: break
+            }
+            j += 1
+        }
+        return i + 1
+    }
+
+    /// The `]` that closes the `[` at `i`, skipping nested brackets, escapes and code spans.
+    private static func closingBracket(_ u: [UInt16], from i: Int) -> Int? {
+        var depth = 0, j = i
+        while j < u.count {
+            switch u[j] {
+            case backslash: j += 1
+            case 0x60: j = afterCodeSpan(u, at: j) - 1
+            case 0x5B: depth += 1
+            case 0x5D:
+                depth -= 1
+                if depth == 0 { return j }
+            default: break
+            }
+            j += 1
+        }
+        return nil
+    }
+
     /// The attributes in `range`, a task line's text after its box (UTF-16 in `ns`): the first due date and the first
     /// parent, in text order. Each starts the text or follows a space or tab; code spans and links hold none.
     package static func scan(_ ns: NSString, in range: NSRange) -> [Found] {
@@ -92,41 +158,9 @@ public enum TaskAttributeSyntax {
             let atBoundary = i == 0 || u[i - 1] == space || u[i - 1] == tab
             switch u[i] {
             case backtick:
-                var length = 0
-                while i + length < u.count, u[i + length] == backtick { length += 1 }
-                var j = i + length
-                var next = i + length
-                while j < u.count {
-                    guard u[j] == backtick else { j += 1; continue }
-                    var run = 0
-                    while j + run < u.count, u[j + run] == backtick { run += 1 }
-                    if run == length { next = j + run; break }
-                    j += run
-                }
-                i = next
+                i = afterCodeSpan(u, at: i)
             case open:
-                if i + 1 < u.count, u[i + 1] == open {
-                    var j = i + 2
-                    var end = i + 1
-                    while j + 1 < u.count {
-                        if u[j] == close, u[j + 1] == close { end = j + 2; break }
-                        j += 1
-                    }
-                    i = end
-                } else {
-                    // `[text](target)`: the text's brackets pair, so it may hold brackets.
-                    var depth = 1
-                    var j = i + 1
-                    while j < u.count, depth > 0 {
-                        if u[j] == open { depth += 1 } else if u[j] == close { depth -= 1 }
-                        j += 1
-                    }
-                    if depth == 0, j < u.count, u[j] == 0x28, let closing = u[(j + 1)...].firstIndex(of: 0x29) {
-                        i = closing + 1
-                    } else {
-                        i += 1
-                    }
-                }
+                i = afterLink(u, at: i)
             case greater where atBoundary && due == nil:
                 if i + 11 <= u.count {
                     let text = String(decoding: u[(i + 1)..<(i + 11)], as: UTF16.self)

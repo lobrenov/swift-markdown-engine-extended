@@ -105,6 +105,14 @@ struct TaskAttributeTests {
         #expect(attributes("```\n- [ ] >2026-10-02\n```").isEmpty)
     }
 
+    @Test func linkTextAndTargetsHoldNone() {
+        #expect(attributes("- [ ] [a [b] >2026-10-09 c][ref] d").isEmpty)
+        #expect(facts("- [ ] [a [b] >2026-10-09 c][ref] d").isEmpty)
+        #expect(facts("- [ ] [text >2026-10-09][ref] >2026-10-10").map(\.value) == ["2026-10-10"])
+        #expect(facts("- [ ] [a \\] >2026-10-09 b](https://x.y)").isEmpty)
+        #expect(facts("- [ ] [url](https://x.y/(a) >2026-10-09) z").isEmpty)
+    }
+
     @Test func aDateNeedsWhitespaceBeforeAndABoundaryAfter() {
         #expect(attributes("- [ ] a>2026-10-02 (>2026-10-02) ->2026-10-02").isEmpty)
         // Only a space or a tab: not a no-break space, an ideographic space or a line separator.
