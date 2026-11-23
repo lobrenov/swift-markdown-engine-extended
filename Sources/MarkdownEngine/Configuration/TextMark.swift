@@ -22,7 +22,7 @@ public struct TextMark: Sendable {
     public var underline: PlatformColor?
     /// The text colour; nil keeps it.
     public var color: PlatformColor?
-    /// The body font in bold. Headings are bold already and ignore it.
+    /// The text's own font with the bold trait added.
     public var bold: Bool
 
     public init(range: Range<Int>, id: String, underline: PlatformColor? = nil, color: PlatformColor? = nil,

@@ -60,7 +60,7 @@ struct TextMarkTests {
         let text = "a word here\n\n# head word\n\n- item word\n"
         let marker = Marker()
         let attrs = style(text, marks: marker.hook)
-        for (needle, id) in [("word here", "w2"), ("word\n\n- item", "w7"), ("item word", "w7")] {
+        for (needle, id) in [("word here", "w2"), ("word\n\n- item", "w7"), ("item word", "w5")] {
             let at = (text as NSString).range(of: needle).location + (needle == "item word" ? 5 : 0)
             let found: String? = attribute(.markdownTextMark, in: attrs, at: at)
             #expect(found == id)
@@ -116,6 +116,101 @@ struct TextMarkTests {
         #expect(marker.calls == 1)
     }
 
+    /// Marks the whole of the text the hook is given, and records it.
+    private final class Whole: @unchecked Sendable {
+        private(set) var texts: [String] = []
+        var hook: @Sendable (String) -> [TextMark] {
+            { [self] text in
+                texts.append(text)
+                return [TextMark(range: 0..<text.utf16.count, id: "all", underline: .red, color: .blue)]
+            }
+        }
+    }
+
+    private func marked(_ attrs: [StyledRange], _ text: String, _ needle: String, offset: Int = 0) -> Bool {
+        let id: String? = attribute(.markdownTextMark, in: attrs, at: (text as NSString).range(of: needle).location + offset)
+        return id != nil
+    }
+
+    @Test("a list item's hook sees its content, not the marker or checkbox")
+    func listContent() {
+        let whole = Whole()
+        let text = "- item word\n- [ ] task word\n1. num word\n"
+        let attrs = style(text, marks: whole.hook)
+        #expect(whole.texts == ["item word", "task word", "num word"])
+        #expect(!marked(attrs, text, "- item"))
+        #expect(marked(attrs, text, "item word"))
+        #expect(!marked(attrs, text, "[ ] task"))
+        #expect(marked(attrs, text, "task word"))
+        #expect(!marked(attrs, text, "1. num"))
+    }
+
+    @Test("a mark that touches hidden syntax is dropped; one inside plain text keeps it hidden")
+    func hiddenSyntaxIsNeverMarked() {
+        let text = "a **word** here\n\n[word](http://x.y) b\n\n> word q\n\n# head\n"
+        let whole = Whole()
+        let wholeAttrs = style(text, marks: whole.hook)
+        // `**word**`, `[word](url)` etc. in one mark over the whole paragraph: dropped.
+        #expect(!marked(wholeAttrs, text, "a **word"))
+        #expect(!marked(wholeAttrs, text, "[word]"))
+        #expect(!marked(wholeAttrs, text, "> word"))
+        #expect(!marked(wholeAttrs, text, "# head"))
+        let inner = style(text) { t in
+            guard let r = t.range(of: "word") else { return [] }
+            let lower = t.utf16.distance(from: t.utf16.startIndex, to: r.lowerBound.samePosition(in: t.utf16)!)
+            return [TextMark(range: lower..<(lower + 4), id: "w", color: .blue)]
+        }
+        #expect(marked(inner, text, "word", offset: 1))
+        // The markers around it carry no mark, so their hiding is untouched.
+        #expect(!marked(inner, text, "**word"))
+        #expect(!marked(inner, text, "](http"))
+        let quote: String? = attribute(.markdownTextMark, in: inner, at: (text as NSString).range(of: "> word").location)
+        #expect(quote == nil)
+    }
+
+    @Test("a quoted list item's marker and a callout's type are not marked")
+    func quoteSyntaxIsNeverMarked() {
+        let text = "> - [ ] word q\n\n> [!note] Title word\n> body\n"
+        let attrs = style(text, marks: Whole().hook)
+        #expect(!marked(attrs, text, "> - [ ]"))
+        #expect(!marked(attrs, text, "- [ ]"))
+        #expect(!marked(attrs, text, "[!note]"))
+        #expect(!marked(attrs, text, ">", offset: 0))
+    }
+
+    @Test("CRLF line endings and surrogate pairs keep the offsets right")
+    func lineEndingsAndSurrogates() {
+        let text = "a word\r\n\r\n😀 word\r\n"
+        let attrs = style(text, marks: Marker().hook)
+        let ns = text as NSString
+        let first = ns.range(of: "word").location
+        let second = ns.range(of: "word", options: .backwards).location
+        let firstId: String? = attribute(.markdownTextMark, in: attrs, at: first)
+        let secondId: String? = attribute(.markdownTextMark, in: attrs, at: second)
+        #expect(firstId == "w2")
+        #expect(secondId == "w3")
+        let after: String? = attribute(.markdownTextMark, in: attrs, at: second + 4)
+        #expect(after == nil)
+    }
+
+    @Test("a mark ends at its paragraph")
+    func noLeak() {
+        let text = "one word\n\nnext\n"
+        let attrs = style(text, marks: Marker().hook)
+        let next: String? = attribute(.markdownTextMark, in: attrs, at: (text as NSString).range(of: "next").location)
+        #expect(next == nil)
+    }
+
+    @Test("bold adds the trait to the text's own font")
+    func boldKeepsItalic() {
+        let text = "an *word* here\n"
+        let attrs = style(text, marks: Marker().hook)
+        let font: PlatformFont? = attribute(.font, in: attrs, at: (text as NSString).range(of: "word").location)
+        let traits = font?.fontDescriptor.symbolicTraits
+        #expect(traits?.contains(.bold) == true)
+        #expect(traits?.contains(.italic) == true)
+    }
+
 #if os(macOS)
     private final class Retained {
         var bridge: LayoutBridge?
@@ -167,6 +262,20 @@ struct TextMarkTests {
         #expect(tv.string == "word plain text\n")
         #expect(tv.textStorage?.attribute(.markdownTextMark, at: 0, effectiveRange: nil) as? String == "w0")
         #expect(tv.textStorage?.attribute(.markdownTextMark, at: 6, effectiveRange: nil) == nil)
+    }
+
+    @Test("editing a marked word out removes its marks")
+    func editingOutRemovesMark() {
+        let text = "a word here\n\nnext\n"
+        let (_, tv, window) = makeEditor(text, marks: Marker().hook)
+        defer { window.contentView = nil }
+        #expect(tv.textStorage?.attribute(.underlineColor, at: 2, effectiveRange: nil) != nil)
+        tv.setSelectedRange(NSRange(location: 2, length: 4))
+        tv.insertText("text", replacementRange: NSRange(location: 2, length: 4))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        #expect(tv.string == "a text here\n\nnext\n")
+        #expect(tv.textStorage?.attribute(.underlineColor, at: 2, effectiveRange: nil) == nil)
+        #expect(tv.textStorage?.attribute(.markdownTextMark, at: 2, effectiveRange: nil) == nil)
     }
 
     /// `mouseDown` reports `textMarkHit` and then falls through to AppKit's click tracking, which a headless test

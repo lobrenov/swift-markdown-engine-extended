@@ -1145,39 +1145,100 @@ enum MarkdownASTStyler {
 
     // MARK: - Text marks (Fork)
 
-    /// Fork: the attributes of the embedder's `textMarks` over each paragraph, heading, quote and list item line in
-    /// scope, skipping code. Last, so they win over the normal styling.
+    /// Fork: the attributes of the embedder's `textMarks` over each paragraph, heading, quote and list item in scope,
+    /// kept only where they lie entirely within plain `.text` inlines, so hidden syntax, code and the like are never
+    /// restyled. Last, so they win over the normal styling.
     private static func styleTextMarks(in blocks: [BlockNode], ctx: Ctx, into attrs: inout [StyledRange]) {
         guard let marks = ctx.config.textMarks else { return }
-        let codeRanges = collectCodeRanges(in: blocks)
-        func apply(_ source: NSRange, headingFont: Bool = false) {
-            var range = source
+        /// Plain text ranges of `inlines` (through emphasis, links and extensions), contiguous ones merged.
+        func textRanges(_ inlines: [InlineNode]) -> [NSRange] {
+            var found: [NSRange] = []
+            func walk(_ nodes: [InlineNode]) {
+                for node in nodes {
+                    switch node {
+                    case .text(let range): found.append(range)
+                    case .emphasis(_, _, _, let children), .link(_, _, _, _, let children): walk(children)
+                    case .ext(let node): walk(node.children)
+                    default: break
+                    }
+                }
+            }
+            walk(inlines)
+            var merged: [NSRange] = []
+            for range in found.sorted(by: { $0.location < $1.location }) where range.length > 0 {
+                if let last = merged.last, NSMaxRange(last) >= range.location {
+                    merged[merged.count - 1].length = max(NSMaxRange(last), NSMaxRange(range)) - last.location
+                } else {
+                    merged.append(range)
+                }
+            }
+            return merged
+        }
+        let fontRanges = attrs.filter { $0.attributes[.font] != nil }
+        /// `span`'s existing font, per run, with the bold trait added.
+        func boldRuns(over span: NSRange) -> [StyledRange] {
+            let covering = fontRanges.filter { NSIntersectionRange($0.range, span).length > 0 }
+            var cuts: Set<Int> = [span.location, NSMaxRange(span)]
+            for (range, _) in covering {
+                for cut in [range.location, NSMaxRange(range)] where cut > span.location && cut < NSMaxRange(span) {
+                    cuts.insert(cut)
+                }
+            }
+            let sorted = cuts.sorted()
+            return zip(sorted, sorted.dropFirst()).map { start, end in
+                let font = covering.last { NSLocationInRange(start, $0.range) }?.attributes[.font] as? PlatformFont
+                return (NSRange(location: start, length: end - start), [.font: adding(.bold, to: font ?? ctx.baseFont)])
+            }
+        }
+        /// `ranges` without the parts in `excluded`.
+        func subtract(_ excluded: [NSRange], from ranges: [NSRange]) -> [NSRange] {
+            var result = ranges
+            for cut in excluded {
+                result = result.flatMap { range -> [NSRange] in
+                    let overlap = NSIntersectionRange(range, cut)
+                    guard overlap.length > 0 else { return [range] }
+                    return [NSRange(location: range.location, length: overlap.location - range.location),
+                            NSRange(location: NSMaxRange(overlap), length: NSMaxRange(range) - NSMaxRange(overlap))]
+                        .filter { $0.length > 0 }
+                }
+            }
+            return result
+        }
+        let quotePrefix = try! NSRegularExpression(
+            pattern: #"^[ \t]*(?:>[ \t]*)+(?:\[![^\]\n]*\][+\-]?)?"#, options: .anchorsMatchLines)
+        func apply(unit: NSRange, inlines: [InlineNode], excluding excluded: [NSRange] = []) {
+            var range = unit
             while range.length > 0 {
                 let last = ctx.ns.character(at: NSMaxRange(range) - 1)
                 guard last == 0x0A || last == 0x0D else { break }
                 range.length -= 1
             }
             guard range.length > 0 else { return }
+            let plain = subtract(excluded, from: textRanges(inlines))
             for mark in marks(ctx.ns.substring(with: range)) {
                 guard mark.range.lowerBound >= 0, mark.range.lowerBound < mark.range.upperBound,
                       mark.range.upperBound <= range.length else { continue }
                 let span = NSRange(location: range.location + mark.range.lowerBound, length: mark.range.count)
-                guard !isInCode(span, codeRanges) else { continue }
+                guard plain.contains(where: { NSIntersectionRange($0, span) == span }) else { continue }
                 var markAttrs: [NSAttributedString.Key: Any] = [.markdownTextMark: mark.id]
                 if let color = mark.underline {
                     markAttrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
                     markAttrs[.underlineColor] = color
                 }
                 if let color = mark.color { markAttrs[.foregroundColor] = color }
-                if mark.bold, !headingFont { markAttrs[.font] = adding(.bold, to: ctx.baseFont) }
                 attrs.append((span, markAttrs))
+                if mark.bold { attrs += boldRuns(over: span) }
             }
         }
         for block in blocks where ctx.inScope(block.range) {
             switch block {
-            case .paragraph(let range, _), .blockquote(let range, _, _): apply(range)
-            case .heading(_, let range, _, _): apply(range, headingFont: true)
-            case .list(_, let items): for item in items { apply(item.range) }
+            case .paragraph(let range, let inlines), .heading(_, let range, _, let inlines): apply(unit: range, inlines: inlines)
+            case .blockquote(let range, let inlines, let items):
+                // The `>` markers, a callout's `[!type]` and a quoted item's marker are source, not text.
+                var syntax = quotePrefix.matches(in: ctx.ns as String, range: range).map(\.range)
+                syntax += items.map { NSRange(location: $0.range.location, length: $0.contentRange.location - $0.range.location) }
+                apply(unit: range, inlines: inlines + items.flatMap(\.inlines), excluding: syntax)
+            case .list(_, let items): for item in items { apply(unit: item.contentRange, inlines: item.inlines) }
             default: break
             }
         }

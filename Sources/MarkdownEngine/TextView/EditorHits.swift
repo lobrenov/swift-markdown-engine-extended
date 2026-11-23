@@ -81,13 +81,14 @@ extension NativeTextView {
         guard configuration.textMarks != nil, let textContainer = optionalTextContainer, let bridge = layoutBridge,
               let storage = optionalTextStorage, storage.length > 0 else { return nil }
         let point = CGPoint(x: viewPoint.x - textContainerOrigin.x, y: viewPoint.y - textContainerOrigin.y)
-        let index = characterIndex(atViewPoint: viewPoint)
-        guard index >= 0, index < storage.length else { return nil }
-        var range = NSRange()
-        guard let id = storage.attribute(.markdownTextMark, at: index, effectiveRange: &range) as? String,
-              bridge.boundingRect(forCharacterRange: range, in: textContainer).insetBy(dx: 0, dy: -2).contains(point)
-        else { return nil }
-        return id
+        let index = characterIndex(atViewPoint: viewPoint)   // an insertion point: the character is it or the one before
+        for location in [index, index - 1] where location >= 0 && location < storage.length {
+            guard let id = storage.attribute(.markdownTextMark, at: location, effectiveRange: nil) as? String,
+                  bridge.boundingRect(forCharacterRange: NSRange(location: location, length: 1), in: textContainer)
+                    .insetBy(dx: 0, dy: -2).contains(point) else { continue }
+            return id
+        }
+        return nil
     }
 
     /// Fork: the drawn task attribute (its pill) under a point in the text view's coordinates, with the pill's rect in

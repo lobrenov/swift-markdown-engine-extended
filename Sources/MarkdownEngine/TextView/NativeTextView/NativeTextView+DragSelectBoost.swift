@@ -38,11 +38,13 @@ extension NativeTextView {
             onTaskAttributeClick(taskAttributeClick(for: hit))
             return
         }
-        // Fork: a plain click on a text mark reports it and still places the caret.
-        if event.clickCount == 1, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock).isEmpty,
-           let onTextMarkClick, let id = textMarkHit(atViewPoint: convert(event.locationInWindow, from: nil)) {
-            onTextMarkClick(id)
-        }
+        // Fork: a plain click on a text mark, found now and reported once AppKit's tracking shows it was a click.
+        let markHit: String? = {
+            guard event.clickCount == 1, onTextMarkClick != nil,
+                  event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock).isEmpty
+            else { return nil }
+            return textMarkHit(atViewPoint: convert(event.locationInWindow, from: nil))
+        }()
         if remapClickInParagraphSpacing(event: event) { return }
         dragStartMouseScreenLoc = NSEvent.mouseLocation
         let boostTimer = Timer(timeInterval: 1.0 / configuration.dragSelection.ticksPerSecond, repeats: true) { [weak self] _ in
@@ -60,6 +62,8 @@ extension NativeTextView {
         let downLoc = NSEvent.mouseLocation
         super.mouseDown(with: event)   // modal tracking loop — returns after mouseUp
         let travel = hypot(NSEvent.mouseLocation.x - downLoc.x, NSEvent.mouseLocation.y - downLoc.y)
+        // Fork: a drag that selects is not a click. The first click of a double-click still reports.
+        if let markHit, travel < 2, selectedRange().length == 0 { onTextMarkClick?(markHit) }
 
         // AppKit intermittently drops clickedOnLink for a stationary single click
         // on a link (caret placed, delegate never called). Re-dispatch it through

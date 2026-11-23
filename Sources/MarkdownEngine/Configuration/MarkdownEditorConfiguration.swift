@@ -108,9 +108,12 @@ public struct MarkdownEditorConfiguration: Sendable {
     public var taskAttributes: TaskAttributeStyle? = nil
     /// Fork: marks spans of plain text, as attributes only (the text never changes), and reports clicks on them
     /// (`onTextMarkClick`). Called with the text of each paragraph, heading or quote the restyle covers (its source
-    /// without the line ending), or of each list item's line, and returns the spans to mark, as UTF-16 offsets within
-    /// that text. A span that overlaps code, or reaches past the text, is dropped. Marks apply after the normal
-    /// styling and win over it, including over a link's colour. nil (default) does nothing.
+    /// without the line ending), or of each list item's content (after its marker and any checkbox), and returns the
+    /// spans to mark, as UTF-16 offsets within that text. Only a span lying entirely within plain text is kept: one
+    /// that touches code, markup (`**`, link destinations, `[[ ]]`, quote markers, task attributes), or reaches past
+    /// the text is dropped. Marks apply after the normal styling and win over it, including over a link's colour.
+    /// It runs on the main thread for every block the restyle covers, on each restyle, so it must be cheap.
+    /// nil (default) does nothing.
     public var textMarks: (@Sendable (_ text: String) -> [TextMark])? = nil
     /// Fork: on the Mac, a table is a live grid of cell editors over its source (`TableGridView`), and the caret
     /// never enters its source lines. Off keeps the rendered image and the revealed source.

@@ -398,6 +398,28 @@ struct IOSEditorInputTests {
         #expect(editor.textView.wikiLinkHit(atViewPoint: try #require(editor.point(of: "Target"))) == nil)
     }
 
+    @Test func tappingATextMarkReportsItAndPlacesTheCaret() async throws {
+        let editor = try IOSEditorHarness("Body\n\nSee word here") {
+            $0.textMarks = { text in
+                text.range(of: "word").map { r in
+                    let lower = text.utf16.distance(from: text.utf16.startIndex, to: r.lowerBound.samePosition(in: text.utf16)!)
+                    return [TextMark(range: lower..<(lower + 4), id: "w", underline: .red)]
+                } ?? []
+            }
+        }
+        var reported: [String] = []
+        editor.textView.onTextMarkClick = { reported.append($0) }
+        editor.textView.selectedRange = NSRange(location: 0, length: 0)
+        await editor.settle()
+        let point = try #require(editor.point(of: "word"))
+        editor.textView.handleTap(at: point)
+        await editor.settle()
+        #expect(reported == ["w"])
+        #expect((9...13).contains(editor.textView.selectedRange.location))
+        editor.textView.handleTap(at: try #require(editor.point(of: "Body")))
+        #expect(reported == ["w"])
+    }
+
     @Test func tappingABoxTogglesItAndUndoRestoresIt() async throws {
         let editor = try IOSEditorHarness("- [ ] Task\n\nBody")
         let point = try #require(editor.boxPoint())
