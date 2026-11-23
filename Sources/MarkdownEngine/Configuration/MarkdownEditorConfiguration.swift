@@ -381,16 +381,18 @@ public struct ListStyle: Sendable {
     public var bulletSymbolNames: [String]
     /// Fork: bullet symbol point size as a fraction of the body font size.
     public var bulletSymbolScale: CGFloat
-    /// Fork: makes some bullet items gutter items, e.g. recipe steps written `* 15 min: …`. Called with each plain
-    /// (non-task, unordered, not quoted) item's marker character and its raw content (the text after the marker);
-    /// return nil for an ordinary item. A gutter item has no bullet and starts at the body text's left edge. Its
-    /// marker and the returned prefix collapse to zero width, and the prefix's label is drawn right-aligned in the
-    /// left margin (give the editor room with `textInsets.horizontal`). With the caret or a selection in the marker
-    /// or prefix, the raw source shows instead. nil (default) leaves every list item as it was.
-    public var gutterPrefix: (@Sendable (_ marker: Character, _ content: String) -> ListGutterPrefix?)?
+    /// Fork: makes some list items gutter items, e.g. items written `* 15 min: …` with a time drawn in the margin.
+    /// Called with each top-level item's marker (`-`, `*`, `+`, `1.` or `1)`) and its raw content (the text after
+    /// the marker); tasks, quoted items, nested items and a bare marker are not offered. Return nil for an
+    /// ordinary item. A gutter item has no bullet or number and starts at the body text's left edge. Its marker
+    /// and the returned prefix collapse to zero width, and the prefix's label is drawn right-aligned in the left
+    /// margin (give the editor room with `textInsets.horizontal`). With the caret or a selection in the marker or
+    /// prefix, the raw source shows instead. nil (default) leaves every list item as it was.
+    public var gutterPrefix: (@Sendable (_ marker: String, _ content: String) -> ListGutterPrefix?)?
     /// Fork: draws the start of some list items in bold, e.g. a quantity (`2 tbsp` in `- [ ] 2 tbsp olive oil`).
-    /// Called with each item's raw content (the text after the marker and any checkbox); return the UTF-16 length
-    /// to embolden, or nil for none. Presentation only: nothing is hidden. nil (default) changes nothing.
+    /// Called with each list item's raw content, at any depth (the text after the marker and any checkbox); return
+    /// the UTF-16 length to embolden, or nil for none. Presentation only: nothing is hidden. nil (default) changes
+    /// nothing.
     public var emphasizedPrefix: (@Sendable (_ content: String) -> Int?)?
     /// Fork: the colour of `emphasizedPrefix` text; nil keeps the text colour.
     public var emphasizedPrefixColor: PlatformColor?
@@ -406,7 +408,7 @@ public struct ListStyle: Sendable {
         extraLineHeight: CGFloat = 2,
         bulletSymbolNames: [String] = ["circle.fill", "circle", "square.fill", "diamond.fill"],
         bulletSymbolScale: CGFloat = 0.4,
-        gutterPrefix: (@Sendable (_ marker: Character, _ content: String) -> ListGutterPrefix?)? = nil,
+        gutterPrefix: (@Sendable (_ marker: String, _ content: String) -> ListGutterPrefix?)? = nil,
         emphasizedPrefix: (@Sendable (_ content: String) -> Int?)? = nil,
         emphasizedPrefixColor: PlatformColor? = nil
     ) {

@@ -1011,7 +1011,8 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
     // MARK: - List Gutter Labels (Fork)
 
     private var hasListGutterLabel: Bool {
-        guard let ts = textStorage, let range = fragmentNSRange, range.length > 0 else { return false }
+        guard (textLayoutManager?.textContainer?.textView as? NativeTextView)?.configuration.lists.gutterPrefix != nil,
+              let ts = textStorage, let range = fragmentNSRange, range.length > 0 else { return false }
         var found = false
         ts.enumerateAttribute(.listGutterLabel, in: range, options: []) { value, _, stop in
             if value is String {
@@ -1027,7 +1028,8 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
     /// monospaced digits so a column of times lines up.
     private func drawListGutterLabels(at point: CGPoint, in context: CGContext) {
         guard let ts = textStorage, let range = fragmentNSRange, range.length > 0 else { return }
-        guard let textView = textLayoutManager?.textContainer?.textView as? NativeTextView else { return }
+        guard let textView = textLayoutManager?.textContainer?.textView as? NativeTextView,
+              textView.configuration.lists.gutterPrefix != nil else { return }
 
         pushGraphicsContext(context)
         defer { popGraphicsContext() }

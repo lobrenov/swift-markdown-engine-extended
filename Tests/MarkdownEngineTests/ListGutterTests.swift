@@ -20,8 +20,8 @@ import Testing
 struct ListGutterTests {
     /// `*` items are gutter items: `N min: ` → label "N min", caret after the number;
     /// a `*` item without a time gets no label. `-` items stay ordinary bullets.
-    static let steps: @Sendable (Character, String) -> ListGutterPrefix? = { marker, content in
-        guard marker == "*" else { return nil }
+    static let steps: @Sendable (String, String) -> ListGutterPrefix? = { marker, content in
+        guard marker == "*" || marker == "1." else { return nil }
         let ns = content as NSString
         guard let match = try! NSRegularExpression(pattern: #"^(\d+) min: "#)
             .firstMatch(in: content, range: NSRange(location: 0, length: ns.length)) else {
@@ -211,6 +211,50 @@ struct ListGutterTests {
         let content = try pointOfCharacter(Self.location(of: "Serve"), in: tv)
         click(tv, at: CGPoint(x: content.x - 30, y: content.y), in: window)
         #expect(tv.selectedRange() == NSRange(location: Self.location(of: "* 30") + 4, length: 0))
+    }
+
+    @Test("Return after an ordered gutter item continues the list")
+    func returnContinuesOrderedItem() {
+        let text = "Intro.\n\n1. 5 min: Boil"
+        let (_, tv, window) = makeEditor(text)
+        defer { window.contentView = nil }
+        tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+        tv.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        #expect(tv.string == text + "\n2. ")
+    }
+
+    @Test("an ordered gutter item is labelled, and revealed with the caret in its prefix")
+    func orderedItemRevealsSource() {
+        let text = "Intro.\n\n1. 5 min: Boil\n"
+        let (_, tv, window) = makeEditor(text)
+        defer { window.contentView = nil }
+        let item = (text as NSString).range(of: "1. 5").location
+        #expect(attribute(.listGutterLabel, at: item, in: tv) as? String == "5 min")
+        tv.setSelectedRange(NSRange(location: item + 4, length: 0))
+        #expect(attribute(.listGutterLabel, at: item, in: tv) == nil)
+    }
+
+    @Test("a selection over a gutter prefix reveals it")
+    func selectionRevealsSource() {
+        let (_, tv, window) = makeEditor()
+        defer { window.contentView = nil }
+        let item = Self.location(of: "* 30")
+        #expect(attribute(.listGutterLabel, at: item, in: tv) as? String == "30 min")
+        tv.setSelectedRange(NSRange(location: 0, length: item + 6))
+        #expect(attribute(.listGutterLabel, at: item, in: tv) == nil)
+    }
+
+    @Test("without the hook, a margin click is left to AppKit")
+    func inertWithoutHook() throws {
+        let (_, tv, window) = makeEditor { $0.lists.gutterPrefix = nil }
+        defer { window.contentView = nil }
+        let content = try pointOfCharacter(Self.location(of: "Serve"), in: tv)
+        let point = CGPoint(x: content.x - 20, y: content.y)
+        let event = NSEvent.mouseEvent(with: .leftMouseDown, location: tv.convert(point, to: nil),
+                                       modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+                                       context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        #expect(!tv.placeCaretInListGutterIfHit(event: event))
+        #expect(attribute(.listGutterLabel, at: Self.location(of: "* 30"), in: tv) == nil)
     }
 
     // MARK: Emphasized prefixes

@@ -557,9 +557,9 @@ extension NativeTextViewCoordinator {
             for needle in ["- [", "* [", "+ ["]
             where nsText.range(of: needle, options: [], range: span).location != NSNotFound { return true }
             // Fork: a selection over a gutter prefix reveals it too.
-            if self.configuration.lists.gutterPrefix != nil {
-                for needle in ["- ", "* ", "+ "]
-                where nsText.range(of: needle, options: [], range: span).location != NSNotFound { return true }
+            if self.configuration.lists.gutterPrefix != nil,
+               nsText.range(of: #"(?m)^(\d+[.)]|[-*+])[ \t]"#, options: .regularExpression, range: span).location != NSNotFound {
+                return true
             }
             // Ordered markers are NOT in here: their painted number no longer
             // depends on the selection, so a selection sweeping one has nothing
@@ -1066,7 +1066,8 @@ extension NativeTextViewCoordinator {
 // MARK: - List gutter prefixes (Fork)
 
 extension NativeTextViewCoordinator {
-    private static let gutterBulletRegex = try! NSRegularExpression(pattern: #"^[ \t]*([-*+])[ \t]+(?!\[[ xX]\][ \t])"#)
+    private static let gutterMarkerRegex = try! NSRegularExpression(
+        pattern: #"^(\d+[.)]|[-*+])[ \t]+(?!"# + TaskMarker.boxPattern + #"[ \t])"#)
 
     /// Fork: the marker and gutter prefix on the line at `location` when `location` is inside it or at its end:
     /// the same test the styler uses to show the raw source instead of the margin label.
@@ -1074,14 +1075,11 @@ extension NativeTextViewCoordinator {
         guard let find = configuration.lists.gutterPrefix else { return nil }
         let line = text.lineRange(for: NSRange(location: max(0, min(location, text.length)), length: 0))
         let lineText = text.substring(with: line) as NSString
-        guard let match = Self.gutterBulletRegex.firstMatch(
+        guard let match = Self.gutterMarkerRegex.firstMatch(
             in: lineText as String, range: NSRange(location: 0, length: lineText.length)) else { return nil }
         let content = lineText.substring(from: match.range.length)
-        guard let marker = lineText.substring(with: match.range(at: 1)).first,
-              let prefix = find(marker, content), prefix.length >= 0 else { return nil }
-        let markerStart = line.location + match.range(at: 1).location
-        let syntax = NSRange(location: markerStart,
-                             length: line.location + match.range.length + prefix.length - markerStart)
+        guard let prefix = find(lineText.substring(with: match.range(at: 1)), content), prefix.length >= 0 else { return nil }
+        let syntax = NSRange(location: line.location, length: match.range.length + prefix.length)
         return NSLocationInRange(location, syntax) || location == NSMaxRange(syntax) ? syntax : nil
     }
 }

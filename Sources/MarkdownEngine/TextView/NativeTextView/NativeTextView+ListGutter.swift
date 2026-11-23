@@ -13,6 +13,7 @@ import AppKit
 
 extension NativeTextView {
     func placeCaretInListGutterIfHit(event: NSEvent) -> Bool {
+        guard configuration.lists.gutterPrefix != nil else { return false }
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard event.clickCount == 1, mods.isEmpty,
               let tlm = textLayoutManager, let tcs = textContentStorage,

@@ -1144,13 +1144,12 @@ enum MarkdownASTStyler {
 
     // MARK: - List gutter items (Fork)
 
-    /// Fork: the embedder's gutter prefix for a plain bullet item; nil for an ordinary item.
+    /// Fork: the embedder's gutter prefix for a plain top-level item; nil for an ordinary item.
     static func gutterPrefix(for item: ListItem, ctx: Ctx) -> ListGutterPrefix? {
         guard ctx.config.lists.helpersEnabled, let find = ctx.config.lists.gutterPrefix,
-              !item.ordered, item.checkbox == nil, item.marker.length > 0,
-              item.contentRange.location > NSMaxRange(item.marker),   // not a bare bullet
-              let marker = ctx.ns.substring(with: NSRange(location: item.marker.location, length: 1)).first,
-              let prefix = find(marker, ctx.ns.substring(with: item.contentRange)),
+              item.checkbox == nil, item.indent == 0, item.marker.length > 0,
+              item.contentRange.location > NSMaxRange(item.marker),   // not a bare marker
+              let prefix = find(ctx.ns.substring(with: item.marker), ctx.ns.substring(with: item.contentRange)),
               prefix.length >= 0, prefix.length <= item.contentRange.length else { return nil }
         return prefix
     }
