@@ -43,8 +43,8 @@ public struct TaskAttributeChip: Sendable {
 public struct TaskAttributeStyle: Sendable {
     /// The pill for a due date, given the date as written (`2026-10-02`).
     public var due: @Sendable (_ date: String) -> TaskAttributeChip
-    /// The pill for a parent, given the link's target (without `|alias`, `#heading` or `^block`) and the wiki-link
-    /// resolver's answer for it (nil when it resolves to nothing).
+    /// The pill for a parent, given the link's bare title (no folder, `.md`, `#heading`, `^block` or `|alias`) and the
+    /// wiki-link resolver's answer for the link's name (nil when it resolves to nothing).
     public var parent: @Sendable (_ title: String, _ resolution: WikiLinkResolution?) -> TaskAttributeChip
     /// Space between the pill's edge and its content.
     public var horizontalPadding: CGFloat = 6
@@ -59,11 +59,16 @@ public struct TaskAttributeStyle: Sendable {
     public var fillOpacity: CGFloat = 0.14
     /// The space kept either side of a pill.
     public var margin: CGFloat = 2
+    /// Changes whenever the closures would answer differently: a project added or renamed, a new day. The editor
+    /// restyles when it changes, as it does for the wiki-link resolver's `fingerprint()`.
+    public var fingerprint: @Sendable () -> AnyHashable = { 0 }
 
     public init(due: @escaping @Sendable (String) -> TaskAttributeChip,
-                parent: @escaping @Sendable (String, WikiLinkResolution?) -> TaskAttributeChip) {
+                parent: @escaping @Sendable (String, WikiLinkResolution?) -> TaskAttributeChip,
+                fingerprint: @escaping @Sendable () -> AnyHashable = { 0 }) {
         self.due = due
         self.parent = parent
+        self.fingerprint = fingerprint
     }
 }
 
@@ -95,6 +100,14 @@ final class TaskAttributeSpan: NSObject {
     }
 
     static func iconSize(_ labelFont: PlatformFont) -> CGFloat { ceil(labelFont.pointSize) }
+}
+
+extension MarkdownEditorConfiguration {
+    /// Fork: what the wrappers compare to restyle links and pills: the wiki-link resolver's fingerprint and the task
+    /// attributes' (nil when they are off).
+    var linkStyleFingerprint: AnyHashable {
+        AnyHashable([services.wikiLinks.fingerprint(), taskAttributes.map { $0.fingerprint() } ?? AnyHashable("off")])
+    }
 }
 
 extension NSAttributedString.Key {

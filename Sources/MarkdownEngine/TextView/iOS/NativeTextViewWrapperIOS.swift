@@ -115,7 +115,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         coordinator.retainUndo(for: documentId)
         coordinator.configuration = configuration
         coordinator.lastImageFingerprint = configuration.services.images.fingerprint()
-        coordinator.lastWikiFingerprint = configuration.services.wikiLinks.fingerprint()
+        coordinator.lastWikiFingerprint = configuration.linkStyleFingerprint
         return coordinator
     }
 
@@ -224,13 +224,17 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
             restyleAll(textView, coordinator)
         }
         let newImageFingerprint = configuration.services.images.fingerprint()
-        let newWikiFingerprint = configuration.services.wikiLinks.fingerprint()
+        let newWikiFingerprint = configuration.linkStyleFingerprint
         if newImageFingerprint != coordinator.lastImageFingerprint || newWikiFingerprint != coordinator.lastWikiFingerprint {
             let imageChanged = newImageFingerprint != coordinator.lastImageFingerprint
             coordinator.lastImageFingerprint = newImageFingerprint
             coordinator.lastWikiFingerprint = newWikiFingerprint
             coordinator.configuration.services = configuration.services
             textView.configuration.services = configuration.services
+            // Fork: the task-attribute pills follow the embedder's closures (a new project, a new day).
+            coordinator.configuration.taskAttributes = configuration.taskAttributes
+            textView.configuration.taskAttributes = configuration.taskAttributes
+            coordinator.cachedParsedDocument = nil
             if imageChanged, let layoutManager = textView.textLayoutManager {
                 layoutManager.invalidateLayout(for: layoutManager.documentRange)
             }

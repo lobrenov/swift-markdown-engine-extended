@@ -2,8 +2,9 @@
 //  InlineParser+TaskAttributes.swift
 //  MarkdownEngineSyntax
 //
-//  Fork: a task line's attributes. `>YYYY-MM-DD` after whitespace is a due date; `@` straight before a wiki link
-//  (`@[[Title]]`), after whitespace, is a parent. Read from a task item's first line when the registry asks for them.
+//  Fork: a task line's attributes. `>YYYY-MM-DD` after a space, a tab or the text's start is a due date; `@` straight
+//  before `[[Title]]`, likewise placed, is a parent. The first of each counts; code spans and links hold none. The
+//  scan is the host's rule (`docs/file-format.md` ▸ Subtask attributes): emphasis, `~~`, `==` and math are read through.
 //
 
 import Foundation
@@ -17,7 +18,7 @@ public enum TaskAttributeKind: Sendable, Equatable {
 }
 
 public enum TaskAttributeSyntax {
-    /// Whether `text` is a calendar date written `YYYY-MM-DD`.
+    /// Whether `text` is a calendar date written `YYYY-MM-DD`, year 0001 to 9999.
     public static func isDate(_ text: some StringProtocol) -> Bool {
         let u = Array(text.utf8)
         guard u.count == 10, u[4] == 0x2D, u[7] == 0x2D else { return false }
@@ -30,7 +31,7 @@ public enum TaskAttributeSyntax {
             return value
         }
         guard let year = digits(0..<4), let month = digits(5..<7), let day = digits(8..<10),
-              (1...12).contains(month), day >= 1 else { return false }
+              (1...9999).contains(year), (1...12).contains(month), day >= 1 else { return false }
         let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
         let lengths = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
         return day <= lengths[month - 1]
@@ -55,61 +56,161 @@ public enum TaskAttributeSyntax {
         }
         return TaskMarker.boxStart(in: { prefix.character(at: $0) }, markerEnd: i, end: end) != nil
     }
+
+    /// Whether `line`, a line's text up to the caret or the whole line, is a task item's up to and including its box
+    /// and the space or tab after it. It is the rule the `.date` and `.parent` queries use.
+    public static func isTaskAttributeLine(_ line: String) -> Bool { isTaskLinePrefix(line as NSString) }
+
+    /// The title of the file a link's inner text (`target#heading|alias`) names: its target's last path component
+    /// without `.md`. Nil when it links no file (`[[#heading]]`).
+    public static func parentTitle(inner: String) -> String? {
+        guard let parts = WikiLinkParts(inner: inner), !parts.target.isEmpty else { return nil }
+        let name = parts.target.split(separator: "/").last.map(String.init) ?? parts.target
+        return name.lowercased().hasSuffix(".md") ? String(name.dropLast(3)) : name
+    }
+
+    /// A due date or parent found by ``scan(_:in:)``.
+    package struct Found: Equatable {
+        package var kind: TaskAttributeKind
+        /// `>YYYY-MM-DD`, or `@[[…]]`.
+        package var range: NSRange
+        /// The date, or the parent's bare title.
+        package var value: String
+    }
+
+    /// The attributes in `range`, a task line's text after its box (UTF-16 in `ns`): the first due date and the first
+    /// parent, in text order. Each starts the text or follows a space or tab; code spans and links hold none.
+    package static func scan(_ ns: NSString, in range: NSRange) -> [Found] {
+        let u = Array(ns.substring(with: range).utf16)
+        let (space, tab, backtick, greater, at, open, close, newline): (UInt16, UInt16, UInt16, UInt16, UInt16, UInt16, UInt16, UInt16)
+            = (0x20, 0x09, 0x60, 0x3E, 0x40, 0x5B, 0x5D, 0x0A)
+        guard u.contains(greater) || u.contains(at) else { return [] }
+        var due: Found?
+        var parent: Found?
+        var i = 0
+        while i < u.count, due == nil || parent == nil {
+            let atBoundary = i == 0 || u[i - 1] == space || u[i - 1] == tab
+            switch u[i] {
+            case backtick:
+                var length = 0
+                while i + length < u.count, u[i + length] == backtick { length += 1 }
+                var j = i + length
+                var next = i + length
+                while j < u.count {
+                    guard u[j] == backtick else { j += 1; continue }
+                    var run = 0
+                    while j + run < u.count, u[j + run] == backtick { run += 1 }
+                    if run == length { next = j + run; break }
+                    j += run
+                }
+                i = next
+            case open:
+                if i + 1 < u.count, u[i + 1] == open {
+                    var j = i + 2
+                    var end = i + 1
+                    while j + 1 < u.count {
+                        if u[j] == close, u[j + 1] == close { end = j + 2; break }
+                        j += 1
+                    }
+                    i = end
+                } else {
+                    // `[text](target)`: the text's brackets pair, so it may hold brackets.
+                    var depth = 1
+                    var j = i + 1
+                    while j < u.count, depth > 0 {
+                        if u[j] == open { depth += 1 } else if u[j] == close { depth -= 1 }
+                        j += 1
+                    }
+                    if depth == 0, j < u.count, u[j] == 0x28, let closing = u[(j + 1)...].firstIndex(of: 0x29) {
+                        i = closing + 1
+                    } else {
+                        i += 1
+                    }
+                }
+            case greater where atBoundary && due == nil:
+                if i + 11 <= u.count {
+                    let text = String(decoding: u[(i + 1)..<(i + 11)], as: UTF16.self)
+                    var runsOn = false
+                    if i + 11 < u.count, let scalar = Unicode.Scalar(u[i + 11]), CharacterSet.alphanumerics.contains(scalar) {
+                        runsOn = true
+                    }
+                    if !runsOn, isDate(text) {
+                        due = Found(kind: .due, range: NSRange(location: range.location + i, length: 11), value: text)
+                    }
+                }
+                i += 1
+            case at where atBoundary && parent == nil && i + 2 < u.count && u[i + 1] == open && u[i + 2] == open:
+                var j = i + 3
+                while j + 1 < u.count, u[j] != close, u[j] != open, u[j] != newline { j += 1 }
+                if j + 1 < u.count, u[j] == close, u[j + 1] == close,
+                   let title = parentTitle(inner: String(decoding: u[(i + 3)..<j], as: UTF16.self)) {
+                    parent = Found(kind: .parent, range: NSRange(location: range.location + i, length: j + 2 - i), value: title)
+                    i = j + 2
+                } else {
+                    i += 1
+                }
+            default:
+                i += 1
+            }
+        }
+        return [due, parent].compactMap { $0 }.sorted { $0.range.location < $1.range.location }
+    }
 }
 
 extension InlineParser {
-    /// A task item's inline nodes with its attributes read: a `.text` node holding `>YYYY-MM-DD` (after whitespace,
-    /// then the text's end or a character that isn't a letter, digit, `-` or `_`) splits around a `.due`, and one
-    /// ending in `@` after whitespace, followed at once by a `.wikiLink`, gives a `.parent` over both. Top-level nodes
-    /// only: code, links, emphasis and the rest hold none.
-    static func readingTaskAttributes(_ nodes: [InlineNode], in ns: NSString) -> [InlineNode] {
-        func isSpace(at index: Int) -> Bool {
-            index < 0 || Unicode.Scalar(ns.character(at: index)).map { CharacterSet.whitespaces.contains($0) } ?? false
-        }
+    /// A task item's inline nodes with its attributes (`found`, from `TaskAttributeSyntax.scan`) as nodes where the
+    /// tree allows: a `.due` carved out of a text node, a `.parent` replacing a text node's closing `@` and the wiki
+    /// link right after it. Emphasis and extension spans (`~~`, `==`) are entered; an attribute the tree holds
+    /// otherwise (in math, or a link the parser reads differently) stays as the nodes read it.
+    static func readingTaskAttributes(_ nodes: [InlineNode], found: [TaskAttributeSyntax.Found]) -> [InlineNode] {
+        var pending = found
+        return carve(nodes, pending: &pending)
+    }
+
+    private static func carve(_ nodes: [InlineNode], pending: inout [TaskAttributeSyntax.Found]) -> [InlineNode] {
         var result: [InlineNode] = []
         var index = 0
         while index < nodes.count {
             defer { index += 1 }
-            guard case .text(let range) = nodes[index] else { result.append(nodes[index]); continue }
-            var from = range.location
-            var cursor = range.location
-            let end = NSMaxRange(range)
-            func flush(upTo stop: Int) {
-                if stop > from { result.append(.text(NSRange(location: from, length: stop - from))) }
-            }
-            while cursor < end {
-                defer { cursor += 1 }
-                let c = ns.character(at: cursor)
-                guard c == 0x3E || c == 0x40, isSpace(at: cursor - 1) else { continue }
-                if c == 0x3E {
-                    guard cursor + 11 <= end, isDate(ns.substring(with: NSRange(location: cursor + 1, length: 10))) else { continue }
-                    if cursor + 11 < end {
-                        let next = ns.character(at: cursor + 11)
-                        if let scalar = Unicode.Scalar(next), CharacterSet.alphanumerics.contains(scalar) || next == 0x2D || next == 0x5F {
-                            continue
-                        }
+            switch nodes[index] {
+            case .text(let range):
+                var from = range.location
+                for attribute in pending where attribute.kind == .due
+                    && attribute.range.location >= from && NSMaxRange(attribute.range) <= NSMaxRange(range) {
+                    if attribute.range.location > from {
+                        result.append(.text(NSRange(location: from, length: attribute.range.location - from)))
                     }
-                    flush(upTo: cursor)
-                    let marker = NSRange(location: cursor, length: 1)
-                    result.append(.taskAttribute(.due, range: NSRange(location: cursor, length: 11), marker: marker,
-                                                 content: NSRange(location: cursor + 1, length: 10), markers: [marker]))
-                    cursor += 10
-                    from = cursor + 1
-                } else if cursor == end - 1, index + 1 < nodes.count,
-                          case .wikiLink(let link, let name, _, let markers) = nodes[index + 1], link.location == end,
-                          name.length > 0 {
-                    flush(upTo: cursor)
-                    let marker = NSRange(location: cursor, length: 1)
-                    result.append(.taskAttribute(.parent, range: NSRange(location: cursor, length: NSMaxRange(link) - cursor),
-                                                 marker: marker, content: name, markers: [marker] + markers))
-                    from = end
+                    let marker = NSRange(location: attribute.range.location, length: 1)
+                    result.append(.taskAttribute(.due, range: attribute.range, marker: marker,
+                                                 content: NSRange(location: marker.location + 1, length: 10), markers: [marker]))
+                    from = NSMaxRange(attribute.range)
+                    pending.removeAll { $0 == attribute }
+                }
+                if let parent = pending.first(where: { $0.kind == .parent }), index + 1 < nodes.count,
+                   NSMaxRange(range) == parent.range.location + 1, from <= parent.range.location,
+                   case .wikiLink(let link, let name, _, let markers) = nodes[index + 1],
+                   link.location == parent.range.location + 1, NSMaxRange(link) == NSMaxRange(parent.range), name.length > 0 {
+                    if parent.range.location > from {
+                        result.append(.text(NSRange(location: from, length: parent.range.location - from)))
+                    }
+                    let marker = NSRange(location: parent.range.location, length: 1)
+                    result.append(.taskAttribute(.parent, range: parent.range, marker: marker, content: name,
+                                                 markers: [marker] + markers))
+                    from = NSMaxRange(range)
+                    pending.removeAll { $0 == parent }
                     index += 1   // the link is the attribute's
                 }
+                if NSMaxRange(range) > from { result.append(.text(NSRange(location: from, length: NSMaxRange(range) - from))) }
+            case .emphasis(let kind, let range, let markers, let children):
+                result.append(.emphasis(kind, range: range, markers: markers, children: carve(children, pending: &pending)))
+            case .ext(let node):
+                result.append(.ext(ExtensionInlineNode(
+                    extensionID: node.extensionID, range: node.range, contentRange: node.contentRange,
+                    markers: node.markers, children: carve(node.children, pending: &pending))))
+            default:
+                result.append(nodes[index])
             }
-            flush(upTo: end)
         }
         return result
     }
-
-    private static func isDate(_ text: String) -> Bool { TaskAttributeSyntax.isDate(text) }
 }

@@ -21,9 +21,18 @@ struct TaskAttributeTests {
         for block in DocumentAST.parse(text, registry: registry) {
             guard case .list(_, let items) = block else { continue }
             for item in items {
-                for case .taskAttribute(let kind, let range, _, _, _) in item.inlines {
-                    found.append("\(kind == .due ? "due" : "parent"):\(ns.substring(with: range))")
+                func walk(_ nodes: [InlineNode]) {
+                    for node in nodes {
+                        switch node {
+                        case .taskAttribute(let kind, let range, _, _, _):
+                            found.append("\(kind == .due ? "due" : "parent"):\(ns.substring(with: range))")
+                        case .emphasis(_, _, _, let children): walk(children)
+                        case .ext(let ext): walk(ext.children)
+                        default: break
+                        }
+                    }
                 }
+                walk(item.inlines)
             }
         }
         return found
@@ -37,10 +46,13 @@ struct TaskAttributeTests {
         #expect(attributes("  - [ ] nested @[[A]]") == ["parent:@[[A]]"])
     }
 
-    @Test func everyValidAttributeIsANode() {
-        #expect(attributes("- [ ] >2026-10-02 >2026-10-03 @[[A]] @[[B]]")
-                == ["due:>2026-10-02", "due:>2026-10-03", "parent:@[[A]]", "parent:@[[B]]"])
+    @Test func onlyTheFirstOfEachKindCounts() {
+        #expect(attributes("- [ ] >2026-10-02 >2026-10-03 @[[A]] @[[B]]") == ["due:>2026-10-02", "parent:@[[A]]"])
+        #expect(attributes("- [ ] >2026-02-30 >2026-10-03") == ["due:>2026-10-03"])
+        #expect(facts("- [ ] a @[[A]] >2026-10-02 @[[B]] >2026-10-03").map(\.value) == ["A", "2026-10-02"])
     }
+
+    private func facts(_ text: String) -> [MarkdownFacts.TaskItem.Attribute] { MarkdownFacts.scan(text).tasks[0].attributes }
 
     @Test func otherLinesHoldNone() {
         #expect(attributes("- plain >2026-10-02 @[[A]]").isEmpty)
@@ -58,23 +70,56 @@ struct TaskAttributeTests {
         #expect(attributes("> - [ ] a >2026-10-02").isEmpty)
     }
 
+    @Test func emphasisStrikethroughHighlightAndMathAreReadThrough() {
+        let registry = ExtensionRegistry(syntax: [
+            (id: "strikethrough", inline: InlineSyntax(open: "~~", close: "~~", rejectsCloserRun: true), block: nil),
+            (id: "highlight", inline: InlineSyntax(open: "==", close: "=="), block: nil),
+        ], taskAttributes: true)
+        #expect(attributes("- [ ] **a >2026-10-02**", registry: registry) == ["due:>2026-10-02"])
+        #expect(attributes("- [ ] _x @[[A]]_", registry: registry) == ["parent:@[[A]]"])
+        #expect(attributes("- [ ] ==h >2026-10-02== ~~s @[[A]]~~", registry: registry) == ["due:>2026-10-02", "parent:@[[A]]"])
+        #expect(attributes("- [ ] **>2026-10-02**", registry: registry).isEmpty, "`*` before it is not a space")
+        #expect(facts("- [ ] $a >2026-10-02$ @[[A]]").map(\.value) == ["2026-10-02", "A"])
+    }
+
+    @Test func aParentIsItsBareTitle() {
+        #expect(facts("- [ ] @[[folder/Ta Da MVP.md#Part|alias]]").map(\.value) == ["Ta Da MVP"])
+        #expect(facts("- [ ] @[[Projects/Ta Da MVP]]").map(\.value) == ["Ta Da MVP"])
+        #expect(facts("- [ ] @[[#Heading]] @[[A#^b]]").map(\.value) == ["A"])
+        #expect(TaskAttributeSyntax.parentTitle(inner: "x/Y.MD") == "Y")
+        #expect(TaskAttributeSyntax.parentTitle(inner: "|alias") == nil)
+    }
+
+    @Test func theTaskLineRuleIsPublic() {
+        #expect(TaskAttributeSyntax.isTaskAttributeLine("- [ ] call "))
+        #expect(TaskAttributeSyntax.isTaskAttributeLine("  1. [x] "))
+        #expect(!TaskAttributeSyntax.isTaskAttributeLine("- [ ]"))
+        #expect(!TaskAttributeSyntax.isTaskAttributeLine("- call ") && !TaskAttributeSyntax.isTaskAttributeLine("> - [ ] a "))
+    }
+
     @Test func codeLinksEscapesAndEmphasisHoldNone() {
+        #expect(attributes("- [ ] `>2026-10-02` ``@[[A]]`` `unclosed >2026-10-03") == ["due:>2026-10-03"])
         #expect(attributes("- [ ] `>2026-10-02` `@[[A]]`").isEmpty)
         #expect(attributes("- [ ] \\>2026-10-02 \\@[[A]]").isEmpty)
-        #expect(attributes("- [ ] [x >2026-10-02](y.md) **a >2026-10-02**").isEmpty)
+        #expect(attributes("- [ ] [x >2026-10-02](y.md) [a [b] >2026-10-02 c](y.md) [[a >2026-10-02]] ![[b @[[A]]]]").isEmpty)
         #expect(attributes("```\n- [ ] >2026-10-02\n```").isEmpty)
     }
 
     @Test func aDateNeedsWhitespaceBeforeAndABoundaryAfter() {
         #expect(attributes("- [ ] a>2026-10-02 (>2026-10-02) ->2026-10-02").isEmpty)
-        #expect(attributes("- [ ] >2026-10-02x >2026-10-021 >2026-10-02-1 >2026-10-02_").isEmpty)
-        #expect(attributes("- [ ] >2026-10-02, >2026-10-03. >2026-10-04) >2026-10-05**b**")
-                == ["due:>2026-10-02", "due:>2026-10-03", "due:>2026-10-04", "due:>2026-10-05"])
+        // Only a space or a tab: not a no-break space, an ideographic space or a line separator.
+        #expect(attributes("- [ ] a\u{00A0}>2026-10-02 b\u{3000}@[[A]] c\u{2028}>2026-10-02").isEmpty)
+        #expect(attributes("- [ ] a\t>2026-10-02") == ["due:>2026-10-02"])
+        #expect(attributes("- [ ] >2026-10-02x >2026-10-021 >2026-10-02é").isEmpty)
+        for terminated in [">2026-10-02,", ">2026-10-02.", ">2026-10-02)", ">2026-10-02**b**", ">2026-10-02-draft", ">2026-10-02_x"] {
+            #expect(attributes("- [ ] \(terminated)") == ["due:>2026-10-02"], "\(terminated)")
+        }
     }
 
     @Test func aDateIsARealDate() {
-        #expect(attributes("- [ ] >2026-02-29 >2026-13-01 >2026-00-10 >2026-04-31 >2026-1-02 >26-10-02 >2026/10/02").isEmpty)
-        #expect(attributes("- [ ] >2028-02-29 >2026-12-31 >2000-02-29") == ["due:>2028-02-29", "due:>2026-12-31", "due:>2000-02-29"])
+        #expect(attributes("- [ ] >2026-02-29 >2026-13-01 >2026-00-10 >2026-04-31 >2026-1-02 >26-10-02 >2026/10/02 >0000-01-01").isEmpty)
+        #expect(attributes("- [ ] >0000-01-01 >0001-01-01") == ["due:>0001-01-01"])
+        for date in ["2028-02-29", "2026-12-31", "2000-02-29", "9999-12-31"] { #expect(attributes("- [ ] >\(date)") == ["due:>\(date)"]) }
         #expect(!TaskAttributeSyntax.isDate("1900-02-29") && TaskAttributeSyntax.isDate("2026-01-01"))
     }
 
@@ -119,7 +164,7 @@ struct TaskAttributeTests {
         #expect(task.line == 2)
         #expect(task.attributes == [
             .init(kind: .due, column: 8, length: 11, value: "2026-10-02"),
-            .init(kind: .parent, column: 20, length: 14, value: "Home|Casa"),
+            .init(kind: .parent, column: 20, length: 14, value: "Home"),
         ])
         #expect(facts.tasks[1].attributes.isEmpty)
     }

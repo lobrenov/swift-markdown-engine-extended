@@ -5,6 +5,12 @@
 - [ ] leap >2028-02-29.
 - [ ] spaced @ [[Home]] and x@[[Home]]
 - [ ] #tag >2026-10-02 **bold >2026-10-03 @[[Work]]**
+- [ ] read through **a >2026-10-09** and ==b @[[Home]]== ~~c~~ $d$
+- [ ] draft >2026-10-09-draft and _x_
+- [ ] nbsp >2026-10-09 tab	>2026-10-10
+- [ ] zero >0000-01-01 later >0001-01-01
+- [ ] link [a [b] >2026-10-09 c](u.md) ![i >2026-10-09](p.png) >2026-10-10
+- [ ] first >2026-10-11 second >2026-10-12 @[[A]] @[[B]]
 - plain >2026-10-02 @[[Home]]
 
 > quote >2026-10-02 @[[Home]]

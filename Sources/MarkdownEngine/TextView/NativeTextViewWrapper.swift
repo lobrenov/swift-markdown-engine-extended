@@ -668,7 +668,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         // value-based comparison; full equality isn't required because the
         // embedder is the source of truth.
         let newImageFingerprint = configuration.services.images.fingerprint()
-        let newWikiFingerprint = configuration.services.wikiLinks.fingerprint()
+        let newWikiFingerprint = configuration.linkStyleFingerprint
         let imageChanged = newImageFingerprint != context.coordinator.lastImageFingerprint
         let wikiChanged = newWikiFingerprint != context.coordinator.lastWikiFingerprint
         if imageChanged || wikiChanged {
@@ -676,6 +676,10 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             context.coordinator.lastWikiFingerprint = newWikiFingerprint
             context.coordinator.configuration.services = configuration.services
             textView.configuration.services = configuration.services
+            // Fork: the task-attribute pills follow the embedder's closures (a new project, a new day).
+            context.coordinator.configuration.taskAttributes = configuration.taskAttributes
+            textView.configuration.taskAttributes = configuration.taskAttributes
+            context.coordinator.cachedParsedDocument = nil
             // Only an image change needs a layout re-measure; a wiki-link rename is style-only.
             if imageChanged, let tlm = textView.textLayoutManager {
                 tlm.invalidateLayout(for: tlm.documentRange)
@@ -932,7 +936,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         coordinator.armScrollRestore(for: documentId)
         coordinator.configuration = configuration
         coordinator.lastImageFingerprint = configuration.services.images.fingerprint()
-        coordinator.lastWikiFingerprint = configuration.services.wikiLinks.fingerprint()
+        coordinator.lastWikiFingerprint = configuration.linkStyleFingerprint
         coordinator.onCodeBlockSelectionChange = onCodeBlockSelectionChange
         coordinator.onInlinePreviewKey = onInlinePreviewKey
         coordinator.onDirectiveCompletion = onDirectiveCompletion

@@ -42,7 +42,7 @@ private enum Chips {
 @Suite("Fork — task attribute styling")
 struct TaskAttributeStylingTests {
 
-    private static let text = "- [ ] call >2026-10-02 @[[Ta Da]] @[[Gone]]\nnext"
+    private static let text = "- [ ] call >2026-10-02 @[[Ta Da]] >2026-10-03 @[[Gone]]\nnext"
 
     private func styled(_ text: String = Self.text, caret: Int = -1, on: Bool = true) -> [StyledRange] {
         MarkdownASTStyler.styleAttributes(text: text, fontName: PlatformFont.systemFont(ofSize: 14).fontName, fontSize: 14,
@@ -53,21 +53,40 @@ struct TaskAttributeStylingTests {
         attrs.compactMap { entry in (entry.attributes[.markdownTaskAttribute] as? TaskAttributeSpan).map { (entry.range, $0) } }
     }
 
-    @Test func offTheCaretsLineEachAttributeIsAPillOverItsSource() {
-        let found = spans(styled(caret: 45))
-        #expect(found.map(\.range) == [NSRange(location: 11, length: 11), NSRange(location: 23, length: 10), NSRange(location: 34, length: 9)])
-        #expect(found.map(\.span.kind) == [.due, .parent, .parent])
-        #expect(found.map(\.span.source) == [">2026-10-02", "@[[Ta Da]]", "@[[Gone]]"])
-        #expect(found.map(\.span.chip.label) == ["Today", "Ta Da", "Gone"])
+    @Test func offTheCaretsLineTheFirstOfEachKindIsAPillOverItsSource() {
+        let found = spans(styled(caret: 56))
+        #expect(found.map(\.range) == [NSRange(location: 11, length: 11), NSRange(location: 23, length: 10)])
+        #expect(found.map(\.span.kind) == [.due, .parent])
+        #expect(found.map(\.span.source) == [">2026-10-02", "@[[Ta Da]]"])
+        #expect(found.map(\.span.chip.label) == ["Today", "Ta Da"])
     }
 
-    @Test func theChipsClosureSeesTheResolverAnswer() {
-        let found = spans(styled(caret: 45))
-        #expect(found[1].span.chip.strikethrough == false && found[2].span.chip.strikethrough)
+    @Test func theChipsClosureSeesTheBareTitleAndTheResolverAnswer() {
+        let text = "- [ ] a @[[Gone]]\n- [ ] b @[[Projects/Ta Da#Part|alias]]\nnext"
+        let found = spans(styled(text, caret: (text as NSString).length - 1))
+        #expect(found.map(\.span.chip.label) == ["Gone", "Ta Da"])
+        #expect(found[0].span.chip.strikethrough && found[1].span.chip.strikethrough, "the resolver knows `Ta Da` by its name, not its folder")
     }
+
+    @Test func attributesInsideEmphasisAreDrawn() {
+        let found = spans(styled("- [ ] **a >2026-10-02** ==b @[[Ta Da]]==\nnext", caret: 44))
+        #expect(found.map(\.span.kind) == [.due, .parent])
+    }
+
+    @Test func theStylesFingerprintJoinsTheResolversInTheWrappersComparison() {
+        let box = Box()
+        var config = Chips.configuration()
+        config.taskAttributes?.fingerprint = { box.value }
+        let before = config.linkStyleFingerprint
+        box.value = 1
+        #expect(config.linkStyleFingerprint != before)
+        #expect(Chips.configuration(on: false).linkStyleFingerprint != Chips.configuration().linkStyleFingerprint)
+    }
+
+    private final class Box: @unchecked Sendable { var value: AnyHashable = 0 }
 
     @Test func theSourceIsHiddenAndItsFirstCharacterReservesThePillsWidth() {
-        let attrs = styled(caret: 45)
+        let attrs = styled(caret: 56)
         let (range, span) = spans(attrs)[0]
         let hidden = (attrs.last { $0.range == range && $0.attributes[.foregroundColor] != nil }?.attributes[.foregroundColor]) as? PlatformColor
         #expect(hidden == PlatformColor.clear)
@@ -87,8 +106,8 @@ struct TaskAttributeStylingTests {
     }
 
     @Test func withoutTheConfigurationTheyStayText() {
-        #expect(spans(styled(caret: 45, on: false)).isEmpty)
-        let plain = styled(caret: 45, on: false)
+        #expect(spans(styled(caret: 56, on: false)).isEmpty)
+        let plain = styled(caret: 56, on: false)
         #expect(plain.contains { $0.range == NSRange(location: 26, length: 5) && $0.attributes[.link] as? String == "Ta Da" })
     }
 

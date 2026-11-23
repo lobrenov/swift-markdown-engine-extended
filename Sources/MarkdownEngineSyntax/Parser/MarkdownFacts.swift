@@ -34,7 +34,7 @@ public struct MarkdownFacts: Hashable, Sendable {
             public var column: Int
             /// Its length in UTF-16 units: `>` through the date, or `@` through `]]`.
             public var length: Int
-            /// The date (`2026-10-02`), or the parent link's inner text as written (`Title`, `Title|alias`).
+            /// The date (`2026-10-02`), or the parent's bare title (`Title` for `[[folder/Title.md#Part|alias]]`).
             public var value: String
         }
     }
@@ -316,9 +316,9 @@ private struct FactScanner {
             let text = string(item.contentRange).trimmingCharacters(in: .whitespacesAndNewlines)
             var task = MarkdownFacts.TaskItem(line: line(item.range.location), marker: marker, text: text, box: box)
             let lineStart = lineStarts[task.line - firstLineIndex]
-            for case .taskAttribute(let kind, let range, _, let content, let markers) in item.inlines {
-                let value = kind == .due ? string(content) : innerText(Array(markers.dropFirst()))
-                task.attributes.append(.init(kind: kind, column: range.location - lineStart, length: range.length, value: value))
+            for found in TaskAttributeSyntax.scan(ns, in: item.contentRange) {
+                task.attributes.append(.init(kind: found.kind, column: found.range.location - lineStart,
+                                             length: found.range.length, value: found.value))
             }
             facts.tasks.append(task)
         }

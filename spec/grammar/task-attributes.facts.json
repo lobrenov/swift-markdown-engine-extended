@@ -43,19 +43,7 @@
           "kind": "parent",
           "column": 23,
           "length": 14,
-          "value": "Home|Casa"
-        },
-        {
-          "kind": "parent",
-          "column": 38,
-          "length": 9,
-          "value": "Work"
-        },
-        {
-          "kind": "due",
-          "column": 48,
-          "length": 11,
-          "value": "2026-03-01"
+          "value": "Home"
         }
       ]
     },
@@ -92,6 +80,102 @@
           "column": 11,
           "length": 11,
           "value": "2026-10-02"
+        },
+        {
+          "kind": "parent",
+          "column": 42,
+          "length": 9,
+          "value": "Work"
+        }
+      ]
+    },
+    {
+      "line": 7,
+      "marker": " ",
+      "text": "read through **a >2026-10-09** and ==b @[[Home]]== ~~c~~ $d$",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 23,
+          "length": 11,
+          "value": "2026-10-09"
+        },
+        {
+          "kind": "parent",
+          "column": 45,
+          "length": 9,
+          "value": "Home"
+        }
+      ]
+    },
+    {
+      "line": 8,
+      "marker": " ",
+      "text": "draft >2026-10-09-draft and _x_",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 12,
+          "length": 11,
+          "value": "2026-10-09"
+        }
+      ]
+    },
+    {
+      "line": 9,
+      "marker": " ",
+      "text": "nbsp >2026-10-09 tab\t>2026-10-10",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 27,
+          "length": 11,
+          "value": "2026-10-10"
+        }
+      ]
+    },
+    {
+      "line": 10,
+      "marker": " ",
+      "text": "zero >0000-01-01 later >0001-01-01",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 29,
+          "length": 11,
+          "value": "0001-01-01"
+        }
+      ]
+    },
+    {
+      "line": 11,
+      "marker": " ",
+      "text": "link [a [b] >2026-10-09 c](u.md) ![i >2026-10-09](p.png) >2026-10-10",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 63,
+          "length": 11,
+          "value": "2026-10-10"
+        }
+      ]
+    },
+    {
+      "line": 12,
+      "marker": " ",
+      "text": "first >2026-10-11 second >2026-10-12 @[[A]] @[[B]]",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 12,
+          "length": 11,
+          "value": "2026-10-11"
+        },
+        {
+          "kind": "parent",
+          "column": 43,
+          "length": 6,
+          "value": "A"
         }
       ]
     }
@@ -127,16 +211,41 @@
       "target": "Home"
     },
     {
-      "line": 9,
+      "line": 12,
+      "target": "A"
+    },
+    {
+      "line": 12,
+      "target": "B"
+    },
+    {
+      "line": 13,
       "target": "Home"
     },
     {
-      "line": 11,
+      "line": 15,
+      "target": "Home"
+    },
+    {
+      "line": 17,
       "target": "Home"
     }
   ],
   "embeds": [],
-  "markdownLinks": [],
+  "markdownLinks": [
+    {
+      "angle": false,
+      "line": 11,
+      "path": "u.md",
+      "raw": "u.md"
+    },
+    {
+      "angle": false,
+      "line": 11,
+      "path": "p.png",
+      "raw": "p.png"
+    }
+  ],
   "tags": [
     {
       "line": 6,

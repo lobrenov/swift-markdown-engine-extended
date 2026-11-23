@@ -389,7 +389,9 @@ package enum DocumentAST {
         let content = NSRange(location: i, length: max(0, contentEnd - i))
         var inlines = scoped ? InlineParser.parse(ns, range: content, registry: registry) : []
         // Fork: a task line's `>date` and `@[[parent]]`.
-        if scoped, registry.taskAttributes, taskMarker != nil { inlines = InlineParser.readingTaskAttributes(inlines, in: ns) }
+        if scoped, registry.taskAttributes, taskMarker != nil {
+            inlines = InlineParser.readingTaskAttributes(inlines, found: TaskAttributeSyntax.scan(ns, in: content))
+        }
         return ListItem(range: lineRange, marker: marker, ordered: ordered, number: number,
                         checkbox: checkbox, checked: checked, taskMarker: taskMarker, indent: indent,
                         contentRange: content, inlines: inlines)

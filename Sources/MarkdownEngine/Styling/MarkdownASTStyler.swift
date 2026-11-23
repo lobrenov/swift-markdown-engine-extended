@@ -1113,7 +1113,9 @@ enum MarkdownASTStyler {
         let chip: TaskAttributeChip
         switch kind {
         case .due: chip = style.due(ctx.ns.substring(with: content))
-        case .parent: chip = style.parent(ctx.ns.substring(with: content), resolution(of: content, ctx: ctx))
+        case .parent:
+            let inner = ctx.ns.substring(with: NSRange(location: NSMaxRange(markers[1]), length: markers[2].location - NSMaxRange(markers[1])))
+            chip = style.parent(TaskAttributeSyntax.parentTitle(inner: inner) ?? inner, resolution(of: content, ctx: ctx))
         }
         let span = TaskAttributeSpan(kind: kind, source: ctx.ns.substring(with: range), chip: chip, style: style, font: font)
         let hidden = ctx.inlineMarkerFont

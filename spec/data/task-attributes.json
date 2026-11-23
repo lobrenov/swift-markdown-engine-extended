@@ -1,24 +1,22 @@
 {
-  "description": "Task attributes: on a task item's first line (a list item with a box, `[c]` and a space or tab after it), `>YYYY-MM-DD` after whitespace is a due date and `@` straight before a wiki link (`@[[Title]]`), after whitespace, is a parent. A reader that offers them reads them in every file, and each attribute's `column` and `length` place it in its line (UTF-16 units). Only top-level text counts: code, link text, emphasis, quotes, plain list items and paragraphs hold none. Every valid attribute is listed, in text order; which one a host takes (the first of each kind) is the host's.",
+  "description": "Task attributes: on a task item's first line (a list item with a box, `[c]` and a space or tab after it, in a quote too), `>YYYY-MM-DD` is a due date and `@` straight before `[[Title]]` is a parent, each at the text's start or after a space or tab (no other whitespace). The first of each counts; a later one is text. The scan runs over the text after the box and skips code spans and links (`[[…]]`, `![[…]]`, `[text](target)`, whose text may hold brackets); emphasis, `~~`, `==` and math are read through. Each attribute's `column` and `length` place it in its line (UTF-16 units). Plain list items and paragraphs hold none; `>` at a line's start is a quote.",
   "due": {
-    "start": "`>` after whitespace",
-    "date": "YYYY-MM-DD, a real calendar date (the leap day only in a leap year)",
-    "end": "the line's end, or a character that isn't a letter, digit, `-` or `_`",
+    "start": "`>` at the text's start or after a space or tab",
+    "date": "YYYY-MM-DD, a real calendar date, year 0001 to 9999 (the leap day only in a leap year)",
+    "end": "the line's end, or a character that isn't a letter or digit (`>2026-10-09-draft` and `>2026-10-09,` count; `>2026-10-091` doesn't)",
     "value": "the date"
   },
   "parent": {
-    "start": "`@` after whitespace, immediately followed by `[[`",
-    "length": "`@` through `]]`",
-    "value": "the link's inner text as written (`Title`, `Title|alias`); the wiki link is also in `links`"
+    "start": "`@` at the text's start or after a space or tab, immediately followed by `[[`",
+    "length": "`@` through `]]`; the link holds no `[` or `]` and links a file (`[[#heading]]` and `[[]]` don't)",
+    "value": "the link's title: its target's last path component without `.md` (folder, heading, block and alias dropped); the link is also in `links`"
   },
   "noAttributesIn": [
     "paragraph",
-    "quote",
     "listItemWithoutBox",
     "inlineCode",
-    "linkText",
-    "emphasis",
-    "escaped"
+    "link",
+    "laterAttributeOfAKind"
   ],
   "typing": {
     "dateQuery": "`>` after whitespace on a task line opens a query: letters, digits, `-`, `/` and at most two single spaces; any other character, a space straight after `>` or past 40 characters ends it",
