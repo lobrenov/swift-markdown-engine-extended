@@ -34,8 +34,8 @@ package enum MarkdownDetection {
                 indices.insert(index)
                 continue
             }
-            // Fork: a tag is plain source anywhere on the caret's line.
-            if token.kind == .tag, caretLocation >= 0, caretLocation <= text.length {
+            // Fork: a tag, or a task attribute, is plain source anywhere on the caret's line.
+            if token.kind == .tag || token.kind == .taskAttribute, caretLocation >= 0, caretLocation <= text.length {
                 var lineStart = 0, contentsEnd = 0
                 text.getLineStart(&lineStart, end: nil, contentsEnd: &contentsEnd, for: token.range)
                 if caretLocation >= lineStart && caretLocation <= contentsEnd { indices.insert(index) }

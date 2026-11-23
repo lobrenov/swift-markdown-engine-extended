@@ -116,6 +116,22 @@ struct TaskAttributeStylingTests {
     }
 }
 
+@Suite("Fork — task attribute tokens")
+struct TaskAttributeTokenTests {
+    @Test func anAttributesTokenIsActiveAnywhereOnItsLineAsATagsIs() {
+        let text = "- [ ] a >2026-11-24 @[[A]] >2026-11-25\nnext\n- b >2026-11-24" as NSString
+        let registry = ExtensionRegistry(extensions: [], taskAttributes: true)
+        let tokens = MarkdownTokenizer.parseTokensViaAST(in: text as String, registry: registry)
+        let indices = tokens.indices.filter { tokens[$0].kind == .taskAttribute }
+        #expect(indices.map { text.substring(with: tokens[$0].range) } == [">2026-11-24", "@[[A]]"])
+        func active(_ caret: Int) -> Set<Int> {
+            MarkdownDetection.computeActiveTokenIndices(selectionRange: NSRange(location: caret, length: 0), tokens: tokens, in: text)
+        }
+        #expect(Set(indices).isSubset(of: active(0)) && Set(indices).isSubset(of: active(37)))
+        #expect(Set(indices).isDisjoint(with: active(40)))
+    }
+}
+
 #if os(macOS)
 @MainActor
 @Suite("Fork — task attribute queries and clicks")
@@ -395,6 +411,60 @@ struct TaskAttributeQueryTests {
         let probe = color(at: CGPoint(x: hit.rect.minX + 2, y: hit.rect.midY))
         let blue = try #require(probe).blueComponent, red = try #require(probe).redComponent
         #expect(blue > red + 0.05, "\(String(describing: probe))")
+        withExtendedLifetime((window, coordinator)) {}
+    }
+
+    // MARK: Caret line
+
+    private static let line = "- [ ] Snacks @[[Garden refresh]] >2026-11-24"
+
+    private func drawn(_ tv: NativeTextView, in range: NSRange) -> Bool {
+        var found = false
+        tv.textStorage?.enumerateAttribute(.markdownTaskAttribute, in: range) { value, _, _ in if value != nil { found = true } }
+        return found
+    }
+
+    @Test func theCaretOnTheLineShowsItsAttributesAsSourceWhereverItIs() throws {
+        let text = Self.line + "\nnext\n"
+        let (tv, window, coordinator) = try laidOut(text, caret: (text as NSString).length)
+        let first = NSRange(location: 0, length: (Self.line as NSString).length)
+        #expect(drawn(tv, in: first), "drawn with the caret on another line")
+        // Every caret place on the line, reached as the arrows and clicks reach it, has the source showing, so the
+        // caret is never inside a hidden source.
+        for location in 0...first.length {
+            tv.setSelectedRange(NSRange(location: location, length: 0))
+            #expect(!drawn(tv, in: first), "caret at \(location)")
+        }
+        tv.setSelectedRange(NSRange(location: first.length + 3, length: 0))
+        #expect(drawn(tv, in: first), "drawn again once the caret leaves the line")
+        withExtendedLifetime((window, coordinator)) {}
+    }
+
+    @Test func arrowKeysCrossTheLineOneCharacterAtATimeAndRedrawOnLeaving() throws {
+        let text = Self.line + "\nnext\n"
+        let (tv, window, coordinator) = try laidOut(text, caret: 0)
+        let first = NSRange(location: 0, length: (Self.line as NSString).length)
+        for _ in 0..<first.length { tv.moveRight(nil) }
+        #expect(tv.selectedRange() == NSRange(location: first.length, length: 0))
+        #expect(!drawn(tv, in: first))
+        tv.moveDown(nil)
+        #expect(drawn(tv, in: first))
+        tv.moveUp(nil)
+        #expect(!drawn(tv, in: first))
+        withExtendedLifetime((window, coordinator)) {}
+    }
+
+    @Test func aCompletedAttributeStaysSourceOnTheCaretsLineAndDrawsOnLeaving() async throws {
+        let (tv, window, coordinator) = try laidOut("- [ ] a \nnext\n", caret: 8)
+        for character in "@[[Ta Da]] >2026-11-24 " {
+            tv.insertText(String(character), replacementRange: tv.selectedRange())
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        let first = (tv.string as NSString).lineRange(for: NSRange(location: 0, length: 0))
+        #expect(tv.string.hasPrefix("- [ ] a @[[Ta Da]] >2026-11-24 \n"))
+        #expect(!drawn(tv, in: first))
+        tv.setSelectedRange(NSRange(location: (tv.string as NSString).length, length: 0))
+        #expect(drawn(tv, in: first))
         withExtendedLifetime((window, coordinator)) {}
     }
 

@@ -29,6 +29,8 @@ package enum MarkdownTokenKind: Equatable {
     case backslashEscape
     /// Fork: a `#tag`; marker is the `#`.
     case tag
+    /// Fork: a task line's `>date` or `@[[parent]]` (the first of each kind); marker is its first character.
+    case taskAttribute
     /// A span contributed by a registered `MarkdownExtension`,
     /// carrying the extension's id (e.g. `.extensionSpan("highlight")`).
     case extensionSpan(String)

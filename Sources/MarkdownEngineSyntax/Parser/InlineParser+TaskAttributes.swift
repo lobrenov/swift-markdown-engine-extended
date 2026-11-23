@@ -144,6 +144,43 @@ public enum TaskAttributeSyntax {
         return nil
     }
 
+    /// Where a task item's text starts on the line `line` of `ns`, after its box and the space or tab after that.
+    package static func contentStart(of line: NSRange, in ns: NSString) -> Int? {
+        let end = NSMaxRange(line)
+        var i = line.location
+        while i < end, ns.character(at: i) == 0x20 || ns.character(at: i) == 0x09 { i += 1 }
+        guard i < end else { return nil }
+        let c = ns.character(at: i)
+        if c == 0x2D || c == 0x2A || c == 0x2B {
+            i += 1
+        } else {
+            var digits = 0
+            while i < end, ns.character(at: i) >= 0x30, ns.character(at: i) <= 0x39, digits < 9 { i += 1; digits += 1 }
+            guard digits > 0, i < end, ns.character(at: i) == 0x2E || ns.character(at: i) == 0x29 else { return nil }
+            i += 1
+        }
+        guard let box = TaskMarker.boxStart(in: { ns.character(at: $0) }, markerEnd: i, end: end) else { return nil }
+        return box + 4
+    }
+
+    /// A token for each attribute that counts on each task line of the list block `block` (ranges relative to it).
+    package static func tokens(inListBlock block: NSString) -> [MarkdownToken] {
+        var tokens: [MarkdownToken] = []
+        var location = 0
+        while location < block.length {
+            let line = block.lineRange(for: NSRange(location: location, length: 0))
+            location = NSMaxRange(line)
+            guard let start = contentStart(of: line, in: block) else { continue }
+            var end = NSMaxRange(line)
+            while end > start, [0x0A, 0x0D].contains(block.character(at: end - 1)) { end -= 1 }
+            for found in scan(block, in: NSRange(location: start, length: max(0, end - start))) {
+                tokens.append(MarkdownToken(kind: .taskAttribute, range: found.range, contentRange: found.range,
+                                            markerRanges: [NSRange(location: found.range.location, length: 1)]))
+            }
+        }
+        return tokens
+    }
+
     /// The attributes in `range`, a task line's text after its box (UTF-16 in `ns`): the first due date and the first
     /// parent, in text order. Each starts the text or follows a space or tab; code spans and links hold none.
     package static func scan(_ ns: NSString, in range: NSRange) -> [Found] {

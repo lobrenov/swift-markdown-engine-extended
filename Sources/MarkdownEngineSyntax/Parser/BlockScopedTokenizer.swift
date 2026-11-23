@@ -189,7 +189,10 @@ extension MarkdownTokenizer {
         } else {
             inline = InlineASTAdapter.tokens(from: InlineParser.parse(sub, registry: registry))
         }
-        let computed = blockLevel + inline
+        // Fork: a list's task lines' attributes, for the caret-line reveal.
+        let attributes = kind == .list && registry.taskAttributes
+            ? TaskAttributeSyntax.tokens(inListBlock: sub as NSString) : []
+        let computed = blockLevel + inline + attributes
 
         blockTokenLock.lock()
         if blockTokenCache[key] == nil {

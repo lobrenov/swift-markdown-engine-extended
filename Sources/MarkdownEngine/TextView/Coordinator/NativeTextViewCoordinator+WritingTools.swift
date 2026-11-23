@@ -138,7 +138,7 @@ extension NativeTextViewCoordinator {
         let parsed = parsedDocument(for: textView.string)
         let tokenRanges = parsed.tokens.compactMap { token -> NSRange? in
             switch token.kind {
-            case .codeBlock, .inlineCode, .inlineLatex, .blockLatex, .link, .wikiLink, .imageEmbed, .imageLink, .table, .tag:
+            case .codeBlock, .inlineCode, .inlineLatex, .blockLatex, .link, .wikiLink, .imageEmbed, .imageLink, .table, .tag, .taskAttribute:
                 return token.range
             default:
                 return nil
