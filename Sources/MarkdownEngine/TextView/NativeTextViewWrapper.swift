@@ -317,6 +317,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         scrollView.hasVerticalScroller = configuration.heightBehavior.wantsVerticalScroller(for: configuration.scrollers)
         scrollView.hasHorizontalScroller = configuration.scrollers.hasHorizontalScroller
         scrollView.autohidesScrollers = configuration.scrollers.autohidesScrollers
+        scrollView.forcesOverlayScrollers = configuration.scrollers.forcesOverlay   // Fork
+        scrollView.scrollerKnobStyle = configuration.scrollers.knobStyle            // Fork
         scrollView.drawsBackground = false
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.contentInsets = NSEdgeInsets(
@@ -602,6 +604,14 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         }
         if nsView.autohidesScrollers != configuration.scrollers.autohidesScrollers {
             nsView.autohidesScrollers = configuration.scrollers.autohidesScrollers
+        }
+        // Fork: overlay scrollers and knob colour.
+        if let clamped = nsView as? ClampedScrollView, clamped.forcesOverlayScrollers != configuration.scrollers.forcesOverlay {
+            clamped.forcesOverlayScrollers = configuration.scrollers.forcesOverlay
+            if !configuration.scrollers.forcesOverlay { clamped.scrollerStyle = NSScroller.preferredScrollerStyle }
+        }
+        if nsView.scrollerKnobStyle != configuration.scrollers.knobStyle {
+            nsView.scrollerKnobStyle = configuration.scrollers.knobStyle
         }
         // When heightBehavior changes at runtime, re-measure and re-report so the
         // view reconfigures immediately (inflation toggles, overscroll zeroing).

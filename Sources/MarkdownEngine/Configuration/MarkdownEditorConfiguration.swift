@@ -218,16 +218,41 @@ public struct ScrollersPolicy: Sendable {
     public var hasVerticalScroller: Bool
     public var hasHorizontalScroller: Bool
     public var autohidesScrollers: Bool
+    /// Fork: thin overlay scrollers that fade when idle, even when the system setting asks for always-visible ones.
+    /// False follows the system. macOS only.
+    public var forcesOverlay: Bool
+    #if canImport(AppKit)
+    /// Fork: the scroller knob's colour; `.light` suits a dark background. macOS only.
+    public var knobStyle: NSScroller.KnobStyle
+    #endif
 
+    #if canImport(AppKit)
     public init(
         hasVerticalScroller: Bool = true,
         hasHorizontalScroller: Bool = false,
-        autohidesScrollers: Bool = true
+        autohidesScrollers: Bool = true,
+        forcesOverlay: Bool = false,
+        knobStyle: NSScroller.KnobStyle = .default
     ) {
         self.hasVerticalScroller = hasVerticalScroller
         self.hasHorizontalScroller = hasHorizontalScroller
         self.autohidesScrollers = autohidesScrollers
+        self.forcesOverlay = forcesOverlay
+        self.knobStyle = knobStyle
     }
+    #else
+    public init(
+        hasVerticalScroller: Bool = true,
+        hasHorizontalScroller: Bool = false,
+        autohidesScrollers: Bool = true,
+        forcesOverlay: Bool = false
+    ) {
+        self.hasVerticalScroller = hasVerticalScroller
+        self.hasHorizontalScroller = hasHorizontalScroller
+        self.autohidesScrollers = autohidesScrollers
+        self.forcesOverlay = forcesOverlay
+    }
+    #endif
 
     public static let `default` = ScrollersPolicy()
     /// No scrollers (use with a custom scroll overlay).
@@ -356,6 +381,19 @@ public struct ListStyle: Sendable {
     public var bulletSymbolNames: [String]
     /// Fork: bullet symbol point size as a fraction of the body font size.
     public var bulletSymbolScale: CGFloat
+    /// Fork: makes some bullet items gutter items, e.g. recipe steps written `* 15 min: …`. Called with each plain
+    /// (non-task, unordered, not quoted) item's marker character and its raw content (the text after the marker);
+    /// return nil for an ordinary item. A gutter item has no bullet and starts at the body text's left edge. Its
+    /// marker and the returned prefix collapse to zero width, and the prefix's label is drawn right-aligned in the
+    /// left margin (give the editor room with `textInsets.horizontal`). With the caret or a selection in the marker
+    /// or prefix, the raw source shows instead. nil (default) leaves every list item as it was.
+    public var gutterPrefix: (@Sendable (_ marker: Character, _ content: String) -> ListGutterPrefix?)?
+    /// Fork: draws the start of some list items in bold, e.g. a quantity (`2 tbsp` in `- [ ] 2 tbsp olive oil`).
+    /// Called with each item's raw content (the text after the marker and any checkbox); return the UTF-16 length
+    /// to embolden, or nil for none. Presentation only: nothing is hidden. nil (default) changes nothing.
+    public var emphasizedPrefix: (@Sendable (_ content: String) -> Int?)?
+    /// Fork: the colour of `emphasizedPrefix` text; nil keeps the text colour.
+    public var emphasizedPrefixColor: PlatformColor?
 
     public init(
         helpersEnabled: Bool = true,
@@ -367,8 +405,14 @@ public struct ListStyle: Sendable {
         maximumNestingLevel: Int = 3,
         extraLineHeight: CGFloat = 2,
         bulletSymbolNames: [String] = ["circle.fill", "circle", "square.fill", "diamond.fill"],
-        bulletSymbolScale: CGFloat = 0.4
+        bulletSymbolScale: CGFloat = 0.4,
+        gutterPrefix: (@Sendable (_ marker: Character, _ content: String) -> ListGutterPrefix?)? = nil,
+        emphasizedPrefix: (@Sendable (_ content: String) -> Int?)? = nil,
+        emphasizedPrefixColor: PlatformColor? = nil
     ) {
+        self.gutterPrefix = gutterPrefix
+        self.emphasizedPrefix = emphasizedPrefix
+        self.emphasizedPrefixColor = emphasizedPrefixColor
         self.helpersEnabled = helpersEnabled
         self.autoClosePairsEnabled = autoClosePairsEnabled
         self.autoCloseFormattingEnabled = autoCloseFormattingEnabled
@@ -382,6 +426,21 @@ public struct ListStyle: Sendable {
     }
 
     public static let `default` = ListStyle()
+}
+
+/// Fork: how a gutter item's content starts (see `ListStyle.gutterPrefix`): the UTF-16 length of a prefix to hide
+/// (0 for none), the label to draw in the margin (nil for none), and where in the prefix a click in the margin
+/// puts the caret (UTF-16 offset; nil is after the prefix).
+public struct ListGutterPrefix: Sendable, Equatable {
+    public var length: Int
+    public var label: String?
+    public var caretOffset: Int?
+
+    public init(length: Int, label: String?, caretOffset: Int? = nil) {
+        self.length = length
+        self.label = label
+        self.caretOffset = caretOffset
+    }
 }
 
 // MARK: - Task checkboxes

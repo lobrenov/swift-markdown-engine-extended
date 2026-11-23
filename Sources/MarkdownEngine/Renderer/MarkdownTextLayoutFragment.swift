@@ -41,6 +41,12 @@ extension NSAttributedString.Key {
     /// the fragment can paint a `•` in its place. Set to `true`.
     static let bulletMarker = NSAttributedString.Key("BulletListMarker")
     static let orderedMarker = NSAttributedString.Key("OrderedListMarker")
+    /// Fork: String, a gutter item's label (`ListStyle.gutterPrefix`), set across its collapsed marker and prefix
+    /// run; drawn in the left margin.
+    static let listGutterLabel = NSAttributedString.Key("ListGutterLabel")
+    /// Fork: Int, set across a gutter item's collapsed run: the caret offset from the run's start that a click in
+    /// the margin selects.
+    static let listGutterCaret = NSAttributedString.Key("ListGutterCaret")
     /// CGFloat — natural image width; presence flags block as overlay-rendered.
     static let scrollableBlockNaturalWidth = NSAttributedString.Key("ScrollableBlockNaturalWidth")
     /// Int — hash of source text; key for overlay reconcile + offset persistence.
@@ -146,6 +152,16 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
         var bounds = super.renderingSurfaceBounds
         // Task checkboxes too: the box draws left of the first glyph (marker
         // slot), outside the default text surface — TextKit would clip it.
+        // Fork: gutter labels draw in the left margin, outside the text container.
+        if hasListGutterLabel {
+            #if os(macOS)
+            let inset = textLayoutManager?.textContainer?.textView?.textContainerInset.width ?? 0
+            #else
+            let inset = textLayoutManager?.textContainer?.textView?.textContainerInset.left ?? 0
+            #endif
+            let left = -layoutFragmentFrame.origin.x - inset
+            bounds = bounds.union(CGRect(x: left, y: bounds.minY, width: max(0, bounds.minX - left), height: bounds.height))
+        }
         if hasCodeBlockBackground || hasThematicBreak || hasBlockquote || hasTaskCheckbox || hasCallout {
             let containerWidth = textLayoutManager?.textContainer?.size.width ?? bounds.width
             // Extend left to container edge
@@ -211,6 +227,7 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
         // 4b. Bullet glyphs (on top of hidden -/*/+ markers)
         drawBulletMarkers(at: point, in: context)
         drawOrderedMarkers(at: point, in: context)
+        drawListGutterLabels(at: point, in: context)
 
         // 5. Thematic breaks (full-width line, painted last so it doesn't
         //    fight with anything that already drew at the line's center)
@@ -988,6 +1005,45 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
             let glyphAttrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: theme.bodyText]
             let topY = pos.baselineY - font.ascender
             glyph.draw(at: CGPoint(x: pos.x, y: topY), withAttributes: glyphAttrs)
+        }
+    }
+
+    // MARK: - List Gutter Labels (Fork)
+
+    private var hasListGutterLabel: Bool {
+        guard let ts = textStorage, let range = fragmentNSRange, range.length > 0 else { return false }
+        var found = false
+        ts.enumerateAttribute(.listGutterLabel, in: range, options: []) { value, _, stop in
+            if value is String {
+                found = true
+                stop.pointee = true
+            }
+        }
+        return found
+    }
+
+    /// Fork: paint each `.listGutterLabel` right-aligned in the left margin, just before the item's content (its
+    /// collapsed run has zero width, so the run's first character sits where the content starts), in muted
+    /// monospaced digits so a column of times lines up.
+    private func drawListGutterLabels(at point: CGPoint, in context: CGContext) {
+        guard let ts = textStorage, let range = fragmentNSRange, range.length > 0 else { return }
+        guard let textView = textLayoutManager?.textContainer?.textView as? NativeTextView else { return }
+
+        pushGraphicsContext(context)
+        defer { popGraphicsContext() }
+
+        let font = PlatformFont.monospacedDigitSystemFont(ofSize: textView.baseFont.pointSize, weight: .regular)
+        let labelAttrs: [NSAttributedString.Key: Any] = [
+            .font: font, .foregroundColor: textView.configuration.theme.mutedText,
+        ]
+        let gap = font.pointSize * 0.75
+
+        ts.enumerateAttribute(.listGutterLabel, in: range, options: []) { [weak self] value, attrRange, _ in
+            guard let self, let label = value as? String else { return }
+            guard let pos = self.drawPosition(forDocumentCharAt: attrRange.location, point: point) else { return }
+            let glyph = label as NSString
+            let x = pos.x - gap - glyph.size(withAttributes: labelAttrs).width
+            glyph.draw(at: CGPoint(x: x, y: pos.baselineY - font.ascender), withAttributes: labelAttrs)
         }
     }
 

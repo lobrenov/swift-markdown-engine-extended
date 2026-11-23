@@ -24,6 +24,8 @@ extension NativeTextView {
         // Fork: a click on a drawn image selects it.
         if selectImageEmbedIfHit(event: event) { return }
         if toggleCalloutFoldIfHit(event: event) { return }
+        // Fork: a click in the margin beside a gutter item puts the caret in its prefix.
+        if placeCaretInListGutterIfHit(event: event) { return }
         // Fork: a click on a drawn tag opens it.
         if event.clickCount == 1, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock).isEmpty,
            let onTagClick, let tag = tagHit(atViewPoint: convert(event.locationInWindow, from: nil)) {

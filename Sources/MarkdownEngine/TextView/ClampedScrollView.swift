@@ -15,6 +15,17 @@ final class ClampedScrollView: NSScrollView {
     /// own height to SwiftUI and the enclosing scroll view owns paging.
     var fitsContent: Bool = false
 
+    /// Fork: keeps overlay scrollers. AppKit sets `scrollerStyle` back to the system's preference whenever that
+    /// setting changes, so it is held here.
+    var forcesOverlayScrollers = false {
+        didSet { if forcesOverlayScrollers { scrollerStyle = .overlay } }
+    }
+
+    override var scrollerStyle: NSScroller.Style {
+        get { super.scrollerStyle }
+        set { super.scrollerStyle = forcesOverlayScrollers ? .overlay : newValue }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         disableRubberBand()

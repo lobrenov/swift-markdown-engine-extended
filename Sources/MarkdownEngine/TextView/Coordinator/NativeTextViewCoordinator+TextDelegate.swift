@@ -538,6 +538,9 @@ extension NativeTextViewCoordinator {
         let currentBulletSyntax = MarkdownStyler.bulletSyntaxRange(at: selLoc, in: docText)
         let bulletSyntaxChanged = prevBulletSyntax?.location != currentBulletSyntax?.location
             || prevBulletSyntax?.length != currentBulletSyntax?.length
+        // Fork: caret in or out of a gutter prefix (`- 15 min: `) flips label and raw source.
+        let prevGutterSyntax = previousCaretLocation.flatMap { gutterSyntaxRange(at: $0, in: nsText) }
+        let gutterSyntaxChanged = prevGutterSyntax != gutterSyntaxRange(at: selLoc, in: nsText)
         // Ordered markers need no caret signal: their painted number does not
         // depend on where the caret is. A SELECTION over one still reverts it to
         // raw digits — that is the reveal-syntax span below, not a crossing.
@@ -553,6 +556,11 @@ extension NativeTextViewCoordinator {
             let span = nsText.paragraphRange(for: clamped)
             for needle in ["- [", "* [", "+ ["]
             where nsText.range(of: needle, options: [], range: span).location != NSNotFound { return true }
+            // Fork: a selection over a gutter prefix reveals it too.
+            if self.configuration.lists.gutterPrefix != nil {
+                for needle in ["- ", "* ", "+ "]
+                where nsText.range(of: needle, options: [], range: span).location != NSNotFound { return true }
+            }
             // Ordered markers are NOT in here: their painted number no longer
             // depends on the selection, so a selection sweeping one has nothing
             // to repaint.
@@ -568,7 +576,7 @@ extension NativeTextViewCoordinator {
         } else if isDragSelecting {
             needsRestyleAfterDrag = true
         } else if tokensChanged || taskSyntaxChanged || hrLineChanged || bulletSyntaxChanged
-                    || selectionSpanChanged || needsRestyleAfterDrag {
+                    || gutterSyntaxChanged || selectionSpanChanged || needsRestyleAfterDrag {
             needsRestyleAfterDrag = false
             // Candidates are built ONLY when a restyle actually runs — this
             // used to happen unconditionally on every selection change,
@@ -1053,4 +1061,27 @@ extension NativeTextViewCoordinator {
         return false
     }
 
+}
+
+// MARK: - List gutter prefixes (Fork)
+
+extension NativeTextViewCoordinator {
+    private static let gutterBulletRegex = try! NSRegularExpression(pattern: #"^[ \t]*([-*+])[ \t]+(?!\[[ xX]\][ \t])"#)
+
+    /// Fork: the marker and gutter prefix on the line at `location` when `location` is inside it or at its end:
+    /// the same test the styler uses to show the raw source instead of the margin label.
+    func gutterSyntaxRange(at location: Int, in text: NSString) -> NSRange? {
+        guard let find = configuration.lists.gutterPrefix else { return nil }
+        let line = text.lineRange(for: NSRange(location: max(0, min(location, text.length)), length: 0))
+        let lineText = text.substring(with: line) as NSString
+        guard let match = Self.gutterBulletRegex.firstMatch(
+            in: lineText as String, range: NSRange(location: 0, length: lineText.length)) else { return nil }
+        let content = lineText.substring(from: match.range.length)
+        guard let marker = lineText.substring(with: match.range(at: 1)).first,
+              let prefix = find(marker, content), prefix.length >= 0 else { return nil }
+        let markerStart = line.location + match.range(at: 1).location
+        let syntax = NSRange(location: markerStart,
+                             length: line.location + match.range.length + prefix.length - markerStart)
+        return NSLocationInRange(location, syntax) || location == NSMaxRange(syntax) ? syntax : nil
+    }
 }

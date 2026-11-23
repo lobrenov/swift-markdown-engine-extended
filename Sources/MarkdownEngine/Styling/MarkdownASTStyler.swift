@@ -83,6 +83,8 @@ enum MarkdownASTStyler {
             styleBlock(block, font: baseFont, ctx: ctx, into: &attrs)
         }
         shrinkInactiveMarkers(in: blocks, ctx: ctx, into: &attrs)
+        // Fork: last of the AST passes, so it overrides the inline fonts and marker kerns inside the prefix.
+        styleListGutters(in: blocks, ctx: ctx, into: &attrs)
 
         // Text/regex passes (AST-agnostic); AST code ranges drive the "skip inside code" checks.
         let codeRanges = collectCodeRanges(in: blocks)
@@ -383,8 +385,9 @@ enum MarkdownASTStyler {
 
     /// AST list-item decoration: indent paragraph, `•` bullet, checkbox + strikethrough, all caret-aware.
     /// Fork: `quote` places an item on a quote line inside the quote.
+    /// Fork: `gutter` makes it a gutter item (`ListStyle.gutterPrefix`).
     static func styleListItem(_ item: ListItem, displayNumber: Int?, quote: QuoteLayout? = nil,
-                                      ctx: Ctx, into attrs: inout [StyledRange]) {
+                                      gutter: ListGutterPrefix? = nil, ctx: Ctx, into attrs: inout [StyledRange]) {
         // `helpersEnabled` switches EDITING conveniences (auto-continue,
         // auto-indent, `- ` → `•`) — its own doc promises lists still render.
         // Returning here for every item also dropped the `.taskCheckbox`
@@ -522,6 +525,14 @@ enum MarkdownASTStyler {
         // of its first line.
         ps.headIndent = quoteIndent + firstIndent + depthIndent + markerWidth
             + (item.checkbox != nil && !taskRevealed ? taskSlotExtra(item, markerWidth: markerWidth, ctx: ctx) : 0)
+        if gutter != nil {
+            // Fork: a gutter item sits at the body text's left edge and its label hangs in the margin;
+            // `styleListGutters` hides or reveals its marker and prefix.
+            ps.firstLineHeadIndent = 0
+            ps.headIndent = depthIndent
+            attrs.append((line, [.paragraphStyle: ps]))
+            return
+        }
         attrs.append((line, [.paragraphStyle: ps]))
 
         // 2. Marker decoration (suppressed while the caret edits the syntax).
@@ -760,8 +771,9 @@ enum MarkdownASTStyler {
         case .list(_, let items):
             for item in items {
                 styleListItem(item, displayNumber: ctx.orderedDisplayNumbers[item.marker.location],
-                              ctx: ctx, into: &attrs)
+                              gutter: gutterPrefix(for: item, ctx: ctx), ctx: ctx, into: &attrs)
                 styleInlines(item.inlines, font: font, ctx: ctx, into: &attrs)
+                styleEmphasizedPrefix(of: item, font: font, ctx: ctx, into: &attrs)   // Fork
             }
 
         case .codeBlock(let range):
@@ -1128,6 +1140,62 @@ enum MarkdownASTStyler {
             attrs.append((piece, [.kern: reserved - advance]))
             location = NSMaxRange(piece)
         }
+    }
+
+    // MARK: - List gutter items (Fork)
+
+    /// Fork: the embedder's gutter prefix for a plain bullet item; nil for an ordinary item.
+    static func gutterPrefix(for item: ListItem, ctx: Ctx) -> ListGutterPrefix? {
+        guard ctx.config.lists.helpersEnabled, let find = ctx.config.lists.gutterPrefix,
+              !item.ordered, item.checkbox == nil, item.marker.length > 0,
+              item.contentRange.location > NSMaxRange(item.marker),   // not a bare bullet
+              let marker = ctx.ns.substring(with: NSRange(location: item.marker.location, length: 1)).first,
+              let prefix = find(marker, ctx.ns.substring(with: item.contentRange)),
+              prefix.length >= 0, prefix.length <= item.contentRange.length else { return nil }
+        return prefix
+    }
+
+    /// Fork: collapse each gutter item's marker and prefix to zero width and mark it with the label the layout
+    /// fragment draws in the margin and the caret offset a click in the margin selects, unless the caret or a
+    /// selection is in it: then the raw source shows.
+    private static func styleListGutters(in blocks: [BlockNode], ctx: Ctx, into attrs: inout [StyledRange]) {
+        guard ctx.config.lists.gutterPrefix != nil else { return }
+        for block in blocks where ctx.inScope(block.range) {
+            guard case .list(_, let items) = block else { continue }
+            for item in items {
+                guard let prefix = gutterPrefix(for: item, ctx: ctx) else { continue }
+                let hidden = NSRange(location: item.marker.location,
+                                     length: item.contentRange.location + prefix.length - item.marker.location)
+                guard hidden.length > 0 else { continue }
+                if NSLocationInRange(ctx.caret, hidden) || ctx.caret == NSMaxRange(hidden)
+                    || ctx.selectionIntersects(hidden) { continue }
+                let hiddenWidth = (ctx.ns.substring(with: hidden) as NSString)
+                    .size(withAttributes: [.font: ctx.inlineMarkerFont]).width
+                let caretOffset = item.contentRange.location - hidden.location
+                    + min(max(prefix.caretOffset ?? prefix.length, 0), prefix.length)
+                var hiddenAttrs: [NSAttributedString.Key: Any] = [
+                    .font: ctx.inlineMarkerFont, .foregroundColor: PlatformColor.clear, .kern: 0,
+                    .listGutterCaret: caretOffset,
+                ]
+                if let label = prefix.label { hiddenAttrs[.listGutterLabel] = label }
+                attrs.append((hidden, hiddenAttrs))
+                // Kern the run's last character back by the run's width: zero advance overall.
+                attrs.append((NSRange(location: NSMaxRange(hidden) - 1, length: 1), [.kern: -hiddenWidth]))
+            }
+        }
+    }
+
+    // MARK: - Emphasized list prefixes (Fork)
+
+    /// Fork: bold (and, if configured, colour) the start of an item's content that `emphasizedPrefix` measures.
+    /// Runs after the inlines, so it overrides their font.
+    private static func styleEmphasizedPrefix(of item: ListItem, font: PlatformFont, ctx: Ctx, into attrs: inout [StyledRange]) {
+        guard ctx.config.lists.helpersEnabled, let find = ctx.config.lists.emphasizedPrefix,
+              let length = find(ctx.ns.substring(with: item.contentRange)),
+              length > 0, length <= item.contentRange.length else { return }
+        var prefixAttrs: [NSAttributedString.Key: Any] = [.font: adding(.bold, to: font)]
+        if let color = ctx.config.lists.emphasizedPrefixColor { prefixAttrs[.foregroundColor] = color }
+        attrs.append((NSRange(location: item.contentRange.location, length: length), prefixAttrs))
     }
 
     // MARK: - Marker shrinking (hide syntax of inactive nodes)
