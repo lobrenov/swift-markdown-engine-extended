@@ -184,6 +184,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     public var onImageEmbed: ((ImageEmbedRequest) -> Void)?
     /// Fork: a click on a drawn `#tag` (with `configuration.tags` set), with the tag as written, without `#`.
     public var onTagClick: ((String) -> Void)?
+    /// Fork: a plain click on a span `configuration.textMarks` marked, with its id. The click also places the caret.
+    public var onTextMarkClick: ((String) -> Void)?
     /// Fork: a click on a drawn task attribute (a due-date or parent pill, with `configuration.taskAttributes` set).
     public var onTaskAttributeClick: ((TaskAttributeClick) -> Void)?
     /// Fork: a right-click on text that no other menu takes, in place of the system menu. The embedder draws the menu.
@@ -234,7 +236,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         onTaskAttributeClick: ((TaskAttributeClick) -> Void)? = nil,
         onRightClickMenu: ((RightClickMenuRequest) -> Void)? = nil,
         onTextMenu: ((TextMenuRequest) -> Void)? = nil,
-        onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil
+        onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil,
+        onTextMarkClick: ((String) -> Void)? = nil
     ) {
         self._text = text
         self._isWikiLinkActive = isWikiLinkActive
@@ -276,6 +279,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         self.onRightClickMenu = onRightClickMenu
         self.onTextMenu = onTextMenu
         self.onVisibleLines = onVisibleLines
+        self.onTextMarkClick = onTextMarkClick
     }
 
     public func sizeThatFits(
@@ -514,6 +518,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.onCalloutMenu = onCalloutMenu
         textView.onImageEmbed = onImageEmbed
         textView.onTagClick = onTagClick
+        textView.onTextMarkClick = onTextMarkClick   // Fork
         textView.onTaskAttributeClick = onTaskAttributeClick
         textView.onRightClickMenu = onRightClickMenu
         textView.onTextMenu = onTextMenu

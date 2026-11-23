@@ -93,6 +93,7 @@ enum MarkdownASTStyler {
         styleAutoLinks(ctx: ctx, codeRanges: codeRanges, linkRanges: linkRanges, into: &attrs)
         styleIncompleteLinkBrackets(ctx: ctx, codeRanges: codeRanges, checkboxRanges: checkboxRanges, into: &attrs)
         finishCallouts(in: blocks, ctx: ctx, into: &attrs)
+        styleTextMarks(in: blocks, ctx: ctx, into: &attrs)   // Fork
         return attrs
     }
 
@@ -1139,6 +1140,46 @@ enum MarkdownASTStyler {
             let reserved = location == range.location ? span.width + 2 * style.margin : 0
             attrs.append((piece, [.kern: reserved - advance]))
             location = NSMaxRange(piece)
+        }
+    }
+
+    // MARK: - Text marks (Fork)
+
+    /// Fork: the attributes of the embedder's `textMarks` over each paragraph, heading, quote and list item line in
+    /// scope, skipping code. Last, so they win over the normal styling.
+    private static func styleTextMarks(in blocks: [BlockNode], ctx: Ctx, into attrs: inout [StyledRange]) {
+        guard let marks = ctx.config.textMarks else { return }
+        let codeRanges = collectCodeRanges(in: blocks)
+        func apply(_ source: NSRange, headingFont: Bool = false) {
+            var range = source
+            while range.length > 0 {
+                let last = ctx.ns.character(at: NSMaxRange(range) - 1)
+                guard last == 0x0A || last == 0x0D else { break }
+                range.length -= 1
+            }
+            guard range.length > 0 else { return }
+            for mark in marks(ctx.ns.substring(with: range)) {
+                guard mark.range.lowerBound >= 0, mark.range.lowerBound < mark.range.upperBound,
+                      mark.range.upperBound <= range.length else { continue }
+                let span = NSRange(location: range.location + mark.range.lowerBound, length: mark.range.count)
+                guard !isInCode(span, codeRanges) else { continue }
+                var markAttrs: [NSAttributedString.Key: Any] = [.markdownTextMark: mark.id]
+                if let color = mark.underline {
+                    markAttrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+                    markAttrs[.underlineColor] = color
+                }
+                if let color = mark.color { markAttrs[.foregroundColor] = color }
+                if mark.bold, !headingFont { markAttrs[.font] = adding(.bold, to: ctx.baseFont) }
+                attrs.append((span, markAttrs))
+            }
+        }
+        for block in blocks where ctx.inScope(block.range) {
+            switch block {
+            case .paragraph(let range, _), .blockquote(let range, _, _): apply(range)
+            case .heading(_, let range, _, _): apply(range, headingFont: true)
+            case .list(_, let items): for item in items { apply(item.range) }
+            default: break
+            }
         }
     }
 

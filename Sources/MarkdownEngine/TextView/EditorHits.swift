@@ -76,6 +76,20 @@ extension NativeTextView {
         return nil
     }
 
+    /// Fork: the id of the `TextMark` under a point in the text view's coordinates.
+    func textMarkHit(atViewPoint viewPoint: CGPoint) -> String? {
+        guard configuration.textMarks != nil, let textContainer = optionalTextContainer, let bridge = layoutBridge,
+              let storage = optionalTextStorage, storage.length > 0 else { return nil }
+        let point = CGPoint(x: viewPoint.x - textContainerOrigin.x, y: viewPoint.y - textContainerOrigin.y)
+        let index = characterIndex(atViewPoint: viewPoint)
+        guard index >= 0, index < storage.length else { return nil }
+        var range = NSRange()
+        guard let id = storage.attribute(.markdownTextMark, at: index, effectiveRange: &range) as? String,
+              bridge.boundingRect(forCharacterRange: range, in: textContainer).insetBy(dx: 0, dy: -2).contains(point)
+        else { return nil }
+        return id
+    }
+
     /// Fork: the drawn task attribute (its pill) under a point in the text view's coordinates, with the pill's rect in
     /// the text view's coordinates.
     func taskAttributeHit(atViewPoint viewPoint: CGPoint) -> (range: NSRange, span: TaskAttributeSpan, rect: CGRect)? {

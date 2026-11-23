@@ -38,6 +38,11 @@ extension NativeTextView {
             onTaskAttributeClick(taskAttributeClick(for: hit))
             return
         }
+        // Fork: a plain click on a text mark reports it and still places the caret.
+        if event.clickCount == 1, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock).isEmpty,
+           let onTextMarkClick, let id = textMarkHit(atViewPoint: convert(event.locationInWindow, from: nil)) {
+            onTextMarkClick(id)
+        }
         if remapClickInParagraphSpacing(event: event) { return }
         dragStartMouseScreenLoc = NSEvent.mouseLocation
         let boostTimer = Timer(timeInterval: 1.0 / configuration.dragSelection.ticksPerSecond, repeats: true) { [weak self] _ in

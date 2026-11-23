@@ -28,6 +28,8 @@ final class NativeTextView: UITextView {
     var onTaskCheckboxToggle: ((Character) -> Void)?
     /// See ``NativeTextViewWrapper/onTagClick``.
     var onTagClick: ((String) -> Void)?
+    /// Fork: see ``NativeTextViewWrapper/onTextMarkClick``.
+    var onTextMarkClick: ((String) -> Void)?
     /// See ``NativeTextViewWrapper/onTaskAttributeClick``.
     var onTaskAttributeClick: ((TaskAttributeClick) -> Void)?
     /// See ``NativeTextViewWrapper/onPasteImage``.
@@ -223,8 +225,10 @@ final class NativeTextView: UITextView {
             return
         } else {
             let location = characterIndex(atViewPoint: point)
+            let mark = onTextMarkClick == nil ? nil : textMarkHit(atViewPoint: point)   // Fork
             if !isFirstResponder { becomeFirstResponder() }
             setSelectedRange(NSRange(location: location, length: 0))
+            if let mark { onTextMarkClick?(mark) }
         }
     }
 
@@ -242,6 +246,7 @@ final class NativeTextView: UITextView {
     fileprivate func takesTap(at point: CGPoint) -> Bool {
         if taskCheckboxHit(atViewPoint: point) != nil { return true }
         if onTagClick != nil, tagHit(atViewPoint: point) != nil { return true }
+        if onTextMarkClick != nil, textMarkHit(atViewPoint: point) != nil { return true }   // Fork
         if onTaskAttributeClick != nil, taskAttributeHit(atViewPoint: point) != nil { return true }
         if coordinator?.onLinkClick != nil, wikiLinkHit(atViewPoint: point) != nil { return true }
         if let hit = calloutTitleHit(atViewPoint: point), hit.header.fold.length == 1 { return true }

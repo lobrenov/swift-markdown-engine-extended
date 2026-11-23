@@ -43,6 +43,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     public var onTaskCheckboxToggle: ((Character) -> Void)?
     /// A tap on a drawn `#tag` (with `configuration.tags` set), with the tag as written, without `#`.
     public var onTagClick: ((String) -> Void)?
+    /// Fork: a tap on a span `configuration.textMarks` marked, with its id. The tap also places the caret.
+    public var onTextMarkClick: ((String) -> Void)?
     /// A tap on a drawn task attribute (a due-date or parent pill, with `configuration.taskAttributes` set).
     public var onTaskAttributeClick: ((TaskAttributeClick) -> Void)?
     /// A bar above the keyboard while the editor has it (the embedder's formatting bar). It's hosted outside the
@@ -76,7 +78,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         imageEmbedMenu: ((ImageEmbedRequest) -> UIMenu?)? = nil,
         onTagClick: ((String) -> Void)? = nil,
         onTaskAttributeClick: ((TaskAttributeClick) -> Void)? = nil,
-        onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil
+        onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil,
+        onTextMarkClick: ((String) -> Void)? = nil
     ) {
         self._text = text
         self._isWikiLinkActive = isWikiLinkActive
@@ -100,6 +103,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.onTagClick = onTagClick
         self.onTaskAttributeClick = onTaskAttributeClick
         self.onVisibleLines = onVisibleLines
+        self.onTextMarkClick = onTextMarkClick
     }
 
     public func makeCoordinator() -> Coordinator {
@@ -165,6 +169,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         textView.onCalloutMenu = onCalloutMenu
         textView.onTaskCheckboxToggle = onTaskCheckboxToggle
         textView.onTagClick = onTagClick
+        textView.onTextMarkClick = onTextMarkClick   // Fork
         textView.onTaskAttributeClick = onTaskAttributeClick
         textView.onPasteImage = onPasteImage
         textView.imageEmbedMenu = imageEmbedMenu
@@ -197,6 +202,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         textView.onCalloutMenu = onCalloutMenu
         textView.onTaskCheckboxToggle = onTaskCheckboxToggle
         textView.onTagClick = onTagClick
+        textView.onTextMarkClick = onTextMarkClick   // Fork
         textView.onTaskAttributeClick = onTaskAttributeClick
         textView.onPasteImage = onPasteImage
         textView.imageEmbedMenu = imageEmbedMenu
