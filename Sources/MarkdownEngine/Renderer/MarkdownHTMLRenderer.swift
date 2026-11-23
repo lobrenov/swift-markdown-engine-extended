@@ -312,7 +312,7 @@ public enum MarkdownHTMLRenderer {
         case .wikiLink(_, let name, _, _):
             return escape(ns.substring(with: name))
 
-        case .tag(let range, _):
+        case .tag(let range, _), .taskAttribute(_, let range, _, _, _):
             return escape(ns.substring(with: range))
 
         case .imageEmbed(_, let target, _):

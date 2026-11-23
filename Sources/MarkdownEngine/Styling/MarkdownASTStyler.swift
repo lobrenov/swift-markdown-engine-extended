@@ -1004,6 +1004,9 @@ enum MarkdownASTStyler {
             case .tag(let range, let marker):
                 styleTag(range: range, marker: marker, ctx: ctx, into: &attrs)
 
+            case .taskAttribute(let kind, let range, _, let content, let markers):
+                styleTaskAttribute(kind, range: range, content: content, markers: markers, font: font, ctx: ctx, into: &attrs)
+
             case .image, .imageEmbed, .inlineLatex, .escape:
                 break   // ported in later increments
             }
@@ -1091,6 +1094,40 @@ enum MarkdownASTStyler {
         }
     }
 
+    /// Fork: off the caret's line, an attribute's source is hidden (zero width, but for its first character, which
+    /// carries the pill's width) and the fragment draws the pill there from the embedder's chip. On the caret's line it
+    /// is plain source, a parent's `[[ ]]` styled as a wiki link.
+    private static func styleTaskAttribute(
+        _ kind: TaskAttributeKind, range: NSRange, content: NSRange, markers: [NSRange], font: PlatformFont,
+        ctx: Ctx, into attrs: inout [StyledRange]
+    ) {
+        attrs.append((range, [.spellingState: 0]))
+        guard let style = ctx.config.taskAttributes else { return }
+        if ctx.isOnCaretLine(range) {
+            if kind == .parent {
+                let link = NSRange(location: markers[1].location, length: NSMaxRange(range) - markers[1].location)
+                styleWikiLink(range: link, name: content, markers: Array(markers.dropFirst()), ctx: ctx, into: &attrs)
+            }
+            return
+        }
+        let chip: TaskAttributeChip
+        switch kind {
+        case .due: chip = style.due(ctx.ns.substring(with: content))
+        case .parent: chip = style.parent(ctx.ns.substring(with: content), resolution(of: content, ctx: ctx))
+        }
+        let span = TaskAttributeSpan(kind: kind, source: ctx.ns.substring(with: range), chip: chip, style: style, font: font)
+        let hidden = ctx.inlineMarkerFont
+        attrs.append((range, [.markdownTaskAttribute: span, .font: hidden, .foregroundColor: PlatformColor.clear]))
+        var location = range.location
+        while location < NSMaxRange(range) {
+            let piece = ctx.ns.rangeOfComposedCharacterSequence(at: location)
+            let advance = ctx.ns.substring(with: piece).size(withAttributes: [.font: hidden]).width
+            let reserved = location == range.location ? span.width + 2 * style.margin : 0
+            attrs.append((piece, [.kern: reserved - advance]))
+            location = NSMaxRange(piece)
+        }
+    }
+
     // MARK: - Marker shrinking (hide syntax of inactive nodes)
 
     /// Collapse inactive nodes' markers to a tiny kerned font so syntax vanishes; code/LaTeX skip themselves.
@@ -1155,7 +1192,7 @@ enum MarkdownASTStyler {
                 if !(forceReveal || ctx.isActive(range)) { shrink(markers, ctx: ctx, into: &attrs) }
             case .escape(let range, _, let marker):
                 if !(forceReveal || ctx.isActive(range)) { shrink([marker], ctx: ctx, into: &attrs) }
-            case .text, .code, .imageEmbed, .inlineLatex, .tag:
+            case .text, .code, .imageEmbed, .inlineLatex, .tag, .taskAttribute:
                 break   // own marker handling / not shrunk
             }
         }

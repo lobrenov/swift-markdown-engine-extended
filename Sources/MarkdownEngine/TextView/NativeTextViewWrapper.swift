@@ -184,6 +184,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
     public var onImageEmbed: ((ImageEmbedRequest) -> Void)?
     /// Fork: a click on a drawn `#tag` (with `configuration.tags` set), with the tag as written, without `#`.
     public var onTagClick: ((String) -> Void)?
+    /// Fork: a click on a drawn task attribute (a due-date or parent pill, with `configuration.taskAttributes` set).
+    public var onTaskAttributeClick: ((TaskAttributeClick) -> Void)?
     /// Fork: a right-click on text that no other menu takes, in place of the system menu. The embedder draws the menu.
     public var onTextMenu: ((TextMenuRequest) -> Void)?
     /// Fork: the 0-based first and last lines (of the editor's text) at least partly visible, reported as they change while
@@ -229,6 +231,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         onCalloutMenu: ((CalloutMenuRequest) -> Void)? = nil,
         onImageEmbed: ((ImageEmbedRequest) -> Void)? = nil,
         onTagClick: ((String) -> Void)? = nil,
+        onTaskAttributeClick: ((TaskAttributeClick) -> Void)? = nil,
         onRightClickMenu: ((RightClickMenuRequest) -> Void)? = nil,
         onTextMenu: ((TextMenuRequest) -> Void)? = nil,
         onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil
@@ -269,6 +272,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         self.onCalloutMenu = onCalloutMenu
         self.onImageEmbed = onImageEmbed
         self.onTagClick = onTagClick
+        self.onTaskAttributeClick = onTaskAttributeClick
         self.onRightClickMenu = onRightClickMenu
         self.onTextMenu = onTextMenu
         self.onVisibleLines = onVisibleLines
@@ -508,6 +512,7 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
         textView.onCalloutMenu = onCalloutMenu
         textView.onImageEmbed = onImageEmbed
         textView.onTagClick = onTagClick
+        textView.onTaskAttributeClick = onTaskAttributeClick
         textView.onRightClickMenu = onRightClickMenu
         textView.onTextMenu = onTextMenu
         context.coordinator.onVisibleLines = onVisibleLines
@@ -697,6 +702,8 @@ public struct NativeTextViewWrapper: NSViewRepresentable {
             textView.configuration.callouts = configuration.callouts
             context.coordinator.configuration.tags = configuration.tags
             textView.configuration.tags = configuration.tags
+            context.coordinator.configuration.taskAttributes = configuration.taskAttributes
+            textView.configuration.taskAttributes = configuration.taskAttributes
             context.coordinator.configuration.services = configuration.services
             textView.configuration.services = configuration.services
             context.coordinator.cachedParsedDocument = nil

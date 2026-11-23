@@ -104,6 +104,8 @@ public struct MarkdownEditorConfiguration: Sendable {
     public var callouts: CalloutStyle? = nil
     /// Fork: reads `#tags` and draws them as bubbles. nil keeps them plain text.
     public var tags: TagStyle? = nil
+    /// Fork: reads a task line's `>YYYY-MM-DD` and `@[[Title]]` and draws them as pills. nil reads none: they stay text.
+    public var taskAttributes: TaskAttributeStyle? = nil
     /// Fork: on the Mac, a table is a live grid of cell editors over its source (`TableGridView`), and the caret
     /// never enters its source lines. Off keeps the rendered image and the revealed source.
     public var liveTables: Bool = false

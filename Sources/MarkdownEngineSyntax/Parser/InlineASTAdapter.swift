@@ -62,6 +62,9 @@ enum InlineASTAdapter {
 
         case .tag(let range, let marker):
             result.append(MarkdownToken(kind: .tag, range: range, contentRange: range, markerRanges: [marker]))
+
+        case .taskAttribute:
+            break   // Fork: drawn from the AST; the tokens see its text and wiki link as written.
         }
     }
 

@@ -72,16 +72,18 @@ public extension MarkdownExtension {
 
 extension ExtensionRegistry {
     /// The registry for `extensions`' syntax, in registration order.
-    init(extensions: [any MarkdownExtension], directives: DirectiveRegistry = .empty, tags: Bool = false) {
+    init(extensions: [any MarkdownExtension], directives: DirectiveRegistry = .empty, tags: Bool = false,
+         taskAttributes: Bool = false) {
         self.init(syntax: extensions.map { (id: $0.id, inline: $0.inline, block: $0.block) },
-                  directives: directives, tags: tags)
+                  directives: directives, tags: tags, taskAttributes: taskAttributes)
     }
 }
 
 extension MarkdownEditorConfiguration {
     /// The parser-facing registry derived from `extensions` and `directives`.
     var extensionRegistry: ExtensionRegistry {
-        ExtensionRegistry(extensions: extensions, directives: directiveRegistry, tags: tags != nil)
+        ExtensionRegistry(extensions: extensions, directives: directiveRegistry, tags: tags != nil,
+                          taskAttributes: taskAttributes != nil)
     }
 
     /// Styler-facing lookup: extension behavior by id.

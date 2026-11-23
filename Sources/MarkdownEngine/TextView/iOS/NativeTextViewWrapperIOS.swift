@@ -43,6 +43,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     public var onTaskCheckboxToggle: ((Character) -> Void)?
     /// A tap on a drawn `#tag` (with `configuration.tags` set), with the tag as written, without `#`.
     public var onTagClick: ((String) -> Void)?
+    /// A tap on a drawn task attribute (a due-date or parent pill, with `configuration.taskAttributes` set).
+    public var onTaskAttributeClick: ((TaskAttributeClick) -> Void)?
     /// A bar above the keyboard while the editor has it (the embedder's formatting bar). It's hosted outside the
     /// SwiftUI hierarchy, so it gets no environment from here.
     public var keyboardBar: AnyView?
@@ -73,6 +75,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         onPasteImage: ((UIPasteboard) -> String?)? = nil,
         imageEmbedMenu: ((ImageEmbedRequest) -> UIMenu?)? = nil,
         onTagClick: ((String) -> Void)? = nil,
+        onTaskAttributeClick: ((TaskAttributeClick) -> Void)? = nil,
         onVisibleLines: ((ClosedRange<Int>) -> Void)? = nil
     ) {
         self._text = text
@@ -95,6 +98,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         self.onPasteImage = onPasteImage
         self.imageEmbedMenu = imageEmbedMenu
         self.onTagClick = onTagClick
+        self.onTaskAttributeClick = onTaskAttributeClick
         self.onVisibleLines = onVisibleLines
     }
 
@@ -161,6 +165,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         textView.onCalloutMenu = onCalloutMenu
         textView.onTaskCheckboxToggle = onTaskCheckboxToggle
         textView.onTagClick = onTagClick
+        textView.onTaskAttributeClick = onTaskAttributeClick
         textView.onPasteImage = onPasteImage
         textView.imageEmbedMenu = imageEmbedMenu
         textView.setHeader(header)
@@ -192,6 +197,7 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
         textView.onCalloutMenu = onCalloutMenu
         textView.onTaskCheckboxToggle = onTaskCheckboxToggle
         textView.onTagClick = onTagClick
+        textView.onTaskAttributeClick = onTaskAttributeClick
         textView.onPasteImage = onPasteImage
         textView.imageEmbedMenu = imageEmbedMenu
         textView.setHeader(header)
@@ -243,6 +249,8 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
             textView.configuration.callouts = configuration.callouts
             coordinator.configuration.tags = configuration.tags
             textView.configuration.tags = configuration.tags
+            coordinator.configuration.taskAttributes = configuration.taskAttributes
+            textView.configuration.taskAttributes = configuration.taskAttributes
             coordinator.configuration.services = configuration.services
             textView.configuration.services = configuration.services
             coordinator.cachedParsedDocument = nil

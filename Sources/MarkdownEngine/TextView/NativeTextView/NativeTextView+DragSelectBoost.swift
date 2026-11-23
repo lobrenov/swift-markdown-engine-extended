@@ -30,6 +30,12 @@ extension NativeTextView {
             onTagClick(tag)
             return
         }
+        // Fork: and on a drawn task attribute.
+        if event.clickCount == 1, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock).isEmpty,
+           let onTaskAttributeClick, let hit = taskAttributeHit(atViewPoint: convert(event.locationInWindow, from: nil)) {
+            onTaskAttributeClick(taskAttributeClick(for: hit))
+            return
+        }
         if remapClickInParagraphSpacing(event: event) { return }
         dragStartMouseScreenLoc = NSEvent.mouseLocation
         let boostTimer = Timer(timeInterval: 1.0 / configuration.dragSelection.ticksPerSecond, repeats: true) { [weak self] _ in

@@ -130,7 +130,13 @@ struct SpecConformanceTests {
         return [
             "summary": facts.summary ?? NSNull(),
             "headings": facts.headings.map { ["line": $0.line, "level": $0.level, "text": $0.text] },
-            "tasks": facts.tasks.map { ["line": $0.line, "marker": String($0.marker), "text": $0.text] },
+            "tasks": facts.tasks.map { task in
+                optional([("line", task.line), ("marker", String(task.marker)), ("text", task.text),
+                          ("attributes", task.attributes.isEmpty ? nil : task.attributes.map {
+                              ["kind": $0.kind == .due ? "due" : "parent", "column": $0.column, "length": $0.length,
+                               "value": $0.value] as [String: Any]
+                          })])
+            },
             "links": facts.links.map {
                 optional([("line", $0.line), ("target", $0.parts.target), ("heading", $0.parts.heading),
                           ("block", $0.parts.block), ("alias", $0.parts.alias)])

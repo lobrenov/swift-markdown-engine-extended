@@ -206,6 +206,7 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
         // 4. Task checkboxes (on top of hidden [ ]/[x] markers)
         drawTaskCheckboxes(at: point, in: context)
         drawWikiLinkBoxes(at: point, in: context)
+        drawTaskAttributes(at: point, in: context)
 
         // 4b. Bullet glyphs (on top of hidden -/*/+ markers)
         drawBulletMarkers(at: point, in: context)
@@ -241,7 +242,7 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
 
     /// Returns the drawing position for a character at `docIndex` (document-level NSRange location).
     /// `point` is the draw origin passed to `draw(at:in:)`.
-    private func drawPosition(forDocumentCharAt docIndex: Int, point: CGPoint) -> (x: CGFloat, baselineY: CGFloat, lineHeight: CGFloat)? {
+    func drawPosition(forDocumentCharAt docIndex: Int, point: CGPoint) -> (x: CGFloat, baselineY: CGFloat, lineHeight: CGFloat)? {
         guard let fragRange = fragmentNSRange else { return nil }
         let localIndex = docIndex - fragRange.location
         guard localIndex >= 0 else { return nil }

@@ -4,7 +4,8 @@
 //
 //  Fork: a `/` typed at a line start or after whitespace opens a slash
 //  command, a typed `[[` or `![[` a link or embed query, and a `#` there a tag
-//  query once a tag character follows. The engine tracks
+//  query once a tag character follows. On a task line, `>` after whitespace opens a
+//  date query and `@` a parent query. The engine tracks
 //  the query and routes the menu keys (`+Completion`); the embedder draws the
 //  menu and inserts through `SlashCommandProxy`.
 //
@@ -30,6 +31,20 @@ public struct SlashCommandState: Equatable, Sendable {
         /// `#`, at a line start or after whitespace, reported once the query holds a character that isn't a digit
         /// (`# ` starts a heading).
         case tag
+        /// `>`, after whitespace on a task (checkbox) line. The query is the text after it: letters, digits, `-`, `/`
+        /// and at most two single spaces (`fri`, `next fri`, `in 3 days`, `2026-10-02`). It ends at any other
+        /// character (`,` `.` a tab…), a second space in a row or a third one, a space straight after the `>`
+        /// (`> ` is prose), past 40 characters, or when the caret leaves it. Not in the default
+        /// ``SlashCommandProxy/triggers``.
+        case date
+        /// `@`, after whitespace on a task (checkbox) line, also while `[[` is typed after it (`@[[`). The query is the
+        /// text after the `@` and the `[[`; it may hold spaces and ends at a newline, `[`, `]`, `|`, `#` or `^`, a
+        /// space straight after the `@`, past 100 characters, or when the caret leaves it. Not in the default
+        /// ``SlashCommandProxy/triggers``.
+        case parent
+
+        /// The triggers a proxy opens by default: those an editor without task attributes has.
+        public static let defaults: Set<Trigger> = [.slash, .link, .embed, .tag]
 
         var marker: String {
             switch self {
@@ -37,6 +52,8 @@ public struct SlashCommandState: Equatable, Sendable {
             case .link: "[["
             case .embed: "![["
             case .tag: "#"
+            case .date: ">"
+            case .parent: "@"
             }
         }
 
@@ -46,6 +63,8 @@ public struct SlashCommandState: Equatable, Sendable {
             case .link: "Insert Link"
             case .embed: "Insert Embed"
             case .tag: "Insert Tag"
+            case .date: "Insert Date"
+            case .parent: "Insert Parent"
             }
         }
     }
@@ -75,8 +94,8 @@ public final class SlashCommandProxy {
 
     public init() {}
 
-    /// Fork: which triggers open a query; all of them by default.
-    public var triggers: Set<SlashCommandState.Trigger> = Set(SlashCommandState.Trigger.allCases) {
+    /// Fork: which triggers open a query: all but `.date` and `.parent` by default.
+    public var triggers: Set<SlashCommandState.Trigger> = SlashCommandState.Trigger.defaults {
         didSet { coordinator?.slashTriggers = triggers }
     }
 
@@ -183,10 +202,24 @@ extension NativeTextViewCoordinator {
         case "#":
             guard followsWhitespace else { return }
             (start, trigger) = (range.location, .tag)
+        case ">":
+            guard followsWhitespace, isTaskLine(before: range.location, in: text) else { return }
+            (start, trigger) = (range.location, .date)
+        case "@":
+            guard followsWhitespace, isTaskLine(before: range.location, in: text) else { return }
+            (start, trigger) = (range.location, .parent)
         case "[":
             let character = { (offset: Int) -> unichar? in
                 let index = range.location - offset
                 return index >= 0 ? text.character(at: index) : nil
+            }
+            // `[[` typed after an open `@` keeps the parent query.
+            if slashAnchor != nil, slashTrigger == .parent, slashTriggers.contains(.parent) {
+                let sinceAt = range.location - slashAnchor! - 1
+                if sinceAt == 0 || (sinceAt == 1 && character(1) == 0x5B) {
+                    isOpeningSlashCommand = true
+                    return
+                }
             }
             guard character(1) == 0x5B, character(2) != 0x5B else { return }
             (start, trigger) = character(2) == 0x21 ? (range.location - 2, .embed) : (range.location - 1, .link)
@@ -198,6 +231,13 @@ extension NativeTextViewCoordinator {
         slashAnchor = start
         slashTrigger = trigger
         isOpeningSlashCommand = true
+    }
+
+    /// Whether the text before `location` on its line is a task item's up to its box: a checkbox line.
+    private func isTaskLine(before location: Int, in text: NSString) -> Bool {
+        let line = text.lineRange(for: NSRange(location: location, length: 0))
+        let prefix = text.substring(with: NSRange(location: line.location, length: location - line.location))
+        return TaskAttributeSyntax.isTaskLinePrefix(prefix as NSString)
     }
 
     /// From every selection change: follows the caret, or closes once it leaves the query. While the keystroke that
@@ -214,8 +254,20 @@ extension NativeTextViewCoordinator {
               text.substring(with: NSRange(location: anchor, length: markerLength)) == marker,
               selection.location >= anchor + markerLength else { return dismissSlashCommand() }
         let range = NSRange(location: anchor, length: selection.location - anchor)
-        let query = text.substring(with: NSRange(location: anchor + markerLength, length: range.length - markerLength))
-        if slashTrigger == .tag {
+        var query = text.substring(with: NSRange(location: anchor + markerLength, length: range.length - markerLength))
+        if slashTrigger == .date {
+            let spaces = query.filter { $0 == " " }.count
+            guard query.count <= 40, spaces <= 2, !query.hasPrefix(" "), !query.contains("  "),
+                  query.allSatisfy({ $0 == " " || $0 == "-" || $0 == "/" || $0.isLetter || $0.isNumber }) else {
+                return dismissSlashCommand()
+            }
+        } else if slashTrigger == .parent {
+            // `@[[` (or `@[` before the second bracket) opens the same query.
+            let brackets = query.hasPrefix("[[") ? 2 : (query.hasPrefix("[") ? 1 : 0)
+            query = String(query.dropFirst(brackets))
+            guard query.count <= 100, !query.hasPrefix(" "),
+                  query.rangeOfCharacter(from: Self.linkQueryStops) == nil else { return dismissSlashCommand() }
+        } else if slashTrigger == .tag {
             guard query.count <= 100, query.allSatisfy(TagSyntax.isTagCharacter) else { return dismissSlashCommand() }
             // Typed but not yet shown: `#` alone, or digits only.
             guard query.contains(where: { !$0.isNumber && $0 != "/" }) else {
@@ -260,6 +312,15 @@ extension NativeTextViewCoordinator {
         if command.trigger == .link || command.trigger == .embed, NSMaxRange(range) + 2 <= text.length,
            text.substring(with: NSRange(location: NSMaxRange(range), length: 2)) == "]]" {
             range.length += 2
+        }
+        if command.trigger == .parent {
+            // The `]]` an auto-pair closed `@[[` with goes too.
+            let typed = text.substring(with: range)
+            var closers = typed.hasPrefix("@[[") ? 2 : (typed.hasPrefix("@[") ? 1 : 0)
+            while closers > 0, NSMaxRange(range) < text.length, text.character(at: NSMaxRange(range)) == 0x5D {
+                range.length += 1
+                closers -= 1
+            }
         }
         tv.breakUndoCoalescing()
         isProgrammaticEdit = true

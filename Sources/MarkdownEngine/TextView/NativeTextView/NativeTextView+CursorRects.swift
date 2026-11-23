@@ -31,6 +31,8 @@ extension NativeTextView {
         } else if onTagClick != nil, tagHit(atViewPoint: convert(event.locationInWindow, from: nil)) != nil {
             // Fork: a drawn tag opens on click, as a link does.
             NSCursor.pointingHand.set()
+        } else if onTaskAttributeClick != nil, taskAttributeHit(atViewPoint: convert(event.locationInWindow, from: nil)) != nil {
+            NSCursor.pointingHand.set()
         } else if isEditable, isOverWideTableOverlay(event) {
             // Same treatment for wide-table scroll overlays: the overlay is a
             // control surface (rendered image + horizontal scroller), not

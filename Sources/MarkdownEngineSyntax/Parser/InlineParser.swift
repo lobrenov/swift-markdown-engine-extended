@@ -65,6 +65,9 @@ package indirect enum InlineNode: Equatable {
     case code(range: NSRange, content: NSRange)
     /// Fork: `#tag` — opaque; `marker` is the `#`.
     case tag(range: NSRange, marker: NSRange)
+    /// Fork: a task line's `>YYYY-MM-DD` (`.due`: `marker` is `>`, `content` the date, `markers` `[marker]`) or
+    /// `@[[Title]]` (`.parent`: `marker` is `@`, `content` the link's name, `markers` `[@, [[, ]]]`), opaque.
+    case taskAttribute(TaskAttributeKind, range: NSRange, marker: NSRange, content: NSRange, markers: [NSRange])
     /// `*`/`_` emphasis. `markers` is `[openMarker, closeMarker]`.
     case emphasis(EmphasisKind, range: NSRange, markers: [NSRange], children: [InlineNode])
     /// `[text](url)`. `markers` is `[ "[", "]", "(", ")" ]`; text is recursively parsed.
@@ -1009,6 +1012,8 @@ package enum InlineParser {
         case .inlineLatex(let r, let c, let m): return .inlineLatex(range: s(r), content: s(c), markers: m.map(s))
         case .escape(let r, let c, let m): return .escape(range: s(r), character: s(c), marker: s(m))
         case .tag(let r, let m): return .tag(range: s(r), marker: s(m))
+        case .taskAttribute(let k, let r, let m, let c, let ms):
+            return .taskAttribute(k, range: s(r), marker: s(m), content: s(c), markers: ms.map(s))
         case .ext(let n): return .ext(ExtensionInlineNode(
             extensionID: n.extensionID, range: s(n.range), contentRange: s(n.contentRange),
             markers: n.markers.map(s), children: offsetNodes(n.children, by: d)))

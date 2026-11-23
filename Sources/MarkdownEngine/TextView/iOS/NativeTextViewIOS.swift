@@ -28,6 +28,8 @@ final class NativeTextView: UITextView {
     var onTaskCheckboxToggle: ((Character) -> Void)?
     /// See ``NativeTextViewWrapper/onTagClick``.
     var onTagClick: ((String) -> Void)?
+    /// See ``NativeTextViewWrapper/onTaskAttributeClick``.
+    var onTaskAttributeClick: ((TaskAttributeClick) -> Void)?
     /// See ``NativeTextViewWrapper/onPasteImage``.
     var onPasteImage: ((UIPasteboard) -> String?)?
     /// What a paste reads.
@@ -213,6 +215,8 @@ final class NativeTextView: UITextView {
             onTaskCheckboxToggle?(hit.marker)
         } else if let onTagClick, let tag = tagHit(atViewPoint: point) {
             onTagClick(tag)
+        } else if let onTaskAttributeClick, let hit = taskAttributeHit(atViewPoint: point) {
+            onTaskAttributeClick(taskAttributeClick(for: hit))
         } else if let target = wikiLinkHit(atViewPoint: point) {
             coordinator?.onLinkClick?(target)
         } else if let hit = calloutTitleHit(atViewPoint: point), toggleCalloutFold(hit) {
@@ -238,6 +242,7 @@ final class NativeTextView: UITextView {
     fileprivate func takesTap(at point: CGPoint) -> Bool {
         if taskCheckboxHit(atViewPoint: point) != nil { return true }
         if onTagClick != nil, tagHit(atViewPoint: point) != nil { return true }
+        if onTaskAttributeClick != nil, taskAttributeHit(atViewPoint: point) != nil { return true }
         if coordinator?.onLinkClick != nil, wikiLinkHit(atViewPoint: point) != nil { return true }
         if let hit = calloutTitleHit(atViewPoint: point), hit.header.fold.length == 1 { return true }
         return isEditable && !isFirstResponder

@@ -387,9 +387,12 @@ package enum DocumentAST {
         var contentEnd = end
         while contentEnd > i, isLineBreak(ns.character(at: contentEnd - 1)) { contentEnd -= 1 }
         let content = NSRange(location: i, length: max(0, contentEnd - i))
+        var inlines = scoped ? InlineParser.parse(ns, range: content, registry: registry) : []
+        // Fork: a task line's `>date` and `@[[parent]]`.
+        if scoped, registry.taskAttributes, taskMarker != nil { inlines = InlineParser.readingTaskAttributes(inlines, in: ns) }
         return ListItem(range: lineRange, marker: marker, ordered: ordered, number: number,
                         checkbox: checkbox, checked: checked, taskMarker: taskMarker, indent: indent,
-                        contentRange: content, inlines: scoped ? InlineParser.parse(ns, range: content, registry: registry) : [])
+                        contentRange: content, inlines: inlines)
     }
 
     private static func isLineBreak(_ c: unichar) -> Bool { c == 0x0A || c == 0x0D }

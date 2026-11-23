@@ -76,6 +76,41 @@ extension NativeTextView {
         return nil
     }
 
+    /// Fork: the drawn task attribute (its pill) under a point in the text view's coordinates, with the pill's rect in
+    /// the text view's coordinates.
+    func taskAttributeHit(atViewPoint viewPoint: CGPoint) -> (range: NSRange, span: TaskAttributeSpan, rect: CGRect)? {
+        guard configuration.taskAttributes != nil, let textContainer = optionalTextContainer, let bridge = layoutBridge,
+              let storage = optionalTextStorage, storage.length > 0 else { return nil }
+        let point = CGPoint(x: viewPoint.x - textContainerOrigin.x, y: viewPoint.y - textContainerOrigin.y)
+        let index = characterIndex(atViewPoint: viewPoint)
+        for location in [index, index - 1] where location >= 0 && location < storage.length {
+            var range = NSRange()
+            guard let span = storage.attribute(.markdownTaskAttribute, at: location, longestEffectiveRange: &range,
+                                               in: NSRange(location: 0, length: storage.length)) as? TaskAttributeSpan else { continue }
+            let first = bridge.boundingRect(forCharacterRange: NSRange(location: range.location, length: 1), in: textContainer)
+            let rect = CGRect(x: first.minX + span.style.margin, y: first.minY, width: span.width, height: first.height)
+            if rect.contains(point) {
+                return (range, span, rect.offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y))
+            }
+        }
+        return nil
+    }
+
+    /// Fork: the request `onTaskAttributeClick` gets for `hit`.
+    func taskAttributeClick(for hit: (range: NSRange, span: TaskAttributeSpan, rect: CGRect)) -> TaskAttributeClick {
+        TaskAttributeClick(kind: hit.span.kind, range: hit.range, source: hit.span.source,
+                           anchorRect: menuAnchorRect(forViewRect: hit.rect)) { [weak self] text in
+            guard let self, let storage = self.optionalTextStorage, NSMaxRange(hit.range) <= storage.length,
+                  (storage.string as NSString).substring(with: hit.range) == hit.span.source,
+                  self.shouldChangeText(in: hit.range, replacementString: text) else { return }
+            self.breakUndoCoalescing()
+            storage.replaceCharacters(in: hit.range, with: text)
+            self.didChangeText()
+            self.undoManager?.setActionName("Change Task Attribute")
+            self.breakUndoCoalescing()
+        }
+    }
+
     /// The box under a point in the text view's coordinates, if its text still reads as a box.
     func taskCheckboxHit(atViewPoint viewPoint: CGPoint) -> (range: NSRange, marker: Character, rect: CGRect)? {
         let containerPoint = CGPoint(x: viewPoint.x - textContainerOrigin.x, y: viewPoint.y - textContainerOrigin.y)

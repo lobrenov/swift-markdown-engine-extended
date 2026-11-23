@@ -108,18 +108,22 @@ package struct ExtensionRegistry {
     package let directives: DirectiveRegistry
     /// Fork: whether `#tags` are read (`MarkdownEditorConfiguration.tags` is set).
     let tags: Bool
+    /// Fork: whether task lines' `>YYYY-MM-DD` and `@[[Title]]` attributes are read (`InlineParser+TaskAttributes.swift`).
+    package let taskAttributes: Bool
     /// Stable fingerprint for cache keying ("" when empty). Two registries with
     /// the same fingerprint produce identical parses for identical text.
     package let fingerprint: String
 
-    package static let empty = ExtensionRegistry(entries: [], blockEntries: [], directives: .empty, tags: false, fingerprint: "")
+    package static let empty = ExtensionRegistry(entries: [], blockEntries: [], directives: .empty, tags: false,
+                                                    taskAttributes: false, fingerprint: "")
 
     private init(entries: [Entry], blockEntries: [BlockEntry], directives: DirectiveRegistry, tags: Bool,
-                 fingerprint: String) {
+                 taskAttributes: Bool, fingerprint: String) {
         self.entries = entries
         self.blockEntries = blockEntries
         self.directives = directives
         self.tags = tags
+        self.taskAttributes = taskAttributes
         self.fingerprint = fingerprint
     }
 
@@ -127,16 +131,18 @@ package struct ExtensionRegistry {
     package typealias Syntax = (id: String, inline: InlineSyntax?, block: BlockSyntax?)
 
     /// Fork: built from the syntax each extension declares, so the parser needs no `MarkdownExtension`.
-    package init(syntax extensions: [Syntax], directives: DirectiveRegistry = .empty, tags: Bool = false) {
+    package init(syntax extensions: [Syntax], directives: DirectiveRegistry = .empty, tags: Bool = false,
+                     taskAttributes: Bool = false) {
         // Directives alone are a non-empty grammar: only bail out when BOTH
         // halves are empty, or a directive-only configuration would parse as
         // pure markdown.
-        guard !extensions.isEmpty || !directives.isEmpty || tags else {
+        guard !extensions.isEmpty || !directives.isEmpty || tags || taskAttributes else {
             self = .empty
             return
         }
         self.directives = directives
         self.tags = tags
+        self.taskAttributes = taskAttributes
         self.entries = extensions.compactMap { ext in
             guard let syntax = ext.inline else { return nil }
             return Entry(
@@ -177,10 +183,10 @@ package struct ExtensionRegistry {
         let grammarFingerprint = directives.isEmpty
             ? extensionFingerprint
             : extensionFingerprint + "~" + directives.fingerprint
-        self.fingerprint = tags ? grammarFingerprint + "#tags" : grammarFingerprint
+        self.fingerprint = grammarFingerprint + (tags ? "#tags" : "") + (taskAttributes ? "#taskattrs" : "")
     }
 
-    var isEmpty: Bool { entries.isEmpty && blockEntries.isEmpty && directives.isEmpty && !tags }
+    var isEmpty: Bool { entries.isEmpty && blockEntries.isEmpty && directives.isEmpty && !tags && !taskAttributes }
 
     /// The first registered block rule whose fence opens `line` (column 0),
     /// or nil. Registration order is precedence, matching the inline rules.

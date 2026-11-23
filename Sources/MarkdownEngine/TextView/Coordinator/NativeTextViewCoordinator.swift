@@ -186,7 +186,7 @@ public final class NativeTextViewCoordinator: NSObject {
     var slashTrigger: SlashCommandState.Trigger = .slash
     /// True from a typed trigger until the end of its `shouldChangeText`.
     var isOpeningSlashCommand = false
-    var slashTriggers: Set<SlashCommandState.Trigger> = Set(SlashCommandState.Trigger.allCases)
+    var slashTriggers: Set<SlashCommandState.Trigger> = SlashCommandState.Trigger.defaults
     var slashCommand: SlashCommandQuery?
     /// Fork: the width image embeds were last fitted to (see `+ImageEmbeds`).
     var imageEmbedLayoutWidth: CGFloat?

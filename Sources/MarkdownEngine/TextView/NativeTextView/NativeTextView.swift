@@ -134,6 +134,8 @@ final class NativeTextView: NSTextView {
     var onImageEmbed: ((ImageEmbedRequest) -> Void)?
     /// Fork: see ``NativeTextViewWrapper/onTagClick``.
     var onTagClick: ((String) -> Void)?
+    /// Fork: see ``NativeTextViewWrapper/onTaskAttributeClick``.
+    var onTaskAttributeClick: ((TaskAttributeClick) -> Void)?
     /// Fork: the `![[ ]]` of the selected image, and of the image whose menu is open (`ImageEmbedHits.swift`).
     var selectedImageEmbed: NSRange?
     var imageEmbedMenuTarget: NSRange?

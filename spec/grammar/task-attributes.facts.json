@@ -1,0 +1,150 @@
+{
+  "summary": "Prose >2026-10-02 @[[Home]]",
+  "headings": [],
+  "tasks": [
+    {
+      "line": 0,
+      "marker": " ",
+      "text": "due >2026-10-02 and more",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 10,
+          "length": 11,
+          "value": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "line": 1,
+      "marker": " ",
+      "text": "parent @[[Ta Da MVP]] now",
+      "attributes": [
+        {
+          "kind": "parent",
+          "column": 13,
+          "length": 14,
+          "value": "Ta Da MVP"
+        }
+      ]
+    },
+    {
+      "line": 2,
+      "marker": "x",
+      "text": "both >2026-02-28 @[[Home|Casa]] @[[Work]] >2026-03-01",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 11,
+          "length": 11,
+          "value": "2026-02-28"
+        },
+        {
+          "kind": "parent",
+          "column": 23,
+          "length": 14,
+          "value": "Home|Casa"
+        },
+        {
+          "kind": "parent",
+          "column": 38,
+          "length": 9,
+          "value": "Work"
+        },
+        {
+          "kind": "due",
+          "column": 48,
+          "length": 11,
+          "value": "2026-03-01"
+        }
+      ]
+    },
+    {
+      "line": 3,
+      "marker": " ",
+      "text": "none: x>2026-10-02 \\>2026-10-03 `>2026-10-04` >2026-02-29 >2026-13-01 >2026-10-0 >2026-10-021 >2026-10-02x"
+    },
+    {
+      "line": 4,
+      "marker": " ",
+      "text": "leap >2028-02-29.",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 11,
+          "length": 11,
+          "value": "2028-02-29"
+        }
+      ]
+    },
+    {
+      "line": 5,
+      "marker": " ",
+      "text": "spaced @ [[Home]] and x@[[Home]]"
+    },
+    {
+      "line": 6,
+      "marker": " ",
+      "text": "#tag >2026-10-02 **bold >2026-10-03 @[[Work]]**",
+      "attributes": [
+        {
+          "kind": "due",
+          "column": 11,
+          "length": 11,
+          "value": "2026-10-02"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "line": 1,
+      "target": "Ta Da MVP"
+    },
+    {
+      "line": 2,
+      "target": "Home",
+      "alias": "Casa"
+    },
+    {
+      "line": 2,
+      "target": "Work"
+    },
+    {
+      "line": 5,
+      "target": "Home"
+    },
+    {
+      "line": 5,
+      "target": "Home"
+    },
+    {
+      "line": 6,
+      "target": "Work"
+    },
+    {
+      "line": 7,
+      "target": "Home"
+    },
+    {
+      "line": 9,
+      "target": "Home"
+    },
+    {
+      "line": 11,
+      "target": "Home"
+    }
+  ],
+  "embeds": [],
+  "markdownLinks": [],
+  "tags": [
+    {
+      "line": 6,
+      "column": 6,
+      "length": 4,
+      "tag": "tag"
+    }
+  ],
+  "callouts": [],
+  "tables": []
+}

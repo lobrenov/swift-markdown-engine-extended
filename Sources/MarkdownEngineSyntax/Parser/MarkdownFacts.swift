@@ -25,6 +25,18 @@ public struct MarkdownFacts: Hashable, Sendable {
         public var text: String
         /// Where `[c]` is in the body (UTF-16).
         public var box: NSRange
+        /// Fork: the item's `>YYYY-MM-DD` and `@[[Title]]` attributes (`spec/grammar/task-attributes.md`), in text order.
+        public var attributes: [Attribute] = []
+
+        public struct Attribute: Hashable, Sendable {
+            public var kind: TaskAttributeKind
+            /// Where the attribute starts in its line (`>` or `@`), in UTF-16 units from the line's start.
+            public var column: Int
+            /// Its length in UTF-16 units: `>` through the date, or `@` through `]]`.
+            public var length: Int
+            /// The date (`2026-10-02`), or the parent link's inner text as written (`Title`, `Title|alias`).
+            public var value: String
+        }
     }
 
     public struct Link: Hashable, Sendable {
@@ -126,7 +138,7 @@ private struct FactScanner {
     private static let registry = ExtensionRegistry(syntax: [
         (id: "strikethrough", inline: InlineSyntax(open: "~~", close: "~~", rejectsCloserRun: true), block: nil),
         (id: "highlight", inline: InlineSyntax(open: "==", close: "=="), block: nil),
-    ], tags: true)
+    ], tags: true, taskAttributes: true)
 
     private let text: String
     private let ns: NSString
@@ -302,7 +314,13 @@ private struct FactScanner {
         for item in items {
             guard let marker = item.taskMarker, let box = item.checkbox else { continue }
             let text = string(item.contentRange).trimmingCharacters(in: .whitespacesAndNewlines)
-            facts.tasks.append(.init(line: line(item.range.location), marker: marker, text: text, box: box))
+            var task = MarkdownFacts.TaskItem(line: line(item.range.location), marker: marker, text: text, box: box)
+            let lineStart = lineStarts[task.line - firstLineIndex]
+            for case .taskAttribute(let kind, let range, _, let content, let markers) in item.inlines {
+                let value = kind == .due ? string(content) : innerText(Array(markers.dropFirst()))
+                task.attributes.append(.init(kind: kind, column: range.location - lineStart, length: range.length, value: value))
+            }
+            facts.tasks.append(task)
         }
     }
 
@@ -446,6 +464,14 @@ private struct FactScanner {
                 if let parts = WikiLinkParts(inner: innerText(markers)) {
                     facts.links.append(.init(line: line(markers[0].location), parts: parts, range: range))
                 }
+            case .taskAttribute(.parent, let range, _, _, let markers):
+                // Fork: the link in `@[[Title]]` is a link as any.
+                if let parts = WikiLinkParts(inner: innerText(Array(markers.dropFirst()))) {
+                    let link = NSRange(location: markers[1].location, length: NSMaxRange(range) - markers[1].location)
+                    facts.links.append(.init(line: line(markers[1].location), parts: parts, range: link))
+                }
+            case .taskAttribute(.due, _, _, _, _):
+                break
             case .imageEmbed(let range, _, let markers):
                 let pieces = innerText(markers).split(separator: "|", omittingEmptySubsequences: false)
                 // A `\|` splits too, its backslash gone.
@@ -700,7 +726,8 @@ private struct FactScanner {
             for node in nodes {
                 switch node {
                 case .code(let range, _), .escape(let range, _, _), .wikiLink(let range, _, _, _), .imageEmbed(let range, _, _),
-                     .inlineLatex(let range, _, _), .tag(let range, _), .image(let range, _, _, _):
+                     .inlineLatex(let range, _, _), .tag(let range, _), .image(let range, _, _, _),
+                     .taskAttribute(_, let range, _, _, _):
                     opaque.append(range)
                 case .link(let range, _, _, let markers, let children):
                     if markers.count == 4 {
@@ -796,7 +823,8 @@ private struct FactScanner {
 
     private static func start(of node: InlineNode) -> Int {
         switch node {
-        case .text(let range), .code(let range, _), .tag(let range, _), .emphasis(_, let range, _, _),
+        case .text(let range), .code(let range, _), .tag(let range, _), .taskAttribute(_, let range, _, _, _),
+             .emphasis(_, let range, _, _),
              .link(let range, _, _, _, _), .image(let range, _, _, _), .wikiLink(let range, _, _, _),
              .imageEmbed(let range, _, _), .inlineLatex(let range, _, _), .escape(let range, _, _):
             range.location
@@ -827,7 +855,7 @@ private struct FactScanner {
                     let inner = String(string(range).dropFirst(2).dropLast(2))
                     out += WikiLinkParts(inner: inner).map { $0.alias ?? ($0.target.isEmpty ? ($0.heading ?? $0.block ?? "") : $0.target) } ?? inner
                 case .wikiLink(let range, _, _, _), .imageEmbed(let range, _, _),
-                     .tag(let range, _), .inlineLatex(let range, _, _):
+                     .tag(let range, _), .inlineLatex(let range, _, _), .taskAttribute(_, let range, _, _, _):
                     out += string(range)
                 case .code(_, let content): out += string(content)
                 case .escape(_, let character, _): out += string(character)

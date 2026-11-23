@@ -1,0 +1,27 @@
+{
+  "description": "Task attributes: on a task item's first line (a list item with a box, `[c]` and a space or tab after it), `>YYYY-MM-DD` after whitespace is a due date and `@` straight before a wiki link (`@[[Title]]`), after whitespace, is a parent. A reader that offers them reads them in every file, and each attribute's `column` and `length` place it in its line (UTF-16 units). Only top-level text counts: code, link text, emphasis, quotes, plain list items and paragraphs hold none. Every valid attribute is listed, in text order; which one a host takes (the first of each kind) is the host's.",
+  "due": {
+    "start": "`>` after whitespace",
+    "date": "YYYY-MM-DD, a real calendar date (the leap day only in a leap year)",
+    "end": "the line's end, or a character that isn't a letter, digit, `-` or `_`",
+    "value": "the date"
+  },
+  "parent": {
+    "start": "`@` after whitespace, immediately followed by `[[`",
+    "length": "`@` through `]]`",
+    "value": "the link's inner text as written (`Title`, `Title|alias`); the wiki link is also in `links`"
+  },
+  "noAttributesIn": [
+    "paragraph",
+    "quote",
+    "listItemWithoutBox",
+    "inlineCode",
+    "linkText",
+    "emphasis",
+    "escaped"
+  ],
+  "typing": {
+    "dateQuery": "`>` after whitespace on a task line opens a query: letters, digits, `-`, `/` and at most two single spaces; any other character, a space straight after `>` or past 40 characters ends it",
+    "parentQuery": "`@` after whitespace on a task line opens a query (also `@[[`): any text but newline, `[`, `]`, `|`, `#` and `^`, not starting with a space, up to 100 characters"
+  }
+}

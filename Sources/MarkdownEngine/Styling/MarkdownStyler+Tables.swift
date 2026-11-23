@@ -428,7 +428,7 @@ extension MarkdownStyler {
                 appendPlain(r, font)
             case .escape(_, let character, _):
                 appendPlain(character, font)
-            case .tag(let r, _):
+            case .tag(let r, _), .taskAttribute(_, let r, _, _, _):
                 appendPlain(r, font)
             case .emphasis(let kind, _, _, let children):
                 recurse(children, composeEmphasis(font, kind, baseDescriptor: baseDescriptor, pointSize: pointSize))

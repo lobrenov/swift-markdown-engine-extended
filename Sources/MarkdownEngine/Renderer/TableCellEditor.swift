@@ -115,6 +115,7 @@ final class TableCellEditor {
         textView.onTaskMarkerMenu = host.onTaskMarkerMenu
         textView.onCalloutMenu = host.onCalloutMenu
         textView.onTagClick = host.onTagClick
+        textView.onTaskAttributeClick = host.onTaskAttributeClick
         if let hostCoordinator = host.delegate as? NativeTextViewCoordinator {
             coordinator.onLinkClick = hostCoordinator.onLinkClick
             coordinator.onSlashCommandChange = hostCoordinator.onSlashCommandChange
