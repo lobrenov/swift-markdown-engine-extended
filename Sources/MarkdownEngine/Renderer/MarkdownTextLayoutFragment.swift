@@ -154,11 +154,7 @@ final class MarkdownTextLayoutFragment: NSTextLayoutFragment {
         // slot), outside the default text surface — TextKit would clip it.
         // Fork: gutter labels draw in the left margin, outside the text container.
         if hasListGutterLabel {
-            #if os(macOS)
-            let inset = textLayoutManager?.textContainer?.textView?.textContainerInset.width ?? 0
-            #else
-            let inset = textLayoutManager?.textContainer?.textView?.textContainerInset.left ?? 0
-            #endif
+            let inset = textLayoutManager?.textContainer?.textView?.textContainerOrigin.x ?? 0
             let left = -layoutFragmentFrame.origin.x - inset
             bounds = bounds.union(CGRect(x: left, y: bounds.minY, width: max(0, bounds.minX - left), height: bounds.height))
         }

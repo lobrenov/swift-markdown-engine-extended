@@ -53,6 +53,13 @@ final class NativeTextView: NSTextView {
     /// moves them; undo and redo forget them.
     var autoPairs: [AutoPair] = []
 
+    /// Fork: the inset is the mean of the leading and trailing margins; the text starts at the leading one.
+    override var textContainerOrigin: NSPoint {
+        let origin = super.textContainerOrigin
+        let insets = configuration.textInsets
+        return NSPoint(x: origin.x + (insets.leading - insets.trailing) / 2, y: origin.y)
+    }
+
     override func shouldChangeText(inRanges affectedRanges: [NSValue], replacementStrings: [String]?) -> Bool {
         // Fork: a live table's hidden source is edited through its cells (`+TableGrid`).
         if affectedRanges.count == 1, let replacementStrings, replacementStrings.count == 1,

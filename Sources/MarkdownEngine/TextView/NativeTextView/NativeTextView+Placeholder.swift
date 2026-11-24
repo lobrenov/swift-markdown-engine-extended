@@ -85,7 +85,7 @@ extension NativeTextView {
     /// The text container's content area: where TextKit places the first line.
     private func placeholderFrame() -> NSRect {
         NSRect(
-            x: textContainerInset.width,
+            x: textContainerOrigin.x,
             y: textContainerInset.height,
             width: max(bounds.width - textContainerInset.width * 2, 0),
             height: max(bounds.height - textContainerInset.height, 0)

@@ -315,9 +315,9 @@ public struct NativeTextViewWrapper: UIViewRepresentable {
     private var insets: UIEdgeInsets {
         UIEdgeInsets(
             top: configuration.textInsets.vertical,
-            left: configuration.textInsets.horizontal,
+            left: configuration.textInsets.leading,
             bottom: configuration.textInsets.vertical,
-            right: configuration.textInsets.horizontal
+            right: configuration.textInsets.trailing
         )
     }
 

@@ -278,11 +278,23 @@ public struct ScrollersPolicy: Sendable {
 
 /// Margins inside the text view (`PlatformTextView.textContainerInset`). Scroll bar stays at the outer edge.
 public struct TextInsets: Sendable {
-    public var horizontal: CGFloat
+    /// Fork: the left and right margins may differ. `horizontal` reads their mean and sets both.
+    public var leading: CGFloat
+    public var trailing: CGFloat
     public var vertical: CGFloat
 
+    public var horizontal: CGFloat {
+        get { (leading + trailing) / 2 }
+        set { leading = newValue; trailing = newValue }
+    }
+
     public init(horizontal: CGFloat = 0, vertical: CGFloat = 0) {
-        self.horizontal = horizontal
+        self.init(leading: horizontal, trailing: horizontal, vertical: vertical)
+    }
+
+    public init(leading: CGFloat, trailing: CGFloat, vertical: CGFloat = 0) {
+        self.leading = leading
+        self.trailing = trailing
         self.vertical = vertical
     }
 

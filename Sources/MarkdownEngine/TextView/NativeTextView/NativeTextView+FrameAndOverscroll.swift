@@ -187,9 +187,9 @@ extension NativeTextView {
         return max(ceil(rawHeight + (textContainerInset.height * 2)), minimumContentHeight)
     }
 
-    /// Fixed reading-column width = wrap width + horizontal insets on both sides.
+    /// Fixed reading-column width = wrap width + the leading and trailing insets. Fork: they may differ.
     var readingColumnWidth: CGFloat {
-        (configuration.readingWidth ?? 0) + configuration.textInsets.horizontal * 2
+        (configuration.readingWidth ?? 0) + configuration.textInsets.leading + configuration.textInsets.trailing
     }
 
     func applyManagedFrameSize(width: CGFloat) {
